@@ -10,6 +10,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -61,6 +62,11 @@ func NewDockerManager() (*DockerManager, error) {
 func (d *DockerManager) CreateContainer(server *GameServer) error {
 	ctx := context.Background()
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Str("image", server.Image).Msg("Creating Docker container")
+
+	// Try to pull image if it doesn't exist locally
+	if err := d.pullImageIfNeeded(ctx, server.Image); err != nil {
+		log.Warn().Err(err).Str("image", server.Image).Msg("Failed to pull Docker image, proceeding anyway")
+	}
 
 	// Convert port to nat.Port
 	exposedPort := nat.Port(fmt.Sprintf("%d/tcp", server.Port))
@@ -313,3 +319,38 @@ func (d *DockerManager) ListContainers() ([]string, error) {
 // =============================================================================
 // Helper Functions
 // =============================================================================
+
+func (d *DockerManager) pullImageIfNeeded(ctx context.Context, imageName string) error {
+	// Check if image exists locally
+	_, _, err := d.client.ImageInspectWithRaw(ctx, imageName)
+	if err == nil {
+		// Image exists locally, no need to pull
+		log.Debug().Str("image", imageName).Msg("Image exists locally")
+		return nil
+	}
+
+	// Image doesn't exist, try to pull it
+	log.Info().Str("image", imageName).Msg("Pulling Docker image")
+	
+	// Use empty struct as options - this should work with most Docker API versions
+	reader, err := d.client.ImagePull(ctx, imageName, image.PullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	// Read the pull response to completion (required for the pull to actually happen)
+	buf := make([]byte, 1024)
+	for {
+		_, err := reader.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+	}
+
+	log.Info().Str("image", imageName).Msg("Successfully pulled Docker image")
+	return nil
+}
