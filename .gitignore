@@ -1,3 +1,4 @@
 .envrc
 .direnv
 ./static/tailwind.css
+gameservers.db

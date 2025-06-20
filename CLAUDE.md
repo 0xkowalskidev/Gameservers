@@ -35,12 +35,18 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 - [ ] Schedule tasks (restarts, backups)
 - [ ] Console with Log viewer with SSE streaming + RCON/other with sending command when possible
 
+## Current TODOs
+- [ ] Implement SQLite database layer with GameServer CRUD operations
+- [ ] Create database schema and migration for GameServer table
+- [ ] Integrate database with Docker manager for persistent gameserver storage
+- [ ] Add HTTP handlers for gameserver CRUD operations
+
 ## File Structure
 ```
 /
 ├── main.go           # Entry point, Chi router setup
 ├── docker.go         # Docker API interactions
-├── database.go       # SQLite models and queries
+├── database.go       # SQLite database layer, migrations, and GameServer CRUD operations
 ├── handler.go       # HTTP handlers (HTMX endpoints)
 ├── websocket.go      # Console streaming
 ├── templates/        # HTML templates

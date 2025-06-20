@@ -18,6 +18,22 @@ var templateFiles embed.FS
 var staticFiles embed.FS
 
 func main() {
+	// Initialize database
+	db, err := NewDatabaseManager("gameservers.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	// Initialize Docker manager
+	docker, err := NewDockerManager()
+	if err != nil {
+		panic(err)
+	}
+
+	// Initialize GameServer service
+	gameServerService := NewGameServerService(db, docker)
+
 	// Parse html templates
 	tmpl, err := template.ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
@@ -41,6 +57,8 @@ func main() {
 
 	// Chi Routes
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Use gameServerService to fetch servers for dashboard
+		_ = gameServerService
 		Render(w, r, tmpl, "index.html", nil)
 	})
 
