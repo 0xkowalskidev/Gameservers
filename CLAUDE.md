@@ -53,7 +53,7 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 │   ├── layout.html   # Base layout with HTMX
 │   ├── dashboard_page.html    # Dashboard
 ├── static/           # CSS/JS assets
-├── gameservers/      # Game server Docker images
+├── images/      # Game server Docker images
 │   ├── minecraft/    # Minecraft server
 │   │   ├── Dockerfile
 │   │   ├── start.sh  # Startup script
