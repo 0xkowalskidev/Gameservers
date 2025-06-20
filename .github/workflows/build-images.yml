@@ -27,5 +27,5 @@ jobs:
       
       - name: Build and push minecraft
         run: |
-          docker build -t ghcr.io/0xkowalskidev/gameservers/minecraft:latest images/minecraft
+          docker build images/minecraft --file Dockerfile --tag ghcr.io/0xkowalskidev/gameservers/minecraft:latest
           docker push ghcr.io/0xkowalskidev/gameservers/minecraft:latest
