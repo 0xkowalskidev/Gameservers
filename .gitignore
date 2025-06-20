@@ -1,5 +1,5 @@
 .envrc
 .direnv
-./static/tailwind.css
+/static/tailwind.css
 gameservers.db
 gameservers
