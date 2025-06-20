@@ -7,6 +7,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rs/zerolog/log"
 )
 
 type DatabaseError struct {
@@ -27,18 +28,26 @@ type DatabaseManager struct {
 }
 
 func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
+	log.Info().Str("db_path", dbPath).Msg("Connecting to database")
+	
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
+		log.Error().Err(err).Str("db_path", dbPath).Msg("Failed to open database")
 		return nil, &DatabaseError{"connect", "failed to open database", err}
 	}
+	
 	if err := db.Ping(); err != nil {
+		log.Error().Err(err).Msg("Failed to ping database")
 		return nil, &DatabaseError{"connect", "failed to ping database", err}
 	}
 
 	dm := &DatabaseManager{db: db}
 	if err := dm.migrate(); err != nil {
+		log.Error().Err(err).Msg("Database migration failed")
 		return nil, err
 	}
+	
+	log.Info().Msg("Database connected and migrated successfully")
 	return dm, nil
 }
 
@@ -69,8 +78,10 @@ func (dm *DatabaseManager) CreateGameServer(server *GameServer) error {
 		server.ID, server.Name, server.GameType, server.Image, server.ContainerID, server.Status, server.Port, string(envJSON), string(volumesJSON), server.CreatedAt, server.UpdatedAt)
 
 	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create gameserver in database")
 		return &DatabaseError{"create", fmt.Sprintf("failed to insert gameserver %s", server.Name), err}
 	}
+	
 	return nil
 }
 

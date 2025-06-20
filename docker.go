@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/rs/zerolog/log"
 )
 
 // =============================================================================
@@ -41,19 +42,25 @@ type DockerManager struct {
 }
 
 func NewDockerManager() (*DockerManager, error) {
+	log.Info().Msg("Connecting to Docker daemon")
+	
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to create Docker client")
 		return nil, &DockerError{
 			Operation: "connect",
 			Message:   "failed to create Docker client",
 			Err:       err,
 		}
 	}
+	
+	log.Info().Msg("Docker client connected successfully")
 	return &DockerManager{client: cli}, nil
 }
 
 func (d *DockerManager) CreateContainer(server *GameServer) error {
 	ctx := context.Background()
+	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Str("image", server.Image).Msg("Creating Docker container")
 
 	// Convert port to nat.Port
 	exposedPort := nat.Port(fmt.Sprintf("%d/tcp", server.Port))
@@ -107,6 +114,7 @@ func (d *DockerManager) CreateContainer(server *GameServer) error {
 		containerName,
 	)
 	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create Docker container")
 		return &DockerError{
 			Operation: "create",
 			Message:   fmt.Sprintf("failed to create container for server %s", server.Name),

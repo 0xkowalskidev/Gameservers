@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 )
 
 type Handlers struct {
@@ -22,6 +23,7 @@ func NewHandlers(service *GameServerService, tmpl *template.Template) *Handlers 
 func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 	gameservers, err := h.service.ListGameServers()
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to list gameservers")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -60,7 +62,10 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 		Environment: env,
 	}
 
+	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Creating gameserver")
+
 	if err := h.service.CreateGameServer(server); err != nil {
+		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create gameserver")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -71,10 +76,14 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) StartGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	log.Info().Str("gameserver_id", id).Msg("Starting gameserver")
+	
 	if err := h.service.StartGameServer(id); err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to start gameserver")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	
 	h.GameserverRow(w, r)
 }
 
