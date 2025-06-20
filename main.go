@@ -46,6 +46,9 @@ func main() {
 		panic(err)
 	}
 
+	// Initialize handlers
+	handlers := NewHandlers(gameServerService, tmpl)
+
 	// Chi HTTP Server
 	r := chi.NewRouter()
 
@@ -55,12 +58,15 @@ func main() {
 	// Static
 	r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(http.FS(staticFS))))
 
-	// Chi Routes
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Use gameServerService to fetch servers for dashboard
-		_ = gameServerService
-		Render(w, r, tmpl, "index.html", nil)
-	})
+	// Routes
+	r.Get("/", handlers.IndexGameservers)
+	r.Post("/", handlers.CreateGameserver)
+	r.Get("/new", handlers.NewGameserver)
+	r.Get("/{id}", handlers.ShowGameserver)
+	r.Post("/{id}/start", handlers.StartGameserver)
+	r.Post("/{id}/stop", handlers.StopGameserver)
+	r.Post("/{id}/restart", handlers.RestartGameserver)
+	r.Delete("/{id}", handlers.DestroyGameserver)
 
 	// Start Chi HTTP server
 	http.ListenAndServe(":3000", r)
@@ -90,4 +96,3 @@ func Render(w http.ResponseWriter, r *http.Request, tmpl *template.Template, tem
 		}
 	}
 }
-

@@ -131,3 +131,6 @@ nix run .#test
 - WebSocket has heartbeat for connection health
 - Consider using Alpine.js for light interactivity
 - File operations use Docker cp API
+
+## Memories
+- Call it Gameserver or Gameservers, not GameServer or Server

@@ -1,0 +1,47 @@
+<div class="container mx-auto p-6 max-w-4xl">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">{{.Gameserver.Name}}</h1>
+    <a href="/" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Back to Gameservers</a>
+  </div>
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white shadow rounded-lg p-6">
+      <h2 class="text-xl font-semibold mb-4">Gameserver Information</h2>
+      <dl class="space-y-2">
+        <div><dt class="font-medium">Status:</dt><dd class="text-gray-600">{{.Gameserver.Status}}</dd></div>
+        <div><dt class="font-medium">Game Type:</dt><dd class="text-gray-600">{{.Gameserver.GameType}}</dd></div>
+        <div><dt class="font-medium">Port:</dt><dd class="text-gray-600">{{.Gameserver.Port}}</dd></div>
+        <div><dt class="font-medium">Image:</dt><dd class="text-gray-600">{{.Gameserver.Image}}</dd></div>
+        <div><dt class="font-medium">Container ID:</dt><dd class="text-gray-600 font-mono text-sm">{{.Gameserver.ContainerID}}</dd></div>
+      </dl>
+    </div>
+    
+    <div class="bg-white shadow rounded-lg p-6">
+      <h2 class="text-xl font-semibold mb-4">Actions</h2>
+      <div class="space-y-2">
+        {{if eq .Gameserver.Status "running"}}
+          <button hx-post="/{{.Gameserver.ID}}/stop" hx-swap="none" 
+                  class="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">Stop Gameserver</button>
+          <button hx-post="/{{.Gameserver.ID}}/restart" hx-swap="none"
+                  class="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600">Restart Gameserver</button>
+        {{else}}
+          <button hx-post="/{{.Gameserver.ID}}/start" hx-swap="none"
+                  class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">Start Gameserver</button>
+        {{end}}
+        <button hx-delete="/{{.Gameserver.ID}}" hx-confirm="Delete gameserver?" hx-swap="none"
+                class="w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600">Delete Gameserver</button>
+      </div>
+    </div>
+  </div>
+  
+  {{if .Gameserver.Environment}}
+  <div class="bg-white shadow rounded-lg p-6 mt-6">
+    <h2 class="text-xl font-semibold mb-4">Environment Variables</h2>
+    <ul class="space-y-1">
+      {{range .Gameserver.Environment}}
+        <li class="font-mono text-sm bg-gray-100 p-2 rounded">{{.}}</li>
+      {{end}}
+    </ul>
+  </div>
+  {{end}}
+</div>

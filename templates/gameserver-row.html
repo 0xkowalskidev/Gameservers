@@ -1,0 +1,28 @@
+<tr id="gameserver-{{.ID}}">
+  <td class="px-6 py-4 font-medium">
+    <a href="/{{.ID}}" class="text-blue-600 hover:underline">{{.Name}}</a>
+  </td>
+  <td class="px-6 py-4 text-gray-900">{{.GameType}}</td>
+  <td class="px-6 py-4">
+    <span class="px-2 py-1 text-xs font-semibold rounded-full 
+      {{if eq .Status "running"}}bg-green-100 text-green-800
+      {{else if eq .Status "stopped"}}bg-red-100 text-red-800  
+      {{else}}bg-yellow-100 text-yellow-800{{end}}">
+      {{.Status}}
+    </span>
+  </td>
+  <td class="px-6 py-4 text-gray-900">{{.Port}}</td>
+  <td class="px-6 py-4 space-x-2">
+    {{if eq .Status "running"}}
+      <button hx-post="/{{.ID}}/stop" hx-target="#gameserver-{{.ID}}" hx-swap="outerHTML" 
+              class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Stop</button>
+      <button hx-post="/{{.ID}}/restart" hx-target="#gameserver-{{.ID}}" hx-swap="outerHTML"
+              class="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600">Restart</button>
+    {{else}}
+      <button hx-post="/{{.ID}}/start" hx-target="#gameserver-{{.ID}}" hx-swap="outerHTML"
+              class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">Start</button>
+    {{end}}
+    <button hx-delete="/{{.ID}}" hx-target="#gameserver-{{.ID}}" hx-swap="outerHTML" hx-confirm="Delete gameserver?"
+            class="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600">Delete</button>
+  </td>
+</tr>

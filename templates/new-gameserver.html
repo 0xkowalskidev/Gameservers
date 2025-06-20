@@ -1,0 +1,49 @@
+<div class="container mx-auto p-6 max-w-2xl">
+  <div class="bg-white shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold mb-6">Create New Gameserver</h1>
+    
+    <form hx-post="/" hx-swap="none">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Gameserver Name</label>
+          <input type="text" name="name" required 
+                 class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Game Type</label>
+          <select name="game_type" required 
+                  class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="minecraft">Minecraft</option>
+            <option value="cs2">Counter-Strike 2</option>
+            <option value="valheim">Valheim</option>
+            <option value="terraria">Terraria</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Docker Image</label>
+          <input type="text" name="image" required placeholder="e.g. ghcr.io/0xkowalskidev/gameservers/minecraft:latest"
+                 class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Port</label>
+          <input type="number" name="port" required min="1024" max="65535" value="25565"
+                 class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Environment Variables (one per line)</label>
+          <textarea name="environment" rows="4" placeholder="EULA=true&#10;MAX_PLAYERS=20"
+                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+      </div>
+      
+      <div class="flex justify-between mt-6">
+        <a href="/" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</a>
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Create Gameserver</button>
+      </div>
+    </form>
+  </div>
+</div>
