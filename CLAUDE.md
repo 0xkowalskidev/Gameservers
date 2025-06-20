@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Gameserver Management Control Panel
 
 ## Overview
@@ -6,11 +10,10 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 ## Core Architecture
 
 ### Technology Stack
-- **Backend**: Go with Chi router
-- **Frontend**: HTMX + Tailwind CSS
-- **Container Runtime**: Docker API
-- **Database**: SQLite 
-- **Real-time**: WebSockets (console/File management) + SSE (stats/logs)
+- **Backend**: Go with Chi router and zerolog for structured logging
+- **Frontend**: HTMX + Tailwind CSS (embedded static files)
+- **Container Runtime**: Docker API with automatic image pulling
+- **Database**: SQLite with database/sql
 - **Package Manager**: Nix flake
 
 ### Design Principles
@@ -47,7 +50,7 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 ├── main.go           # Entry point, Chi router setup
 ├── docker.go         # Docker API interactions
 ├── database.go       # SQLite database layer, migrations, and GameServer CRUD operations
-├── handler.go       # HTTP handlers (HTMX endpoints)
+├── handlers.go      # HTTP handlers (HTMX endpoints)
 ├── websocket.go      # Console streaming
 ├── templates/        # HTML templates
 │   ├── layout.html   # Base layout with HTMX
@@ -72,12 +75,19 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 
 ## API Design (HTMX-focused)
 
-- `GET /` - Dashboard (server list)
-- `GET /{id}` - Server details
-- `GET /{id}/console` - Console view
-- `GET /{id}/files` - File manager
-- `GET /new` - Create server form
-- etc
+### Implemented Routes
+- `GET /` - List gameservers (dashboard)
+- `POST /` - Create gameserver
+- `GET /new` - Create gameserver form
+- `GET /{id}` - Show gameserver details
+- `POST /{id}/start` - Start gameserver
+- `POST /{id}/stop` - Stop gameserver  
+- `POST /{id}/restart` - Restart gameserver
+- `DELETE /{id}` - Delete gameserver
+
+### RESTful Handler Naming
+- `IndexGameservers()`, `NewGameserver()`, `CreateGameserver()`
+- `ShowGameserver()`, `DestroyGameserver()`
 
 ## Gameserver Images
 

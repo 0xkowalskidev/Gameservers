@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"time"
 )
 
@@ -46,5 +47,6 @@ type DockerManagerInterface interface {
 	GetContainerStatus(containerID string) (GameServerStatus, error)
 	GetContainerStats(containerID string) (*ContainerStats, error)
 	GetContainerLogs(containerID string, lines int) ([]string, error)
+	StreamContainerLogs(containerID string) (io.ReadCloser, error)
 	ListContainers() ([]string, error)
 }

@@ -1,47 +1,69 @@
-<div class="container mx-auto p-6 max-w-4xl">
+<div class="max-w-4xl mx-auto">
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold">{{.Gameserver.Name}}</h1>
-    <a href="/" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Back to Gameservers</a>
+    <h2 class="text-2xl font-bold text-gray-900">{{.Gameserver.Name}}</h2>
+    <a href="/" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-md">← Back</a>
   </div>
   
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="grid md:grid-cols-2 gap-6">
     <div class="bg-white shadow rounded-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">Gameserver Information</h2>
-      <dl class="space-y-2">
-        <div><dt class="font-medium">Status:</dt><dd class="text-gray-600">{{.Gameserver.Status}}</dd></div>
-        <div><dt class="font-medium">Game Type:</dt><dd class="text-gray-600">{{.Gameserver.GameType}}</dd></div>
-        <div><dt class="font-medium">Port:</dt><dd class="text-gray-600">{{.Gameserver.Port}}</dd></div>
-        <div><dt class="font-medium">Image:</dt><dd class="text-gray-600">{{.Gameserver.Image}}</dd></div>
-        <div><dt class="font-medium">Container ID:</dt><dd class="text-gray-600 font-mono text-sm">{{.Gameserver.ContainerID}}</dd></div>
+      <h3 class="text-lg font-semibold mb-4">Information</h3>
+      <dl class="space-y-2 text-sm">
+        <div class="flex justify-between"><dt class="font-medium">Status:</dt><dd class="{{if eq .Gameserver.Status "running"}}text-green-600{{else if eq .Gameserver.Status "stopped"}}text-red-600{{else}}text-yellow-600{{end}} font-medium">{{.Gameserver.Status}}</dd></div>
+        <div class="flex justify-between"><dt class="font-medium">Game Type:</dt><dd>{{.Gameserver.GameType}}</dd></div>
+        <div class="flex justify-between"><dt class="font-medium">Port:</dt><dd>{{.Gameserver.Port}}</dd></div>
+        <div class="flex justify-between"><dt class="font-medium">Image:</dt><dd class="truncate">{{.Gameserver.Image}}</dd></div>
+        <div class="flex justify-between"><dt class="font-medium">Container:</dt><dd class="font-mono text-xs truncate">{{.Gameserver.ContainerID}}</dd></div>
       </dl>
     </div>
     
     <div class="bg-white shadow rounded-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">Actions</h2>
+      <h3 class="text-lg font-semibold mb-4">Actions</h3>
       <div class="space-y-2">
         {{if eq .Gameserver.Status "running"}}
-          <button hx-post="/{{.Gameserver.ID}}/stop" hx-swap="none" 
-                  class="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">Stop Gameserver</button>
-          <button hx-post="/{{.Gameserver.ID}}/restart" hx-swap="none"
-                  class="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600">Restart Gameserver</button>
+          <button hx-post="/{{.Gameserver.ID}}/stop" hx-indicator="#loading" hx-swap="none" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium">Stop</button>
+          <button hx-post="/{{.Gameserver.ID}}/restart" hx-indicator="#loading" hx-swap="none" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-md font-medium">Restart</button>
         {{else}}
-          <button hx-post="/{{.Gameserver.ID}}/start" hx-swap="none"
-                  class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">Start Gameserver</button>
+          <button hx-post="/{{.Gameserver.ID}}/start" hx-indicator="#loading" hx-swap="none" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">Start</button>
         {{end}}
-        <button hx-delete="/{{.Gameserver.ID}}" hx-confirm="Delete gameserver?" hx-swap="none"
-                class="w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600">Delete Gameserver</button>
+        <button hx-delete="/{{.Gameserver.ID}}" hx-confirm="Delete gameserver?" hx-indicator="#loading" hx-swap="none" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium">Delete</button>
       </div>
     </div>
   </div>
   
   {{if .Gameserver.Environment}}
   <div class="bg-white shadow rounded-lg p-6 mt-6">
-    <h2 class="text-xl font-semibold mb-4">Environment Variables</h2>
-    <ul class="space-y-1">
+    <h3 class="text-lg font-semibold mb-4">Environment Variables</h3>
+    <div class="grid gap-2">
       {{range .Gameserver.Environment}}
-        <li class="font-mono text-sm bg-gray-100 p-2 rounded">{{.}}</li>
+        <div class="font-mono text-sm bg-gray-100 p-2 rounded">{{.}}</div>
       {{end}}
-    </ul>
+    </div>
   </div>
   {{end}}
+  
+  <div class="bg-white shadow rounded-lg p-6 mt-6">
+    <h3 class="text-lg font-semibold mb-4">Logs</h3>
+    <div id="logs" class="bg-black text-green-400 font-mono text-sm p-4 rounded h-96 overflow-y-auto"></div>
+  </div>
 </div>
+
+<div id="loading" class="htmx-indicator fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg">Loading...</div>
+
+<script>
+const logs = document.getElementById('logs');
+const eventSource = new EventSource('/{{.Gameserver.ID}}/logs');
+
+eventSource.addEventListener('log', function(e) {
+  const logLine = document.createElement('div');
+  logLine.textContent = e.data;
+  logs.appendChild(logLine);
+  logs.scrollTop = logs.scrollHeight;
+});
+
+eventSource.addEventListener('error', function(e) {
+  const errorLine = document.createElement('div');
+  errorLine.textContent = 'Error: ' + e.data;
+  errorLine.className = 'text-red-400';
+  logs.appendChild(errorLine);
+});
+</script>

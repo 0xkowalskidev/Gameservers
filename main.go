@@ -103,6 +103,7 @@ func main() {
 	r.Post("/{id}/stop", handlers.StopGameserver)
 	r.Post("/{id}/restart", handlers.RestartGameserver)
 	r.Delete("/{id}", handlers.DestroyGameserver)
+	r.Get("/{id}/logs", handlers.GameserverLogs)
 
 	// Start Chi HTTP server
 	log.Info().Str("port", "3000").Msg("Starting HTTP server")

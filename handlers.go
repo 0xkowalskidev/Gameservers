@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -125,6 +127,47 @@ func (h *Handlers) GameserverRow(w http.ResponseWriter, r *http.Request) {
 	err = h.tmpl.ExecuteTemplate(w, "gameserver-row.html", gameserver)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handlers) GameserverLogs(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	gameserver, err := h.service.GetGameServer(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	logs, err := h.service.docker.StreamContainerLogs(gameserver.ContainerID)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to stream logs")
+		fmt.Fprintf(w, "event: error\ndata: Failed to stream logs: %v\n\n", err)
+		flusher.Flush()
+		return
+	}
+	defer logs.Close()
+
+	scanner := bufio.NewScanner(logs)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) > 8 {
+			cleanLine := line[8:]
+			if strings.TrimSpace(cleanLine) != "" {
+				fmt.Fprintf(w, "event: log\ndata: %s\n\n", cleanLine)
+				flusher.Flush()
+			}
+		}
 	}
 }
 

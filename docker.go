@@ -290,6 +290,29 @@ func (d *DockerManager) GetContainerLogs(containerID string, lines int) ([]strin
 	return cleanLines, nil
 }
 
+func (d *DockerManager) StreamContainerLogs(containerID string) (io.ReadCloser, error) {
+	ctx := context.Background()
+
+	options := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+		Tail:       "100",
+		Timestamps: true,
+	}
+
+	logs, err := d.client.ContainerLogs(ctx, containerID, options)
+	if err != nil {
+		return nil, &DockerError{
+			Operation: "stream_logs",
+			Message:   fmt.Sprintf("failed to stream logs for container %s", containerID),
+			Err:       err,
+		}
+	}
+
+	return logs, nil
+}
+
 func (d *DockerManager) ListContainers() ([]string, error) {
 	ctx := context.Background()
 
