@@ -4,22 +4,26 @@ on:
   push:
     branches: [ main ]
     paths: [ 'images/**' ]
-  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
     
     steps:
       - uses: actions/checkout@v4
       
-      - name: Login to GitHub Container Registry
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: 'Login to GitHub Container Registry'
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{github.actor}}
+          password: ${{secrets.GITHUB_TOKEN}}
+
       
       - name: Build and push minecraft
         run: |
-          cd images/minecraft
-          docker build -t ghcr.io/0xkowalskidev/gameservers/minecraft:latest .
+          docker build -t ghcr.io/0xkowalskidev/gameservers/minecraft:latest images/minecraft
           docker push ghcr.io/0xkowalskidev/gameservers/minecraft:latest
