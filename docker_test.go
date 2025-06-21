@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+	"strings"
 	"testing"
 )
 
@@ -9,7 +11,7 @@ import (
 // =============================================================================
 
 type MockDockerManager struct {
-	containers map[string]*GameServer
+	containers map[string]*Gameserver
 	logs       map[string][]string
 	stats      map[string]*ContainerStats
 	shouldFail map[string]bool
@@ -17,16 +19,16 @@ type MockDockerManager struct {
 
 func NewMockDockerManager() *MockDockerManager {
 	return &MockDockerManager{
-		containers: make(map[string]*GameServer),
+		containers: make(map[string]*Gameserver),
 		logs:       make(map[string][]string),
 		stats:      make(map[string]*ContainerStats),
 		shouldFail: make(map[string]bool),
 	}
 }
 
-func (m *MockDockerManager) CreateContainer(server *GameServer) error {
+func (m *MockDockerManager) CreateContainer(server *Gameserver) error {
 	if m.shouldFail["create"] {
-		return &DockerError{Operation: "create", Message: "mock create error"}
+		return &DockerError{Op: "create", Msg: "mock create error"}
 	}
 	server.ContainerID = "mock-container-" + server.ID
 	server.Status = StatusStopped
@@ -36,58 +38,58 @@ func (m *MockDockerManager) CreateContainer(server *GameServer) error {
 
 func (m *MockDockerManager) StartContainer(containerID string) error {
 	if m.shouldFail["start"] {
-		return &DockerError{Operation: "start", Message: "mock start error"}
+		return &DockerError{Op: "start", Msg: "mock start error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		server.Status = StatusRunning
 		return nil
 	}
-	return &DockerError{Operation: "start", Message: "container not found"}
+	return &DockerError{Op: "start", Msg: "container not found"}
 }
 
 func (m *MockDockerManager) StopContainer(containerID string) error {
 	if m.shouldFail["stop"] {
-		return &DockerError{Operation: "stop", Message: "mock stop error"}
+		return &DockerError{Op: "stop", Msg: "mock stop error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		server.Status = StatusStopped
 		return nil
 	}
-	return &DockerError{Operation: "stop", Message: "container not found"}
+	return &DockerError{Op: "stop", Msg: "container not found"}
 }
 
 func (m *MockDockerManager) RestartContainer(containerID string) error {
 	if m.shouldFail["restart"] {
-		return &DockerError{Operation: "restart", Message: "mock restart error"}
+		return &DockerError{Op: "restart", Msg: "mock restart error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		server.Status = StatusRunning
 		return nil
 	}
-	return &DockerError{Operation: "restart", Message: "container not found"}
+	return &DockerError{Op: "restart", Msg: "container not found"}
 }
 
 func (m *MockDockerManager) RemoveContainer(containerID string) error {
 	if m.shouldFail["remove"] {
-		return &DockerError{Operation: "remove", Message: "mock remove error"}
+		return &DockerError{Op: "remove", Msg: "mock remove error"}
 	}
 	delete(m.containers, containerID)
 	return nil
 }
 
-func (m *MockDockerManager) GetContainerStatus(containerID string) (GameServerStatus, error) {
+func (m *MockDockerManager) GetContainerStatus(containerID string) (GameserverStatus, error) {
 	if m.shouldFail["status"] {
-		return StatusError, &DockerError{Operation: "status", Message: "mock status error"}
+		return StatusError, &DockerError{Op: "status", Msg: "mock status error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		return server.Status, nil
 	}
-	return StatusError, &DockerError{Operation: "status", Message: "container not found"}
+	return StatusError, &DockerError{Op: "status", Msg: "container not found"}
 }
 
 func (m *MockDockerManager) GetContainerStats(containerID string) (*ContainerStats, error) {
 	if m.shouldFail["stats"] {
-		return nil, &DockerError{Operation: "stats", Message: "mock stats error"}
+		return nil, &DockerError{Op: "stats", Msg: "mock stats error"}
 	}
 	if stats, exists := m.stats[containerID]; exists {
 		return stats, nil
@@ -104,7 +106,7 @@ func (m *MockDockerManager) GetContainerStats(containerID string) (*ContainerSta
 
 func (m *MockDockerManager) GetContainerLogs(containerID string, lines int) ([]string, error) {
 	if m.shouldFail["logs"] {
-		return nil, &DockerError{Operation: "logs", Message: "mock logs error"}
+		return nil, &DockerError{Op: "logs", Msg: "mock logs error"}
 	}
 	if logs, exists := m.logs[containerID]; exists {
 		if lines > len(logs) {
@@ -115,9 +117,16 @@ func (m *MockDockerManager) GetContainerLogs(containerID string, lines int) ([]s
 	return []string{"Mock log line 1", "Mock log line 2"}, nil
 }
 
+func (m *MockDockerManager) StreamContainerLogs(containerID string) (io.ReadCloser, error) {
+	if m.shouldFail["stream_logs"] {
+		return nil, &DockerError{Op: "stream_logs", Msg: "mock stream logs error"}
+	}
+	return io.NopCloser(strings.NewReader("Mock log stream")), nil
+}
+
 func (m *MockDockerManager) ListContainers() ([]string, error) {
 	if m.shouldFail["list"] {
-		return nil, &DockerError{Operation: "list", Message: "mock list error"}
+		return nil, &DockerError{Op: "list", Msg: "mock list error"}
 	}
 	containers := make([]string, 0, len(m.containers))
 	for id := range m.containers {
@@ -133,12 +142,12 @@ func (m *MockDockerManager) ListContainers() ([]string, error) {
 func TestCreateContainer(t *testing.T) {
 	tests := []struct {
 		name      string
-		server    *GameServer
+		server    *Gameserver
 		shouldErr bool
 	}{
 		{
 			name: "successful creation",
-			server: &GameServer{
+			server: &Gameserver{
 				ID:       "test-1",
 				Name:     "Test Minecraft Server",
 				GameType: "minecraft",
@@ -149,7 +158,7 @@ func TestCreateContainer(t *testing.T) {
 		},
 		{
 			name: "creation with environment variables",
-			server: &GameServer{
+			server: &Gameserver{
 				ID:          "test-2",
 				Name:        "Test CS2 Server",
 				GameType:    "cs2",
@@ -194,7 +203,7 @@ func TestCreateContainer(t *testing.T) {
 
 func TestStartContainer(t *testing.T) {
 	mock := NewMockDockerManager()
-	server := &GameServer{
+	server := &Gameserver{
 		ID:       "test-1",
 		Name:     "Test Server",
 		GameType: "minecraft",
@@ -247,7 +256,7 @@ func TestStartContainer(t *testing.T) {
 
 func TestStopContainer(t *testing.T) {
 	mock := NewMockDockerManager()
-	server := &GameServer{
+	server := &Gameserver{
 		ID:       "test-1",
 		Name:     "Test Server",
 		GameType: "minecraft",
@@ -272,7 +281,7 @@ func TestStopContainer(t *testing.T) {
 
 func TestRestartContainer(t *testing.T) {
 	mock := NewMockDockerManager()
-	server := &GameServer{
+	server := &Gameserver{
 		ID:       "test-1",
 		Name:     "Test Server",
 		GameType: "minecraft",
@@ -300,7 +309,7 @@ func TestRestartContainer(t *testing.T) {
 
 func TestGetContainerStats(t *testing.T) {
 	mock := NewMockDockerManager()
-	server := &GameServer{
+	server := &Gameserver{
 		ID:       "test-1",
 		Name:     "Test Server",
 		GameType: "minecraft",
@@ -330,7 +339,7 @@ func TestGetContainerStats(t *testing.T) {
 
 func TestGetContainerLogs(t *testing.T) {
 	mock := NewMockDockerManager()
-	server := &GameServer{
+	server := &Gameserver{
 		ID:       "test-1",
 		Name:     "Test Server",
 		GameType: "minecraft",
@@ -358,7 +367,7 @@ func TestListContainers(t *testing.T) {
 	mock := NewMockDockerManager()
 
 	// Create a few containers
-	servers := []*GameServer{
+	servers := []*Gameserver{
 		{ID: "test-1", Name: "Server 1", GameType: "minecraft", Image: "minecraft:latest", Port: 25565},
 		{ID: "test-2", Name: "Server 2", GameType: "cs2", Image: "cs2:latest", Port: 27015},
 	}
@@ -385,7 +394,7 @@ func TestDockerError(t *testing.T) {
 	mock := NewMockDockerManager()
 	mock.shouldFail["create"] = true
 
-	server := &GameServer{
+	server := &Gameserver{
 		ID:       "test-1",
 		Name:     "Test Server",
 		GameType: "minecraft",
@@ -399,8 +408,8 @@ func TestDockerError(t *testing.T) {
 	}
 
 	if dockerErr, ok := err.(*DockerError); ok {
-		if dockerErr.Operation != "create" {
-			t.Errorf("expected operation to be 'create', got %s", dockerErr.Operation)
+		if dockerErr.Op != "create" {
+			t.Errorf("expected operation to be 'create', got %s", dockerErr.Op)
 		}
 	} else {
 		t.Errorf("expected DockerError type")

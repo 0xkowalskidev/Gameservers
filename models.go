@@ -5,14 +5,14 @@ import (
 	"time"
 )
 
-type GameServerStatus string
+type GameserverStatus string
 
 const (
-	StatusStopped GameServerStatus = "stopped"
-	StatusStarting GameServerStatus = "starting"
-	StatusRunning GameServerStatus = "running"
-	StatusStopping GameServerStatus = "stopping"
-	StatusError   GameServerStatus = "error"
+	StatusStopped GameserverStatus = "stopped"
+	StatusStarting GameserverStatus = "starting"
+	StatusRunning GameserverStatus = "running"
+	StatusStopping GameserverStatus = "stopping"
+	StatusError   GameserverStatus = "error"
 )
 
 type Game struct {
@@ -24,12 +24,12 @@ type Game struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type GameServer struct {
+type Gameserver struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	GameID      string            `json:"game_id"`
 	ContainerID string            `json:"container_id,omitempty"`
-	Status      GameServerStatus  `json:"status"`
+	Status      GameserverStatus  `json:"status"`
 	Port        int               `json:"port"`
 	Environment []string          `json:"environment,omitempty"`
 	Volumes     []string          `json:"volumes,omitempty"`
@@ -51,12 +51,12 @@ type ContainerStats struct {
 }
 
 type DockerManagerInterface interface {
-	CreateContainer(server *GameServer) error
+	CreateContainer(server *Gameserver) error
 	StartContainer(containerID string) error
 	StopContainer(containerID string) error
 	RestartContainer(containerID string) error
 	RemoveContainer(containerID string) error
-	GetContainerStatus(containerID string) (GameServerStatus, error)
+	GetContainerStatus(containerID string) (GameserverStatus, error)
 	GetContainerStats(containerID string) (*ContainerStats, error)
 	GetContainerLogs(containerID string, lines int) ([]string, error)
 	StreamContainerLogs(containerID string) (io.ReadCloser, error)

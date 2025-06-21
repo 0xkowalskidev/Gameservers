@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,17 +14,33 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type GameserverServiceInterface interface {
+	CreateGameserver(server *Gameserver) error
+	GetGameserver(id string) (*Gameserver, error)
+	ListGameservers() ([]*Gameserver, error)
+	StartGameserver(id string) error
+	StopGameserver(id string) error
+	RestartGameserver(id string) error
+	DeleteGameserver(id string) error
+	GetGameserverLogs(id string, lines int) ([]string, error)
+	GetGameserverStats(id string) (*ContainerStats, error)
+	StreamGameserverLogs(id string) (io.ReadCloser, error)
+	ListGames() ([]*Game, error)
+	GetGame(id string) (*Game, error)
+	CreateGame(game *Game) error
+}
+
 type Handlers struct {
-	service *GameServerService
+	service GameserverServiceInterface
 	tmpl    *template.Template
 }
 
-func NewHandlers(service *GameServerService, tmpl *template.Template) *Handlers {
+func NewHandlers(service GameserverServiceInterface, tmpl *template.Template) *Handlers {
 	return &Handlers{service: service, tmpl: tmpl}
 }
 
 func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
-	gameservers, err := h.service.ListGameServers()
+	gameservers, err := h.service.ListGameservers()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to list gameservers")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -34,7 +51,7 @@ func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, err := h.service.GetGameServer(id)
+	gameserver, err := h.service.GetGameserver(id)
 	if err != nil {
 		http.Error(w, "Gameserver not found", http.StatusNotFound)
 		return
@@ -60,7 +77,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 		env = []string{}
 	}
 
-	server := &GameServer{
+	server := &Gameserver{
 		ID:          generateID(),
 		Name:        r.FormValue("name"),
 		GameID:      r.FormValue("game_id"),
@@ -70,7 +87,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Creating gameserver")
 
-	if err := h.service.CreateGameServer(server); err != nil {
+	if err := h.service.CreateGameserver(server); err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create gameserver")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -84,7 +101,7 @@ func (h *Handlers) StartGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	log.Info().Str("gameserver_id", id).Msg("Starting gameserver")
 	
-	if err := h.service.StartGameServer(id); err != nil {
+	if err := h.service.StartGameserver(id); err != nil {
 		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to start gameserver")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -95,7 +112,7 @@ func (h *Handlers) StartGameserver(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) StopGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.service.StopGameServer(id); err != nil {
+	if err := h.service.StopGameserver(id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -104,7 +121,7 @@ func (h *Handlers) StopGameserver(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) RestartGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.service.RestartGameServer(id); err != nil {
+	if err := h.service.RestartGameserver(id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -113,7 +130,7 @@ func (h *Handlers) RestartGameserver(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) DestroyGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.service.DeleteGameServer(id); err != nil {
+	if err := h.service.DeleteGameserver(id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -122,7 +139,7 @@ func (h *Handlers) DestroyGameserver(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) GameserverRow(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, err := h.service.GetGameServer(id)
+	gameserver, err := h.service.GetGameserver(id)
 	if err != nil {
 		http.Error(w, "Gameserver not found", http.StatusNotFound)
 		return
@@ -136,11 +153,6 @@ func (h *Handlers) GameserverRow(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) GameserverLogs(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, err := h.service.GetGameServer(id)
-	if err != nil {
-		http.Error(w, "Gameserver not found", http.StatusNotFound)
-		return
-	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -153,7 +165,7 @@ func (h *Handlers) GameserverLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logs, err := h.service.docker.StreamContainerLogs(gameserver.ContainerID)
+	logs, err := h.service.StreamGameserverLogs(id)
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to stream logs")
 		fmt.Fprintf(w, "event: error\ndata: Failed to stream logs: %v\n\n", err)

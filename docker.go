@@ -22,16 +22,16 @@ import (
 // =============================================================================
 
 type DockerError struct {
-	Operation string
-	Message   string
-	Err       error
+	Op  string
+	Msg string
+	Err error
 }
 
 func (e *DockerError) Error() string {
 	if e.Err != nil {
-		return fmt.Sprintf("docker %s failed: %s: %v", e.Operation, e.Message, e.Err)
+		return fmt.Sprintf("docker %s: %s: %v", e.Op, e.Msg, e.Err)
 	}
-	return fmt.Sprintf("docker %s failed: %s", e.Operation, e.Message)
+	return fmt.Sprintf("docker %s: %s", e.Op, e.Msg)
 }
 
 // =============================================================================
@@ -49,8 +49,8 @@ func NewDockerManager() (*DockerManager, error) {
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create Docker client")
 		return nil, &DockerError{
-			Operation: "connect",
-			Message:   "failed to create Docker client",
+			Op: "connect",
+			Msg:   "failed to create Docker client",
 			Err:       err,
 		}
 	}
@@ -59,7 +59,7 @@ func NewDockerManager() (*DockerManager, error) {
 	return &DockerManager{client: cli}, nil
 }
 
-func (d *DockerManager) CreateContainer(server *GameServer) error {
+func (d *DockerManager) CreateContainer(server *Gameserver) error {
 	ctx := context.Background()
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Str("image", server.Image).Msg("Creating Docker container")
 
@@ -122,8 +122,8 @@ func (d *DockerManager) CreateContainer(server *GameServer) error {
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create Docker container")
 		return &DockerError{
-			Operation: "create",
-			Message:   fmt.Sprintf("failed to create container for server %s", server.Name),
+			Op: "create",
+			Msg:   fmt.Sprintf("failed to create container for server %s", server.Name),
 			Err:       err,
 		}
 	}
@@ -141,8 +141,8 @@ func (d *DockerManager) StartContainer(containerID string) error {
 	err := d.client.ContainerStart(ctx, containerID, container.StartOptions{})
 	if err != nil {
 		return &DockerError{
-			Operation: "start",
-			Message:   fmt.Sprintf("failed to start container %s", containerID),
+			Op: "start",
+			Msg:   fmt.Sprintf("failed to start container %s", containerID),
 			Err:       err,
 		}
 	}
@@ -159,8 +159,8 @@ func (d *DockerManager) StopContainer(containerID string) error {
 	})
 	if err != nil {
 		return &DockerError{
-			Operation: "stop",
-			Message:   fmt.Sprintf("failed to stop container %s", containerID),
+			Op: "stop",
+			Msg:   fmt.Sprintf("failed to stop container %s", containerID),
 			Err:       err,
 		}
 	}
@@ -177,8 +177,8 @@ func (d *DockerManager) RestartContainer(containerID string) error {
 	})
 	if err != nil {
 		return &DockerError{
-			Operation: "restart",
-			Message:   fmt.Sprintf("failed to restart container %s", containerID),
+			Op: "restart",
+			Msg:   fmt.Sprintf("failed to restart container %s", containerID),
 			Err:       err,
 		}
 	}
@@ -194,8 +194,8 @@ func (d *DockerManager) RemoveContainer(containerID string) error {
 	})
 	if err != nil {
 		return &DockerError{
-			Operation: "remove",
-			Message:   fmt.Sprintf("failed to remove container %s", containerID),
+			Op: "remove",
+			Msg:   fmt.Sprintf("failed to remove container %s", containerID),
 			Err:       err,
 		}
 	}
@@ -203,19 +203,19 @@ func (d *DockerManager) RemoveContainer(containerID string) error {
 	return nil
 }
 
-func (d *DockerManager) GetContainerStatus(containerID string) (GameServerStatus, error) {
+func (d *DockerManager) GetContainerStatus(containerID string) (GameserverStatus, error) {
 	ctx := context.Background()
 
 	inspect, err := d.client.ContainerInspect(ctx, containerID)
 	if err != nil {
 		return StatusError, &DockerError{
-			Operation: "status",
-			Message:   fmt.Sprintf("failed to inspect container %s", containerID),
+			Op: "status",
+			Msg:   fmt.Sprintf("failed to inspect container %s", containerID),
 			Err:       err,
 		}
 	}
 
-	// Map Docker states to our GameServerStatus
+	// Map Docker states to our GameserverStatus
 	switch inspect.State.Status {
 	case "running":
 		return StatusRunning, nil
@@ -257,8 +257,8 @@ func (d *DockerManager) GetContainerLogs(containerID string, lines int) ([]strin
 	logs, err := d.client.ContainerLogs(ctx, containerID, options)
 	if err != nil {
 		return nil, &DockerError{
-			Operation: "logs",
-			Message:   fmt.Sprintf("failed to get logs for container %s", containerID),
+			Op: "logs",
+			Msg:   fmt.Sprintf("failed to get logs for container %s", containerID),
 			Err:       err,
 		}
 	}
@@ -268,8 +268,8 @@ func (d *DockerManager) GetContainerLogs(containerID string, lines int) ([]strin
 	logData, err := io.ReadAll(logs)
 	if err != nil {
 		return nil, &DockerError{
-			Operation: "logs",
-			Message:   "failed to read logs response",
+			Op: "logs",
+			Msg:   "failed to read logs response",
 			Err:       err,
 		}
 	}
@@ -304,8 +304,8 @@ func (d *DockerManager) StreamContainerLogs(containerID string) (io.ReadCloser, 
 	logs, err := d.client.ContainerLogs(ctx, containerID, options)
 	if err != nil {
 		return nil, &DockerError{
-			Operation: "stream_logs",
-			Message:   fmt.Sprintf("failed to stream logs for container %s", containerID),
+			Op: "stream_logs",
+			Msg:   fmt.Sprintf("failed to stream logs for container %s", containerID),
 			Err:       err,
 		}
 	}
@@ -325,8 +325,8 @@ func (d *DockerManager) ListContainers() ([]string, error) {
 	})
 	if err != nil {
 		return nil, &DockerError{
-			Operation: "list",
-			Message:   "failed to list containers",
+			Op: "list",
+			Msg:   "failed to list containers",
 			Err:       err,
 		}
 	}

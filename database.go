@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -11,16 +12,16 @@ import (
 )
 
 type DatabaseError struct {
-	Operation string
-	Message   string
-	Err       error
+	Op  string
+	Msg string
+	Err error
 }
 
 func (e *DatabaseError) Error() string {
 	if e.Err != nil {
-		return fmt.Sprintf("database %s failed: %s: %v", e.Operation, e.Message, e.Err)
+		return fmt.Sprintf("db %s: %s: %v", e.Op, e.Msg, e.Err)
 	}
-	return fmt.Sprintf("database %s failed: %s", e.Operation, e.Message)
+	return fmt.Sprintf("db %s: %s", e.Op, e.Msg)
 }
 
 type DatabaseManager struct {
@@ -33,12 +34,12 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Error().Err(err).Str("db_path", dbPath).Msg("Failed to open database")
-		return nil, &DatabaseError{"connect", "failed to open database", err}
+		return nil, &DatabaseError{Op: "db", Msg: "failed to open database", Err: err}
 	}
 
 	if err := db.Ping(); err != nil {
 		log.Error().Err(err).Msg("Failed to ping database")
-		return nil, &DatabaseError{"connect", "failed to ping database", err}
+		return nil, &DatabaseError{Op: "db", Msg: "failed to ping database", Err: err}
 	}
 
 	dm := &DatabaseManager{db: db}
@@ -75,7 +76,7 @@ func (dm *DatabaseManager) migrate() error {
 
 	_, err := dm.db.Exec(schema)
 	if err != nil {
-		return &DatabaseError{"migrate", "failed to create schema", err}
+		return &DatabaseError{Op: "db", Msg: "failed to create schema", Err: err}
 	}
 	return nil
 }
@@ -111,7 +112,7 @@ func (dm *DatabaseManager) CreateGame(game *Game) error {
 		game.ID, game.Name, game.Image, game.DefaultPort, game.CreatedAt, game.UpdatedAt)
 
 	if err != nil {
-		return &DatabaseError{"create", fmt.Sprintf("failed to insert game %s", game.Name), err}
+		return &DatabaseError{Op: fmt.Sprintf("failed to insert game %s", game.Name),Err: err}
 	}
 	return nil
 }
@@ -124,7 +125,7 @@ func (dm *DatabaseManager) GetGame(id string) (*Game, error) {
 func (dm *DatabaseManager) ListGames() ([]*Game, error) {
 	rows, err := dm.db.Query(`SELECT id, name, image, default_port, created_at, updated_at FROM games ORDER BY name`)
 	if err != nil {
-		return nil, &DatabaseError{"list", "failed to query games", err}
+		return nil, &DatabaseError{Op: "db", Msg: "failed to query games", Err: err}
 	}
 	defer rows.Close()
 
@@ -132,7 +133,7 @@ func (dm *DatabaseManager) ListGames() ([]*Game, error) {
 	for rows.Next() {
 		game, err := dm.scanGame(rows)
 		if err != nil {
-			return nil, &DatabaseError{"list", "failed to scan game", err}
+			return nil, &DatabaseError{Op: "db", Msg: "failed to scan game", Err: err}
 		}
 		games = append(games, game)
 	}
@@ -144,7 +145,7 @@ func (dm *DatabaseManager) UpdateGame(game *Game) error {
 		game.Name, game.Image, game.DefaultPort, game.UpdatedAt, game.ID)
 
 	if err != nil {
-		return &DatabaseError{"update", fmt.Sprintf("failed to update game %s", game.ID), err}
+		return &DatabaseError{Op: fmt.Sprintf("failed to update game %s", game.ID),Err: err}
 	}
 	return nil
 }
@@ -152,12 +153,12 @@ func (dm *DatabaseManager) UpdateGame(game *Game) error {
 func (dm *DatabaseManager) DeleteGame(id string) error {
 	_, err := dm.db.Exec(`DELETE FROM games WHERE id = ?`, id)
 	if err != nil {
-		return &DatabaseError{"delete", fmt.Sprintf("failed to delete game %s", id), err}
+		return &DatabaseError{Op: fmt.Sprintf("failed to delete game %s", id),Err: err}
 	}
 	return nil
 }
 
-func (dm *DatabaseManager) CreateGameServer(server *GameServer) error {
+func (dm *DatabaseManager) CreateGameserver(server *Gameserver) error {
 	envJSON, _ := json.Marshal(server.Environment)
 	volumesJSON, _ := json.Marshal(server.Volumes)
 
@@ -166,7 +167,7 @@ func (dm *DatabaseManager) CreateGameServer(server *GameServer) error {
 
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create gameserver in database")
-		return &DatabaseError{"create", fmt.Sprintf("failed to insert gameserver %s", server.Name), err}
+		return &DatabaseError{Op: fmt.Sprintf("failed to insert gameserver %s", server.Name),Err: err}
 	}
 
 	return nil
@@ -181,8 +182,8 @@ func (dm *DatabaseManager) scanGame(row interface{ Scan(...interface{}) error })
 	return &game, nil
 }
 
-func (dm *DatabaseManager) scanGameServer(row interface{ Scan(...interface{}) error }) (*GameServer, error) {
-	var server GameServer
+func (dm *DatabaseManager) scanGameserver(row interface{ Scan(...interface{}) error }) (*Gameserver, error) {
+	var server Gameserver
 	var envJSON, volumesJSON string
 
 	err := row.Scan(&server.ID, &server.Name, &server.GameID, &server.ContainerID, &server.Status, &server.Port, &envJSON, &volumesJSON, &server.CreatedAt, &server.UpdatedAt)
@@ -195,19 +196,19 @@ func (dm *DatabaseManager) scanGameServer(row interface{ Scan(...interface{}) er
 	return &server, nil
 }
 
-func (dm *DatabaseManager) GetGameServer(id string) (*GameServer, error) {
+func (dm *DatabaseManager) GetGameserver(id string) (*Gameserver, error) {
 	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, environment, volumes, created_at, updated_at FROM gameservers WHERE id = ?`, id)
-	server, err := dm.scanGameServer(row)
+	server, err := dm.scanGameserver(row)
 	if err == sql.ErrNoRows {
-		return nil, &DatabaseError{"get", fmt.Sprintf("gameserver %s not found", id), nil}
+		return nil, &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", id), Err: nil}
 	}
 	if err != nil {
-		return nil, &DatabaseError{"get", fmt.Sprintf("failed to query gameserver %s", id), err}
+		return nil, &DatabaseError{Op: fmt.Sprintf("failed to query gameserver %s", id),Err: err}
 	}
 	return server, nil
 }
 
-func (dm *DatabaseManager) UpdateGameServer(server *GameServer) error {
+func (dm *DatabaseManager) UpdateGameserver(server *Gameserver) error {
 	envJSON, _ := json.Marshal(server.Environment)
 	volumesJSON, _ := json.Marshal(server.Volumes)
 	server.UpdatedAt = time.Now()
@@ -216,66 +217,66 @@ func (dm *DatabaseManager) UpdateGameServer(server *GameServer) error {
 		server.Name, server.GameID, server.ContainerID, server.Status, server.Port, string(envJSON), string(volumesJSON), server.UpdatedAt, server.ID)
 
 	if err != nil {
-		return &DatabaseError{"update", fmt.Sprintf("failed to update gameserver %s", server.ID), err}
+		return &DatabaseError{Op: fmt.Sprintf("failed to update gameserver %s", server.ID),Err: err}
 	}
 
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		return &DatabaseError{"update", fmt.Sprintf("gameserver %s not found", server.ID), nil}
+		return &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", server.ID), Err: nil}
 	}
 	return nil
 }
 
-func (dm *DatabaseManager) DeleteGameServer(id string) error {
+func (dm *DatabaseManager) DeleteGameserver(id string) error {
 	result, err := dm.db.Exec(`DELETE FROM gameservers WHERE id = ?`, id)
 	if err != nil {
-		return &DatabaseError{"delete", fmt.Sprintf("failed to delete gameserver %s", id), err}
+		return &DatabaseError{Op: fmt.Sprintf("failed to delete gameserver %s", id),Err: err}
 	}
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		return &DatabaseError{"delete", fmt.Sprintf("gameserver %s not found", id), nil}
+		return &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", id), Err: nil}
 	}
 	return nil
 }
 
-func (dm *DatabaseManager) ListGameServers() ([]*GameServer, error) {
+func (dm *DatabaseManager) ListGameservers() ([]*Gameserver, error) {
 	rows, err := dm.db.Query(`SELECT id, name, game_id, container_id, status, port, environment, volumes, created_at, updated_at FROM gameservers ORDER BY created_at DESC`)
 	if err != nil {
-		return nil, &DatabaseError{"list", "failed to query gameservers", err}
+		return nil, &DatabaseError{Op: "db", Msg: "failed to query gameservers", Err: err}
 	}
 	defer rows.Close()
 
-	var servers []*GameServer
+	var servers []*Gameserver
 	for rows.Next() {
-		server, err := dm.scanGameServer(rows)
+		server, err := dm.scanGameserver(rows)
 		if err != nil {
-			return nil, &DatabaseError{"list", "failed to scan gameserver row", err}
+			return nil, &DatabaseError{Op: "db", Msg: "failed to scan gameserver row", Err: err}
 		}
 		servers = append(servers, server)
 	}
 	return servers, rows.Err()
 }
 
-func (dm *DatabaseManager) GetGameServerByContainerID(containerID string) (*GameServer, error) {
+func (dm *DatabaseManager) GetGameserverByContainerID(containerID string) (*Gameserver, error) {
 	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, environment, volumes, created_at, updated_at FROM gameservers WHERE container_id = ?`, containerID)
-	server, err := dm.scanGameServer(row)
+	server, err := dm.scanGameserver(row)
 	if err == sql.ErrNoRows {
-		return nil, &DatabaseError{"get_by_container", fmt.Sprintf("gameserver with container %s not found", containerID), nil}
+		return nil, &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver with container %s not found", containerID), Err: nil}
 	}
 	if err != nil {
-		return nil, &DatabaseError{"get_by_container", fmt.Sprintf("failed to query gameserver by container %s", containerID), err}
+		return nil, &DatabaseError{Op: fmt.Sprintf("failed to query gameserver by container %s", containerID),Err: err}
 	}
 	return server, nil
 }
 
-type GameServerService struct {
+type GameserverService struct {
 	db     *DatabaseManager
 	docker DockerManagerInterface
 }
 
-func NewGameServerService(db *DatabaseManager, docker DockerManagerInterface) *GameServerService {
-	return &GameServerService{db: db, docker: docker}
+func NewGameserverService(db *DatabaseManager, docker DockerManagerInterface) *GameserverService {
+	return &GameserverService{db: db, docker: docker}
 }
 
-func (gss *GameServerService) CreateGameServer(server *GameServer) error {
+func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
 	now := time.Now()
 	server.CreatedAt, server.UpdatedAt, server.Status = now, now, StatusStopped
 
@@ -284,17 +285,17 @@ func (gss *GameServerService) CreateGameServer(server *GameServer) error {
 		return err
 	}
 
-	if err := gss.db.CreateGameServer(server); err != nil {
+	if err := gss.db.CreateGameserver(server); err != nil {
 		return err
 	}
 	if err := gss.docker.CreateContainer(server); err != nil {
-		gss.db.DeleteGameServer(server.ID)
+		gss.db.DeleteGameserver(server.ID)
 		return err
 	}
-	return gss.db.UpdateGameServer(server)
+	return gss.db.UpdateGameserver(server)
 }
 
-func (gss *GameServerService) populateGameFields(server *GameServer) error {
+func (gss *GameserverService) populateGameFields(server *Gameserver) error {
 	game, err := gss.db.GetGame(server.GameID)
 	if err != nil {
 		return err
@@ -304,8 +305,8 @@ func (gss *GameServerService) populateGameFields(server *GameServer) error {
 	return nil
 }
 
-func (gss *GameServerService) execDockerOp(id string, op func(string) error, status GameServerStatus) error {
-	server, err := gss.db.GetGameServer(id)
+func (gss *GameserverService) execDockerOp(id string, op func(string) error, status GameserverStatus) error {
+	server, err := gss.db.GetGameserver(id)
 	if err != nil {
 		return err
 	}
@@ -313,43 +314,43 @@ func (gss *GameServerService) execDockerOp(id string, op func(string) error, sta
 		return err
 	}
 	server.Status, server.UpdatedAt = status, time.Now()
-	return gss.db.UpdateGameServer(server)
+	return gss.db.UpdateGameserver(server)
 }
 
-func (gss *GameServerService) StartGameServer(id string) error {
+func (gss *GameserverService) StartGameserver(id string) error {
 	return gss.execDockerOp(id, gss.docker.StartContainer, StatusStarting)
 }
 
-func (gss *GameServerService) StopGameServer(id string) error {
+func (gss *GameserverService) StopGameserver(id string) error {
 	return gss.execDockerOp(id, gss.docker.StopContainer, StatusStopping)
 }
 
-func (gss *GameServerService) RestartGameServer(id string) error {
+func (gss *GameserverService) RestartGameserver(id string) error {
 	return gss.execDockerOp(id, gss.docker.RestartContainer, StatusStarting)
 }
 
-func (gss *GameServerService) DeleteGameServer(id string) error {
-	server, err := gss.db.GetGameServer(id)
+func (gss *GameserverService) DeleteGameserver(id string) error {
+	server, err := gss.db.GetGameserver(id)
 	if err != nil {
 		return err
 	}
 	if server.ContainerID != "" {
 		gss.docker.RemoveContainer(server.ContainerID)
 	}
-	return gss.db.DeleteGameServer(id)
+	return gss.db.DeleteGameserver(id)
 }
 
-func (gss *GameServerService) syncStatus(server *GameServer) {
+func (gss *GameserverService) syncStatus(server *Gameserver) {
 	if server.ContainerID != "" {
 		if dockerStatus, err := gss.docker.GetContainerStatus(server.ContainerID); err == nil && server.Status != dockerStatus {
 			server.Status, server.UpdatedAt = dockerStatus, time.Now()
-			gss.db.UpdateGameServer(server)
+			gss.db.UpdateGameserver(server)
 		}
 	}
 }
 
-func (gss *GameServerService) GetGameServer(id string) (*GameServer, error) {
-	server, err := gss.db.GetGameServer(id)
+func (gss *GameserverService) GetGameserver(id string) (*Gameserver, error) {
+	server, err := gss.db.GetGameserver(id)
 	if err != nil {
 		return nil, err
 	}
@@ -358,8 +359,8 @@ func (gss *GameServerService) GetGameServer(id string) (*GameServer, error) {
 	return server, nil
 }
 
-func (gss *GameServerService) ListGameServers() ([]*GameServer, error) {
-	servers, err := gss.db.ListGameServers()
+func (gss *GameserverService) ListGameservers() ([]*Gameserver, error) {
+	servers, err := gss.db.ListGameservers()
 	if err != nil {
 		return nil, err
 	}
@@ -370,8 +371,8 @@ func (gss *GameServerService) ListGameServers() ([]*GameServer, error) {
 	return servers, nil
 }
 
-func (gss *GameServerService) GetGameServerLogs(id string, lines int) ([]string, error) {
-	server, err := gss.db.GetGameServer(id)
+func (gss *GameserverService) GetGameserverLogs(id string, lines int) ([]string, error) {
+	server, err := gss.db.GetGameserver(id)
 	if err != nil {
 		return nil, err
 	}
@@ -381,26 +382,37 @@ func (gss *GameServerService) GetGameServerLogs(id string, lines int) ([]string,
 	return gss.docker.GetContainerLogs(server.ContainerID, lines)
 }
 
-func (gss *GameServerService) GetGameServerStats(id string) (*ContainerStats, error) {
-	server, err := gss.db.GetGameServer(id)
+func (gss *GameserverService) GetGameserverStats(id string) (*ContainerStats, error) {
+	server, err := gss.db.GetGameserver(id)
 	if err != nil {
 		return nil, err
 	}
 	if server.ContainerID == "" {
-		return nil, &DatabaseError{"stats", "container not created yet", nil}
+		return nil, &DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
 	}
 	return gss.docker.GetContainerStats(server.ContainerID)
 }
 
-func (gss *GameServerService) ListGames() ([]*Game, error) {
+func (gss *GameserverService) StreamGameserverLogs(id string) (io.ReadCloser, error) {
+	server, err := gss.db.GetGameserver(id)
+	if err != nil {
+		return nil, err
+	}
+	if server.ContainerID == "" {
+		return nil, &DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
+	}
+	return gss.docker.StreamContainerLogs(server.ContainerID)
+}
+
+func (gss *GameserverService) ListGames() ([]*Game, error) {
 	return gss.db.ListGames()
 }
 
-func (gss *GameServerService) GetGame(id string) (*Game, error) {
+func (gss *GameserverService) GetGame(id string) (*Game, error) {
 	return gss.db.GetGame(id)
 }
 
-func (gss *GameServerService) CreateGame(game *Game) error {
+func (gss *GameserverService) CreateGame(game *Game) error {
 	now := time.Now()
 	game.CreatedAt, game.UpdatedAt = now, now
 	return gss.db.CreateGame(game)

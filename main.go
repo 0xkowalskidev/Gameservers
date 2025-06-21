@@ -48,9 +48,9 @@ func main() {
 	}
 	log.Info().Msg("Docker manager initialized successfully")
 
-	// Initialize GameServer service
-	gameServerService := NewGameServerService(db, docker)
-	log.Info().Msg("GameServer service initialized")
+	// Initialize Gameserver service
+	gameServerService := NewGameserverService(db, docker)
+	log.Info().Msg("Gameserver service initialized")
 
 	// Parse html templates
 	tmpl, err := template.ParseFS(templateFiles, "templates/*.html")

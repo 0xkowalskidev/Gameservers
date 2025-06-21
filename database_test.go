@@ -12,19 +12,19 @@ func TestDatabaseManager_CRUD(t *testing.T) {
 	}
 	defer db.Close()
 
-	server := &GameServer{
+	server := &Gameserver{
 		ID: "test-1", Name: "Test Server", GameType: "minecraft", Image: "minecraft:latest",
 		Port: 25565, Environment: []string{"ENV=prod"}, Volumes: []string{"/data:/mc"},
 		Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 
 	// Create
-	if err := db.CreateGameServer(server); err != nil {
+	if err := db.CreateGameserver(server); err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// Get
-	retrieved, err := db.GetGameServer(server.ID)
+	retrieved, err := db.GetGameserver(server.ID)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -35,26 +35,26 @@ func TestDatabaseManager_CRUD(t *testing.T) {
 	// Update
 	retrieved.Status = StatusRunning
 	retrieved.ContainerID = "container-123"
-	if err := db.UpdateGameServer(retrieved); err != nil {
+	if err := db.UpdateGameserver(retrieved); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	updated, _ := db.GetGameServer(server.ID)
+	updated, _ := db.GetGameserver(server.ID)
 	if updated.Status != StatusRunning || updated.ContainerID != "container-123" {
 		t.Errorf("Update data mismatch")
 	}
 
 	// List
-	servers, _ := db.ListGameServers()
+	servers, _ := db.ListGameservers()
 	if len(servers) != 1 {
 		t.Errorf("Expected 1 server, got %d", len(servers))
 	}
 
 	// Delete
-	if err := db.DeleteGameServer(server.ID); err != nil {
+	if err := db.DeleteGameserver(server.ID); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
-	if _, err := db.GetGameServer(server.ID); err == nil {
+	if _, err := db.GetGameserver(server.ID); err == nil {
 		t.Error("Expected error after deletion")
 	}
 }
@@ -63,11 +63,11 @@ func TestDatabaseManager_DuplicateName(t *testing.T) {
 	db, _ := NewDatabaseManager(":memory:")
 	defer db.Close()
 
-	server1 := &GameServer{ID: "1", Name: "dup", GameType: "mc", Image: "mc:latest", Port: 25565, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	server2 := &GameServer{ID: "2", Name: "dup", GameType: "mc", Image: "mc:latest", Port: 25566, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	server1 := &Gameserver{ID: "1", Name: "dup", GameType: "mc", Image: "mc:latest", Port: 25565, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	server2 := &Gameserver{ID: "2", Name: "dup", GameType: "mc", Image: "mc:latest", Port: 25566, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 
-	db.CreateGameServer(server1)
-	if err := db.CreateGameServer(server2); err == nil {
+	db.CreateGameserver(server1)
+	if err := db.CreateGameserver(server2); err == nil {
 		t.Error("Expected duplicate name error")
 	}
 }

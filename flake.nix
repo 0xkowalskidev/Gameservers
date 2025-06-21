@@ -13,7 +13,7 @@
           ${pkgs.reflex}/bin/reflex -r '\.go|\.html$' -s -- sh -c '${pkgs.tailwindcss}/bin/tailwindcss --content "./templates/*.html" -o static/tailwind.css -m && ${pkgs.go}/bin/go run .'
         '';
         test = pkgs.writeShellScriptBin "test" ''
-          ${pkgs.richgo}/bin/richgo test ./...
+          ${pkgs.richgo}/bin/richgo test ./... -v
         '';
       };
 
