@@ -41,6 +41,21 @@ func (m *mockGameserverService) StreamGameserverStats(id string) (io.ReadCloser,
 	return io.NopCloser(strings.NewReader(`{"cpu_stats":{"cpu_usage":{"total_usage":100},"system_cpu_usage":200},"precpu_stats":{"cpu_usage":{"total_usage":50},"system_cpu_usage":100},"memory_stats":{"usage":536870912,"limit":1073741824}}`)), nil
 }
 
+// Scheduled Task methods
+func (m *mockGameserverService) CreateScheduledTask(task *ScheduledTask) error { return nil }
+func (m *mockGameserverService) GetScheduledTask(id string) (*ScheduledTask, error) { 
+	return &ScheduledTask{ID: id, Name: "Mock Task", Type: TaskTypeRestart}, nil 
+}
+func (m *mockGameserverService) UpdateScheduledTask(task *ScheduledTask) error { return nil }
+func (m *mockGameserverService) DeleteScheduledTask(id string) error { return nil }
+func (m *mockGameserverService) ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error) {
+	return []*ScheduledTask{
+		{ID: "task-1", GameserverID: gameserverID, Name: "Daily Restart", Type: TaskTypeRestart, Status: TaskStatusActive},
+		{ID: "task-2", GameserverID: gameserverID, Name: "Weekly Backup", Type: TaskTypeBackup, Status: TaskStatusActive},
+	}, nil
+}
+func (m *mockGameserverService) RestoreGameserverBackup(gameserverID, backupPath string) error { return nil }
+
 func TestHandlers_IndexGameservers(t *testing.T) {
 	tmpl := template.Must(template.New("index.html").Parse(`{{range .Gameservers}}{{.Name}}{{end}}`))
 	template.Must(tmpl.New("layout.html").Parse(`{{.Content}}`))
@@ -102,5 +117,73 @@ func TestHandlers_ShowGameserver(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "test") {
 		t.Errorf("expected body to contain 'test'")
+	}
+}
+
+// =============================================================================
+// Scheduled Task Handler Tests
+// =============================================================================
+
+func TestHandlers_ListGameserverTasks(t *testing.T) {
+	tmpl := template.Must(template.New("gameserver-tasks.html").Parse(`{{range .Tasks}}{{.Name}}{{end}}`))
+	template.Must(tmpl.New("layout.html").Parse(`{{.Content}}`))
+	svc := &mockGameserverService{
+		gameservers: []*Gameserver{{ID: "1", Name: "test"}},
+	}
+	h := NewHandlers(svc, tmpl)
+
+	req := httptest.NewRequest("GET", "/1/tasks", nil)
+	w := httptest.NewRecorder()
+
+	r := chi.NewRouter()
+	r.Get("/{id}/tasks", h.ListGameserverTasks)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Daily Restart") {
+		t.Errorf("expected body to contain task names")
+	}
+}
+
+func TestHandlers_CreateGameserverTask(t *testing.T) {
+	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
+	svc := &mockGameserverService{
+		gameservers: []*Gameserver{{ID: "1", Name: "test"}},
+	}
+	h := NewHandlers(svc, tmpl)
+
+	body := strings.NewReader("name=Test Task&type=restart&cron_schedule=0 2 * * *")
+	req := httptest.NewRequest("POST", "/1/tasks", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	r := chi.NewRouter()
+	r.Post("/{id}/tasks", h.CreateGameserverTask)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	if w.Header().Get("HX-Redirect") != "/1/tasks" {
+		t.Errorf("expected HX-Redirect to task list")
+	}
+}
+
+func TestHandlers_DeleteGameserverTask(t *testing.T) {
+	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
+	svc := &mockGameserverService{}
+	h := NewHandlers(svc, tmpl)
+
+	req := httptest.NewRequest("DELETE", "/1/tasks/task-1", nil)
+	w := httptest.NewRecorder()
+
+	r := chi.NewRouter()
+	r.Delete("/{id}/tasks/{taskId}", h.DeleteGameserverTask)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
 	}
 }

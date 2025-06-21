@@ -1,0 +1,269 @@
+<div class="max-w-2xl mx-auto">
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-gray-900">New Scheduled Task</h2>
+    <a href="/{{.Gameserver.ID}}/tasks" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-md">← Back</a>
+  </div>
+  
+  <div class="bg-white shadow rounded-lg p-6">
+    <form hx-post="/{{.Gameserver.ID}}/tasks" hx-indicator="#loading">
+      <div class="space-y-6">
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700">Task Name</label>
+          <input type="text" id="name" name="name" required
+                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                 placeholder="e.g., Daily restart">
+        </div>
+        
+        <div>
+          <label for="type" class="block text-sm font-medium text-gray-700">Task Type</label>
+          <select id="type" name="type" required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            <option value="">Select task type...</option>
+            <option value="restart">Restart Server</option>
+            <option value="backup">Create Backup</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-3">Schedule</label>
+          
+          <!-- Quick Presets -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-600 mb-2">Quick Presets</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" onclick="setSchedule('0 2 * * *')" class="preset-btn bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm">Daily at 2 AM</button>
+              <button type="button" onclick="setSchedule('0 3 * * 0')" class="preset-btn bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm">Weekly (Sunday 3 AM)</button>
+              <button type="button" onclick="setSchedule('0 */6 * * *')" class="preset-btn bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm">Every 6 hours</button>
+              <button type="button" onclick="setSchedule('*/30 * * * *')" class="preset-btn bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm">Every 30 minutes</button>
+            </div>
+          </div>
+          
+          <!-- Custom Schedule Builder -->
+          <div class="border rounded-lg p-4 bg-gray-50">
+            <div class="mb-3">
+              <label class="block text-sm font-medium text-gray-600 mb-2">Frequency</label>
+              <select id="frequency" onchange="updateScheduleBuilder()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="hourly">Every X hours</option>
+                <option value="minutes">Every X minutes</option>
+              </select>
+            </div>
+            
+            <!-- Time picker for daily/weekly -->
+            <div id="time-picker" class="grid grid-cols-2 gap-4 mb-3">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">Hour (24h)</label>
+                <select id="hour" onchange="updateCronSchedule()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                  <option value="0">00 (Midnight)</option>
+                  <option value="1">01</option>
+                  <option value="2" selected>02</option>
+                  <option value="3">03</option>
+                  <option value="4">04</option>
+                  <option value="5">05</option>
+                  <option value="6">06</option>
+                  <option value="7">07</option>
+                  <option value="8">08</option>
+                  <option value="9">09</option>
+                  <option value="10">10</option>
+                  <option value="11">11</option>
+                  <option value="12">12 (Noon)</option>
+                  <option value="13">13</option>
+                  <option value="14">14</option>
+                  <option value="15">15</option>
+                  <option value="16">16</option>
+                  <option value="17">17</option>
+                  <option value="18">18</option>
+                  <option value="19">19</option>
+                  <option value="20">20</option>
+                  <option value="21">21</option>
+                  <option value="22">22</option>
+                  <option value="23">23</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">Minute</label>
+                <select id="minute" onchange="updateCronSchedule()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                  <option value="0" selected>00</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="45">45</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- Day picker for weekly -->
+            <div id="day-picker" class="mb-3" style="display: none;">
+              <label class="block text-sm text-gray-600 mb-2">Day of Week</label>
+              <select id="weekday" onchange="updateCronSchedule()" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="0" selected>Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+            
+            <!-- Interval picker for hours/minutes -->
+            <div id="interval-picker" class="mb-3" style="display: none;">
+              <label class="block text-sm text-gray-600 mb-1">Every</label>
+              <div class="flex items-center space-x-2">
+                <select id="interval" onchange="updateCronSchedule()" class="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="6">6</option>
+                  <option value="8">8</option>
+                  <option value="12">12</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                </select>
+                <span id="interval-unit" class="text-sm text-gray-600">hours</span>
+              </div>
+            </div>
+            
+            <!-- Generated schedule display -->
+            <div class="bg-white border rounded p-3">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Generated schedule:</span>
+                <span id="schedule-description" class="text-sm font-medium text-blue-600">Daily at 2:00 AM</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Hidden field for actual cron schedule -->
+          <input type="hidden" id="cron_schedule" name="cron_schedule" value="0 2 * * *">
+        </div>
+      </div>
+      
+      <div class="mt-8 flex justify-end space-x-3">
+        <a href="/{{.Gameserver.ID}}/tasks" 
+           class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md">Cancel</a>
+        <button type="submit" 
+                class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md">
+          Create Task
+        </button>
+      </div>
+    </form>
+  </div>
+  
+</div>
+
+<div id="loading" class="htmx-indicator fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg">Loading...</div>
+
+<script>
+function setSchedule(cronSchedule) {
+  document.getElementById('cron_schedule').value = cronSchedule;
+  updateScheduleDescription(cronSchedule);
+  // Highlight the selected preset
+  document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('bg-blue-100', 'border-blue-300'));
+  event.target.classList.add('bg-blue-100', 'border-blue-300');
+}
+
+function updateScheduleBuilder() {
+  const frequency = document.getElementById('frequency').value;
+  const timePicker = document.getElementById('time-picker');
+  const dayPicker = document.getElementById('day-picker');
+  const intervalPicker = document.getElementById('interval-picker');
+  const intervalUnit = document.getElementById('interval-unit');
+  
+  // Reset preset highlights
+  document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('bg-blue-100', 'border-blue-300'));
+  
+  // Show/hide relevant sections
+  if (frequency === 'daily') {
+    timePicker.style.display = 'block';
+    dayPicker.style.display = 'none';
+    intervalPicker.style.display = 'none';
+  } else if (frequency === 'weekly') {
+    timePicker.style.display = 'block';
+    dayPicker.style.display = 'block';
+    intervalPicker.style.display = 'none';
+  } else if (frequency === 'hourly') {
+    timePicker.style.display = 'none';
+    dayPicker.style.display = 'none';
+    intervalPicker.style.display = 'block';
+    intervalUnit.textContent = 'hours';
+  } else if (frequency === 'minutes') {
+    timePicker.style.display = 'none';
+    dayPicker.style.display = 'none';
+    intervalPicker.style.display = 'block';
+    intervalUnit.textContent = 'minutes';
+  }
+  
+  updateCronSchedule();
+}
+
+function updateCronSchedule() {
+  const frequency = document.getElementById('frequency').value;
+  let cronSchedule = '';
+  let description = '';
+  
+  if (frequency === 'daily') {
+    const hour = document.getElementById('hour').value;
+    const minute = document.getElementById('minute').value;
+    cronSchedule = `${minute} ${hour} * * *`;
+    description = `Daily at ${formatTime(hour, minute)}`;
+  } else if (frequency === 'weekly') {
+    const hour = document.getElementById('hour').value;
+    const minute = document.getElementById('minute').value;
+    const weekday = document.getElementById('weekday').value;
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    cronSchedule = `${minute} ${hour} * * ${weekday}`;
+    description = `Weekly on ${weekdays[weekday]} at ${formatTime(hour, minute)}`;
+  } else if (frequency === 'hourly') {
+    const interval = document.getElementById('interval').value;
+    cronSchedule = `0 */${interval} * * *`;
+    description = `Every ${interval} hour${interval > 1 ? 's' : ''}`;
+  } else if (frequency === 'minutes') {
+    const interval = document.getElementById('interval').value;
+    cronSchedule = `*/${interval} * * * *`;
+    description = `Every ${interval} minute${interval > 1 ? 's' : ''}`;
+  }
+  
+  document.getElementById('cron_schedule').value = cronSchedule;
+  updateScheduleDescription(cronSchedule, description);
+}
+
+function updateScheduleDescription(cronSchedule, description = null) {
+  const scheduleDesc = document.getElementById('schedule-description');
+  
+  if (description) {
+    scheduleDesc.textContent = description;
+    return;
+  }
+  
+  // Parse cron schedule for description
+  const parts = cronSchedule.split(' ');
+  if (parts.length === 5) {
+    const [minute, hour, day, month, weekday] = parts;
+    
+    if (cronSchedule === '0 2 * * *') {
+      scheduleDesc.textContent = 'Daily at 2:00 AM';
+    } else if (cronSchedule === '0 3 * * 0') {
+      scheduleDesc.textContent = 'Weekly on Sunday at 3:00 AM';
+    } else if (cronSchedule === '0 */6 * * *') {
+      scheduleDesc.textContent = 'Every 6 hours';
+    } else if (cronSchedule === '*/30 * * * *') {
+      scheduleDesc.textContent = 'Every 30 minutes';
+    } else {
+      scheduleDesc.textContent = cronSchedule;
+    }
+  }
+}
+
+function formatTime(hour, minute) {
+  const h = parseInt(hour);
+  const m = parseInt(minute);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const displayMinute = m === 0 ? '00' : m.toString().padStart(2, '0');
+  return `${displayHour}:${displayMinute} ${ampm}`;
+}
+
+// Initialize on page load
+updateScheduleBuilder();
+</script>

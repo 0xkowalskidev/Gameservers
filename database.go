@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +44,12 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 		return nil, &DatabaseError{Op: "db", Msg: "failed to ping database", Err: err}
 	}
 
+	// Enable foreign key constraints
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		log.Error().Err(err).Msg("Failed to enable foreign key constraints")
+		return nil, &DatabaseError{Op: "db", Msg: "failed to enable foreign key constraints", Err: err}
+	}
+
 	dm := &DatabaseManager{db: db}
 	if err := dm.migrate(); err != nil {
 		log.Error().Err(err).Msg("Database migration failed")
@@ -73,8 +80,17 @@ func (dm *DatabaseManager) migrate() error {
 		environment TEXT, volumes TEXT, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
 		FOREIGN KEY (game_id) REFERENCES games(id)
 	);
+	CREATE TABLE IF NOT EXISTS scheduled_tasks (
+		id TEXT PRIMARY KEY, gameserver_id TEXT NOT NULL, name TEXT NOT NULL,
+		type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', cron_schedule TEXT NOT NULL,
+		created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
+		last_run DATETIME, next_run DATETIME,
+		FOREIGN KEY (gameserver_id) REFERENCES gameservers(id) ON DELETE CASCADE
+	);
 	CREATE INDEX IF NOT EXISTS idx_gameservers_status ON gameservers(status);
-	CREATE INDEX IF NOT EXISTS idx_gameservers_game_id ON gameservers(game_id);`
+	CREATE INDEX IF NOT EXISTS idx_gameservers_game_id ON gameservers(game_id);
+	CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_gameserver_id ON scheduled_tasks(gameserver_id);
+	CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status);`
 
 	_, err := dm.db.Exec(schema)
 	if err != nil {
@@ -487,5 +503,236 @@ func (gss *GameserverService) CreateGame(game *Game) error {
 	now := time.Now()
 	game.CreatedAt, game.UpdatedAt = now, now
 	return gss.db.CreateGame(game)
+}
+
+// =============================================================================
+// Scheduled Task Service Operations
+// =============================================================================
+
+func (gss *GameserverService) CreateScheduledTask(task *ScheduledTask) error {
+	now := time.Now()
+	task.CreatedAt, task.UpdatedAt = now, now
+	task.ID = generateID()
+	
+	// Calculate initial next run time
+	if nextRun := gss.calculateNextRun(task.CronSchedule, now); nextRun != nil {
+		task.NextRun = nextRun
+	}
+	
+	return gss.db.CreateScheduledTask(task)
+}
+
+func (gss *GameserverService) GetScheduledTask(id string) (*ScheduledTask, error) {
+	return gss.db.GetScheduledTask(id)
+}
+
+func (gss *GameserverService) UpdateScheduledTask(task *ScheduledTask) error {
+	task.UpdatedAt = time.Now()
+	return gss.db.UpdateScheduledTask(task)
+}
+
+func (gss *GameserverService) DeleteScheduledTask(id string) error {
+	return gss.db.DeleteScheduledTask(id)
+}
+
+func (gss *GameserverService) ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error) {
+	return gss.db.ListScheduledTasksForGameserver(gameserverID)
+}
+
+func (gss *GameserverService) RestoreGameserverBackup(gameserverID, backupPath string) error {
+	gameserver, err := gss.db.GetGameserver(gameserverID)
+	if err != nil {
+		return err
+	}
+	return gss.docker.RestoreBackup(gameserver.Name, backupPath)
+}
+
+// Simple cron parser for calculating next run times
+func (gss *GameserverService) calculateNextRun(cronSchedule string, from time.Time) *time.Time {
+	parts := strings.Fields(cronSchedule)
+	if len(parts) != 5 {
+		return nil
+	}
+
+	minute := parts[0]
+	hour := parts[1]
+	day := parts[2]
+	month := parts[3]
+	weekday := parts[4]
+
+	// Start from the next minute
+	next := from.Truncate(time.Minute).Add(time.Minute)
+	
+	// Simple implementation - find next matching time within next 7 days
+	for attempts := 0; attempts < 7*24*60; attempts++ {
+		if gss.cronMatches(next, minute, hour, day, month, weekday) {
+			return &next
+		}
+		next = next.Add(time.Minute)
+	}
+
+	return nil
+}
+
+func (gss *GameserverService) cronMatches(t time.Time, minute, hour, day, month, weekday string) bool {
+	return gss.fieldMatches(t.Minute(), minute) &&
+		gss.fieldMatches(t.Hour(), hour) &&
+		gss.fieldMatches(t.Day(), day) &&
+		gss.fieldMatches(int(t.Month()), month) &&
+		gss.fieldMatches(int(t.Weekday()), weekday)
+}
+
+func (gss *GameserverService) fieldMatches(value int, pattern string) bool {
+	if pattern == "*" {
+		return true
+	}
+	
+	// Handle step values like */5
+	if strings.HasPrefix(pattern, "*/") {
+		stepStr := pattern[2:]
+		if step, err := strconv.Atoi(stepStr); err == nil {
+			return value%step == 0
+		}
+		return false
+	}
+	
+	// Handle exact matches
+	if patternValue, err := strconv.Atoi(pattern); err == nil {
+		return value == patternValue
+	}
+	
+	return false
+}
+
+// =============================================================================
+// Scheduled Task Database Operations
+// =============================================================================
+
+func (dm *DatabaseManager) CreateScheduledTask(task *ScheduledTask) error {
+	query := `INSERT INTO scheduled_tasks (id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	
+	_, err := dm.db.Exec(query, task.ID, task.GameserverID, task.Name, string(task.Type), string(task.Status), 
+		task.CronSchedule, task.CreatedAt, task.UpdatedAt, task.LastRun, task.NextRun)
+	
+	if err != nil {
+		return &DatabaseError{Op: "create_task", Msg: "failed to create scheduled task", Err: err}
+	}
+	return nil
+}
+
+func (dm *DatabaseManager) GetScheduledTask(id string) (*ScheduledTask, error) {
+	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
+			  FROM scheduled_tasks WHERE id = ?`
+	
+	row := dm.db.QueryRow(query, id)
+	task, err := dm.scanScheduledTask(row)
+	if err == sql.ErrNoRows {
+		return nil, &DatabaseError{Op: "get_task", Msg: fmt.Sprintf("scheduled task %s not found", id), Err: nil}
+	}
+	if err != nil {
+		return nil, &DatabaseError{Op: "get_task", Msg: fmt.Sprintf("failed to query scheduled task %s", id), Err: err}
+	}
+	return task, nil
+}
+
+func (dm *DatabaseManager) UpdateScheduledTask(task *ScheduledTask) error {
+	query := `UPDATE scheduled_tasks SET name = ?, type = ?, status = ?, cron_schedule = ?, updated_at = ?, last_run = ?, next_run = ? 
+			  WHERE id = ?`
+	
+	result, err := dm.db.Exec(query, task.Name, string(task.Type), string(task.Status), task.CronSchedule, 
+		task.UpdatedAt, task.LastRun, task.NextRun, task.ID)
+	
+	if err != nil {
+		return &DatabaseError{Op: "update_task", Msg: "failed to update scheduled task", Err: err}
+	}
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		return &DatabaseError{Op: "update_task", Msg: fmt.Sprintf("scheduled task %s not found", task.ID), Err: nil}
+	}
+	return nil
+}
+
+func (dm *DatabaseManager) DeleteScheduledTask(id string) error {
+	query := `DELETE FROM scheduled_tasks WHERE id = ?`
+	
+	result, err := dm.db.Exec(query, id)
+	if err != nil {
+		return &DatabaseError{Op: "delete_task", Msg: "failed to delete scheduled task", Err: err}
+	}
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		return &DatabaseError{Op: "delete_task", Msg: fmt.Sprintf("scheduled task %s not found", id), Err: nil}
+	}
+	return nil
+}
+
+func (dm *DatabaseManager) ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error) {
+	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
+			  FROM scheduled_tasks WHERE gameserver_id = ? ORDER BY created_at DESC`
+	
+	rows, err := dm.db.Query(query, gameserverID)
+	if err != nil {
+		return nil, &DatabaseError{Op: "list_tasks", Msg: "failed to query scheduled tasks", Err: err}
+	}
+	defer rows.Close()
+
+	var tasks []*ScheduledTask
+	for rows.Next() {
+		task, err := dm.scanScheduledTask(rows)
+		if err != nil {
+			return nil, &DatabaseError{Op: "list_tasks", Msg: "failed to scan scheduled task row", Err: err}
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, rows.Err()
+}
+
+func (dm *DatabaseManager) ListActiveScheduledTasks() ([]*ScheduledTask, error) {
+	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
+			  FROM scheduled_tasks WHERE status = ? ORDER BY next_run ASC`
+	
+	rows, err := dm.db.Query(query, string(TaskStatusActive))
+	if err != nil {
+		return nil, &DatabaseError{Op: "list_active_tasks", Msg: "failed to query active scheduled tasks", Err: err}
+	}
+	defer rows.Close()
+
+	var tasks []*ScheduledTask
+	for rows.Next() {
+		task, err := dm.scanScheduledTask(rows)
+		if err != nil {
+			return nil, &DatabaseError{Op: "list_active_tasks", Msg: "failed to scan scheduled task row", Err: err}
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, rows.Err()
+}
+
+type ScheduledTaskScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func (dm *DatabaseManager) scanScheduledTask(row ScheduledTaskScanner) (*ScheduledTask, error) {
+	var task ScheduledTask
+	var taskType, status string
+	var lastRun, nextRun sql.NullTime
+	
+	err := row.Scan(&task.ID, &task.GameserverID, &task.Name, &taskType, &status, 
+		&task.CronSchedule, &task.CreatedAt, &task.UpdatedAt, &lastRun, &nextRun)
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	task.Type = TaskType(taskType)
+	task.Status = TaskStatus(status)
+	
+	if lastRun.Valid {
+		task.LastRun = &lastRun.Time
+	}
+	if nextRun.Valid {
+		task.NextRun = &nextRun.Time
+	}
+	
+	return &task, nil
 }
 

@@ -55,6 +55,33 @@ type VolumeInfo struct {
 	Labels     map[string]string `json:"labels"`
 }
 
+type TaskType string
+
+const (
+	TaskTypeRestart TaskType = "restart"
+	TaskTypeBackup  TaskType = "backup"
+)
+
+type TaskStatus string
+
+const (
+	TaskStatusActive   TaskStatus = "active"
+	TaskStatusDisabled TaskStatus = "disabled"
+)
+
+type ScheduledTask struct {
+	ID           string     `json:"id"`
+	GameserverID string     `json:"gameserver_id"`
+	Name         string     `json:"name"`
+	Type         TaskType   `json:"type"`
+	Status       TaskStatus `json:"status"`
+	CronSchedule string     `json:"cron_schedule"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	LastRun      *time.Time `json:"last_run,omitempty"`
+	NextRun      *time.Time `json:"next_run,omitempty"`
+}
+
 
 type DockerManagerInterface interface {
 	CreateContainer(server *Gameserver) error
@@ -67,4 +94,6 @@ type DockerManagerInterface interface {
 	CreateVolume(volumeName string) error
 	RemoveVolume(volumeName string) error
 	GetVolumeInfo(volumeName string) (*VolumeInfo, error)
+	CreateBackup(gameserverID, backupPath string) error
+	RestoreBackup(gameserverID, backupPath string) error
 }

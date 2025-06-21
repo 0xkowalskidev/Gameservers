@@ -1,0 +1,137 @@
+<div class="max-w-4xl mx-auto">
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-gray-900">{{.Gameserver.Name}} - Scheduled Tasks</h2>
+    <a href="/{{.Gameserver.ID}}" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-md">← Back</a>
+  </div>
+  
+  <div class="bg-white shadow rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+      <h3 class="text-lg font-semibold">Tasks</h3>
+      <a href="/{{.Gameserver.ID}}/tasks/new" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md">Add Task</a>
+    </div>
+    
+    <div class="divide-y divide-gray-200">
+      {{range .Tasks}}
+        <div class="px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div class="flex-1">
+              <div class="flex items-center space-x-4">
+                <h4 class="text-lg font-medium text-gray-900">{{.Name}}</h4>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                  {{if eq .Type "restart"}}bg-blue-100 text-blue-800{{else}}bg-purple-100 text-purple-800{{end}}">
+                  {{.Type}}
+                </span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                  {{if eq .Status "active"}}bg-green-100 text-green-800{{else}}bg-red-100 text-red-800{{end}}">
+                  {{.Status}}
+                </span>
+              </div>
+              
+              <div class="mt-2 text-sm text-gray-600">
+                <div class="flex items-center space-x-6">
+                  <span><strong>Schedule:</strong> <span class="schedule-display" data-cron="{{.CronSchedule}}">{{.CronSchedule}}</span></span>
+                  {{if .LastRun}}
+                    <span><strong>Last Run:</strong> {{.LastRun.Format "2006-01-02 15:04"}}</span>
+                  {{else}}
+                    <span><strong>Last Run:</strong> Never</span>
+                  {{end}}
+                  {{if .NextRun}}
+                    <span><strong>Next Run:</strong> {{.NextRun.Format "2006-01-02 15:04"}}</span>
+                  {{end}}
+                </div>
+              </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+              <a href="/{{$.Gameserver.ID}}/tasks/{{.ID}}/edit" 
+                 class="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</a>
+              <button hx-delete="/{{$.Gameserver.ID}}/tasks/{{.ID}}" 
+                      hx-confirm="Delete this task?" 
+                      hx-target="closest div" 
+                      hx-swap="outerHTML"
+                      class="text-red-600 hover:text-red-800 text-sm font-medium">Delete</button>
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="px-6 py-8 text-center text-gray-500">
+          <svg class="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3h6l4-4V8M6 16l6 6h24l6-6M12 32h24M12 40h24"/>
+          </svg>
+          <p>No scheduled tasks</p>
+          <p class="text-sm mt-1">Create your first task to automate restarts and backups</p>
+        </div>
+      {{end}}
+    </div>
+  </div>
+  
+  <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mt-6">
+    <div class="flex">
+      <svg class="w-5 h-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+      </svg>
+      <div class="ml-3">
+        <h3 class="text-sm font-medium text-blue-800">Automated Tasks</h3>
+        <p class="text-sm text-blue-700 mt-1">
+          Schedule automatic restarts and backups for your gameserver.<br>
+          Tasks run in the background and can be enabled/disabled as needed.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function convertCronToDescription(cronSchedule) {
+  const parts = cronSchedule.split(' ');
+  if (parts.length === 5) {
+    const [minute, hour, day, month, weekday] = parts;
+    
+    // Common patterns
+    if (cronSchedule === '0 2 * * *') {
+      return 'Daily at 2:00 AM';
+    } else if (cronSchedule === '0 3 * * 0') {
+      return 'Weekly on Sunday at 3:00 AM';
+    } else if (cronSchedule === '0 */6 * * *') {
+      return 'Every 6 hours';
+    } else if (cronSchedule === '*/30 * * * *') {
+      return 'Every 30 minutes';
+    }
+    
+    // Pattern matching
+    if (hour.includes('*/')) {
+      const interval = hour.replace('*/', '');
+      return `Every ${interval} hour${interval > 1 ? 's' : ''}`;
+    } else if (minute.includes('*/')) {
+      const interval = minute.replace('*/', '');
+      return `Every ${interval} minute${interval > 1 ? 's' : ''}`;
+    } else if (weekday !== '*') {
+      const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const h = parseInt(hour);
+      const m = parseInt(minute);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const displayMinute = m === 0 ? '00' : m.toString().padStart(2, '0');
+      return `Weekly on ${weekdays[weekday]} at ${displayHour}:${displayMinute} ${ampm}`;
+    } else if (day === '*' && month === '*' && weekday === '*') {
+      const h = parseInt(hour);
+      const m = parseInt(minute);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const displayMinute = m === 0 ? '00' : m.toString().padStart(2, '0');
+      return `Daily at ${displayHour}:${displayMinute} ${ampm}`;
+    }
+  }
+  
+  return cronSchedule; // Fallback to original
+}
+
+// Convert all schedule displays on page load
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.schedule-display').forEach(function(element) {
+    const cronSchedule = element.getAttribute('data-cron');
+    const description = convertCronToDescription(cronSchedule);
+    element.textContent = description;
+  });
+});
+</script>

@@ -30,6 +30,12 @@ type GameserverServiceInterface interface {
 	ListGames() ([]*Game, error)
 	GetGame(id string) (*Game, error)
 	CreateGame(game *Game) error
+	CreateScheduledTask(task *ScheduledTask) error
+	GetScheduledTask(id string) (*ScheduledTask, error)
+	UpdateScheduledTask(task *ScheduledTask) error
+	DeleteScheduledTask(id string) error
+	ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error)
+	RestoreGameserverBackup(gameserverID, backupPath string) error
 }
 
 type Handlers struct {
@@ -351,6 +357,166 @@ func (h *Handlers) GameserverStats(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 	}
+}
+
+// =============================================================================
+// Scheduled Task Handlers
+// =============================================================================
+
+func (h *Handlers) ListGameserverTasks(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	
+	tasks, err := h.service.ListScheduledTasksForGameserver(id)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to list scheduled tasks")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Gameserver": gameserver,
+		"Tasks":      tasks,
+	}
+
+	Render(w, r, h.tmpl, "gameserver-tasks.html", data)
+}
+
+func (h *Handlers) NewGameserverTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Gameserver": gameserver,
+	}
+
+	Render(w, r, h.tmpl, "new-task.html", data)
+}
+
+func (h *Handlers) CreateGameserverTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.ParseForm()
+
+	task := &ScheduledTask{
+		GameserverID: id,
+		Name:         r.FormValue("name"),
+		Type:         TaskType(r.FormValue("type")),
+		Status:       TaskStatusActive,
+		CronSchedule: r.FormValue("cron_schedule"),
+	}
+
+	log.Info().Str("gameserver_id", id).Str("task_name", task.Name).Str("type", string(task.Type)).Str("cron", task.CronSchedule).Msg("Creating scheduled task")
+
+	if err := h.service.CreateScheduledTask(task); err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("task_name", task.Name).Msg("Failed to create scheduled task")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", fmt.Sprintf("/%s/tasks", id))
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) EditGameserverTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	taskID := chi.URLParam(r, "taskId")
+
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+
+	task, err := h.service.GetScheduledTask(taskID)
+	if err != nil {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Gameserver": gameserver,
+		"Task":       task,
+	}
+
+	Render(w, r, h.tmpl, "edit-task.html", data)
+}
+
+func (h *Handlers) UpdateGameserverTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	taskID := chi.URLParam(r, "taskId")
+	r.ParseForm()
+
+	task, err := h.service.GetScheduledTask(taskID)
+	if err != nil {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	task.Name = r.FormValue("name")
+	task.Type = TaskType(r.FormValue("type"))
+	task.Status = TaskStatus(r.FormValue("status"))
+	task.CronSchedule = r.FormValue("cron_schedule")
+
+	log.Info().Str("task_id", taskID).Str("task_name", task.Name).Msg("Updating scheduled task")
+
+	if err := h.service.UpdateScheduledTask(task); err != nil {
+		log.Error().Err(err).Str("task_id", taskID).Msg("Failed to update scheduled task")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", fmt.Sprintf("/%s/tasks", id))
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) DeleteGameserverTask(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "taskId")
+
+	if err := h.service.DeleteScheduledTask(taskID); err != nil {
+		log.Error().Err(err).Str("task_id", taskID).Msg("Failed to delete scheduled task")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.ParseForm()
+	
+	backupPath := r.FormValue("backup_path")
+	if backupPath == "" {
+		http.Error(w, "Backup path required", http.StatusBadRequest)
+		return
+	}
+
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+
+	log.Info().Str("gameserver_id", id).Str("backup_path", backupPath).Msg("Restoring backup")
+
+	if err := h.service.RestoreGameserverBackup(gameserver.ID, backupPath); err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("backup_path", backupPath).Msg("Failed to restore backup")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", fmt.Sprintf("/%s", id))
+	w.WriteHeader(http.StatusOK)
 }
 
 func generateID() string {

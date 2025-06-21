@@ -52,6 +52,14 @@ func main() {
 	gameServerService := NewGameserverService(db, docker)
 	log.Info().Msg("Gameserver service initialized")
 
+	// Initialize and start task scheduler
+	taskScheduler := NewTaskScheduler(db, gameServerService)
+	taskScheduler.Start()
+	log.Info().Msg("Task scheduler started")
+
+	// Ensure scheduler is stopped when application exits
+	defer taskScheduler.Stop()
+
 	// Parse html templates
 	tmpl, err := template.ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
@@ -107,6 +115,13 @@ func main() {
 	r.Delete("/{id}", handlers.DestroyGameserver)
 	r.Get("/{id}/logs", handlers.GameserverLogs)
 	r.Get("/{id}/stats", handlers.GameserverStats)
+	r.Get("/{id}/tasks", handlers.ListGameserverTasks)
+	r.Get("/{id}/tasks/new", handlers.NewGameserverTask)
+	r.Post("/{id}/tasks", handlers.CreateGameserverTask)
+	r.Get("/{id}/tasks/{taskId}/edit", handlers.EditGameserverTask)
+	r.Put("/{id}/tasks/{taskId}", handlers.UpdateGameserverTask)
+	r.Delete("/{id}/tasks/{taskId}", handlers.DeleteGameserverTask)
+	r.Post("/{id}/restore", handlers.RestoreGameserverBackup)
 
 	// Start Chi HTTP server
 	log.Info().Str("port", "3000").Msg("Starting HTTP server")

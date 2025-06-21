@@ -105,6 +105,33 @@ func (m *MockDockerManager) RemoveVolume(volumeName string) error {
 	return nil
 }
 
+func (m *MockDockerManager) GetVolumeInfo(volumeName string) (*VolumeInfo, error) {
+	if m.shouldFail["get_volume_info"] {
+		return nil, &DockerError{Op: "get_volume_info", Msg: "mock get volume info error"}
+	}
+	return &VolumeInfo{
+		Name:       volumeName,
+		MountPoint: "/var/lib/docker/volumes/" + volumeName + "/_data",
+		Driver:     "local",
+		CreatedAt:  "2025-06-21T04:00:00Z",
+		Labels:     map[string]string{"gameserver.managed": "true"},
+	}, nil
+}
+
+func (m *MockDockerManager) CreateBackup(gameserverID, backupPath string) error {
+	if m.shouldFail["create_backup"] {
+		return &DockerError{Op: "create_backup", Msg: "mock create backup error"}
+	}
+	return nil
+}
+
+func (m *MockDockerManager) RestoreBackup(gameserverID, backupPath string) error {
+	if m.shouldFail["restore_backup"] {
+		return &DockerError{Op: "restore_backup", Msg: "mock restore backup error"}
+	}
+	return nil
+}
+
 // =============================================================================
 // Container Creation Tests
 // =============================================================================
@@ -285,5 +312,124 @@ func TestDockerError(t *testing.T) {
 		}
 	} else {
 		t.Errorf("expected DockerError type")
+	}
+}
+
+// =============================================================================
+// Volume Management Tests
+// =============================================================================
+
+func TestGetVolumeInfo(t *testing.T) {
+	mock := NewMockDockerManager()
+	
+	volumeName := "gameservers-test-data"
+	
+	volumeInfo, err := mock.GetVolumeInfo(volumeName)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	
+	if volumeInfo.Name != volumeName {
+		t.Errorf("expected volume name %s, got %s", volumeName, volumeInfo.Name)
+	}
+	
+	if volumeInfo.Driver != "local" {
+		t.Errorf("expected driver 'local', got %s", volumeInfo.Driver)
+	}
+}
+
+func TestGetVolumeInfoError(t *testing.T) {
+	mock := NewMockDockerManager()
+	mock.shouldFail["get_volume_info"] = true
+	
+	volumeName := "gameservers-test-data"
+	
+	_, err := mock.GetVolumeInfo(volumeName)
+	if err == nil {
+		t.Errorf("expected error but got none")
+	}
+}
+
+// =============================================================================
+// Backup and Restore Tests
+// =============================================================================
+
+func TestCreateBackup(t *testing.T) {
+	tests := []struct {
+		name         string
+		gameserverID string
+		backupPath   string
+		shouldErr    bool
+	}{
+		{
+			name:         "successful backup",
+			gameserverID: "test-server",
+			backupPath:   "/backups/test-server_2025-06-21.tar.gz",
+			shouldErr:    false,
+		},
+		{
+			name:         "backup failure",
+			gameserverID: "failing-server",
+			backupPath:   "/backups/failing-server.tar.gz",
+			shouldErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := NewMockDockerManager()
+			if tt.shouldErr {
+				mock.shouldFail["create_backup"] = true
+			}
+
+			err := mock.CreateBackup(tt.gameserverID, tt.backupPath)
+
+			if tt.shouldErr && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.shouldErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestRestoreBackup(t *testing.T) {
+	tests := []struct {
+		name         string
+		gameserverID string
+		backupPath   string
+		shouldErr    bool
+	}{
+		{
+			name:         "successful restore",
+			gameserverID: "test-server",
+			backupPath:   "/backups/test-server_2025-06-21.tar.gz",
+			shouldErr:    false,
+		},
+		{
+			name:         "restore failure",
+			gameserverID: "failing-server",
+			backupPath:   "/backups/failing-server.tar.gz",
+			shouldErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := NewMockDockerManager()
+			if tt.shouldErr {
+				mock.shouldFail["restore_backup"] = true
+			}
+
+			err := mock.RestoreBackup(tt.gameserverID, tt.backupPath)
+
+			if tt.shouldErr && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.shouldErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }

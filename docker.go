@@ -411,3 +411,142 @@ func (d *DockerManager) GetVolumeInfo(volumeName string) (*VolumeInfo, error) {
 		Labels:     vol.Labels,
 	}, nil
 }
+
+// =============================================================================
+// Backup and Restore Operations
+// =============================================================================
+
+func (d *DockerManager) CreateBackup(gameserverID, backupPath string) error {
+	ctx := context.Background()
+	
+	// Get the volume name for the gameserver
+	// Assume gameserverID maps to server name for volume naming
+	volumeName := fmt.Sprintf("gameservers-%s-data", gameserverID)
+	
+	log.Info().Str("volume", volumeName).Str("backup_path", backupPath).Msg("Creating backup")
+	
+	// Create a temporary container to access the volume
+	config := &container.Config{
+		Image: "alpine:latest", // Use lightweight alpine for backup operations
+		Cmd:   []string{"tar", "-czf", "/backup.tar.gz", "-C", "/data", "."},
+		WorkingDir: "/",
+	}
+	
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			fmt.Sprintf("%s:/data", volumeName),
+			fmt.Sprintf("%s:/backup.tar.gz", backupPath),
+		},
+		AutoRemove: true,
+	}
+	
+	// Create container
+	resp, err := d.client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return &DockerError{
+			Op:  "create_backup_container",
+			Msg: fmt.Sprintf("failed to create backup container for %s", gameserverID),
+			Err: err,
+		}
+	}
+	
+	// Start container and wait for completion
+	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return &DockerError{
+			Op:  "start_backup_container",
+			Msg: fmt.Sprintf("failed to start backup container for %s", gameserverID),
+			Err: err,
+		}
+	}
+	
+	// Wait for container to finish
+	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return &DockerError{
+				Op:  "wait_backup_container",
+				Msg: fmt.Sprintf("failed to wait for backup container for %s", gameserverID),
+				Err: err,
+			}
+		}
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return &DockerError{
+				Op:  "backup_container_failed",
+				Msg: fmt.Sprintf("backup container exited with status %d for %s", status.StatusCode, gameserverID),
+				Err: nil,
+			}
+		}
+	}
+	
+	log.Info().Str("gameserver_id", gameserverID).Str("backup_path", backupPath).Msg("Backup created successfully")
+	return nil
+}
+
+func (d *DockerManager) RestoreBackup(gameserverID, backupPath string) error {
+	ctx := context.Background()
+	
+	// Get the volume name for the gameserver
+	volumeName := fmt.Sprintf("gameservers-%s-data", gameserverID)
+	
+	log.Info().Str("volume", volumeName).Str("backup_path", backupPath).Msg("Restoring backup")
+	
+	// Create a temporary container to restore the volume
+	config := &container.Config{
+		Image: "alpine:latest",
+		Cmd:   []string{"sh", "-c", "cd /data && tar -xzf /backup.tar.gz"},
+		WorkingDir: "/",
+	}
+	
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			fmt.Sprintf("%s:/data", volumeName),
+			fmt.Sprintf("%s:/backup.tar.gz", backupPath),
+		},
+		AutoRemove: true,
+	}
+	
+	// Create container
+	resp, err := d.client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return &DockerError{
+			Op:  "create_restore_container",
+			Msg: fmt.Sprintf("failed to create restore container for %s", gameserverID),
+			Err: err,
+		}
+	}
+	
+	// Start container and wait for completion
+	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return &DockerError{
+			Op:  "start_restore_container",
+			Msg: fmt.Sprintf("failed to start restore container for %s", gameserverID),
+			Err: err,
+		}
+	}
+	
+	// Wait for container to finish
+	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return &DockerError{
+				Op:  "wait_restore_container",
+				Msg: fmt.Sprintf("failed to wait for restore container for %s", gameserverID),
+				Err: err,
+			}
+		}
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return &DockerError{
+				Op:  "restore_container_failed",
+				Msg: fmt.Sprintf("restore container exited with status %d for %s", status.StatusCode, gameserverID),
+				Err: nil,
+			}
+		}
+	}
+	
+	log.Info().Str("gameserver_id", gameserverID).Str("backup_path", backupPath).Msg("Backup restored successfully")
+	return nil
+}
