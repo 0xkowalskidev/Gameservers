@@ -119,14 +119,14 @@ func (m *MockDockerManager) GetVolumeInfo(volumeName string) (*VolumeInfo, error
 	}, nil
 }
 
-func (m *MockDockerManager) CreateBackup(gameserverID, backupPath string) error {
+func (m *MockDockerManager) CreateBackup(containerID, gameserverName string) error {
 	if m.shouldFail["create_backup"] {
 		return &DockerError{Op: "create_backup", Msg: "mock create backup error"}
 	}
 	return nil
 }
 
-func (m *MockDockerManager) RestoreBackup(gameserverID, backupPath string) error {
+func (m *MockDockerManager) RestoreBackup(containerID, backupFilename string) error {
 	if m.shouldFail["restore_backup"] {
 		return &DockerError{Op: "restore_backup", Msg: "mock restore backup error"}
 	}
@@ -432,22 +432,22 @@ func TestGetVolumeInfoError(t *testing.T) {
 
 func TestCreateBackup(t *testing.T) {
 	tests := []struct {
-		name         string
-		gameserverID string
-		backupPath   string
-		shouldErr    bool
+		name           string
+		containerID    string
+		gameserverName string
+		shouldErr      bool
 	}{
 		{
-			name:         "successful backup",
-			gameserverID: "test-server",
-			backupPath:   "/backups/test-server_2025-06-21.tar.gz",
-			shouldErr:    false,
+			name:           "successful backup",
+			containerID:    "container-123",
+			gameserverName: "test-server",
+			shouldErr:      false,
 		},
 		{
-			name:         "backup failure",
-			gameserverID: "failing-server",
-			backupPath:   "/backups/failing-server.tar.gz",
-			shouldErr:    true,
+			name:           "backup failure",
+			containerID:    "failing-container",
+			gameserverName: "failing-server",
+			shouldErr:      true,
 		},
 	}
 
@@ -458,7 +458,7 @@ func TestCreateBackup(t *testing.T) {
 				mock.shouldFail["create_backup"] = true
 			}
 
-			err := mock.CreateBackup(tt.gameserverID, tt.backupPath)
+			err := mock.CreateBackup(tt.containerID, tt.gameserverName)
 
 			if tt.shouldErr && err == nil {
 				t.Errorf("expected error but got none")
@@ -472,22 +472,22 @@ func TestCreateBackup(t *testing.T) {
 
 func TestRestoreBackup(t *testing.T) {
 	tests := []struct {
-		name         string
-		gameserverID string
-		backupPath   string
-		shouldErr    bool
+		name            string
+		containerID     string
+		backupFilename  string
+		shouldErr       bool
 	}{
 		{
-			name:         "successful restore",
-			gameserverID: "test-server",
-			backupPath:   "/backups/test-server_2025-06-21.tar.gz",
-			shouldErr:    false,
+			name:           "successful restore",
+			containerID:    "container-123",
+			backupFilename: "test-server_2025-06-21.tar.gz",
+			shouldErr:      false,
 		},
 		{
-			name:         "restore failure",
-			gameserverID: "failing-server",
-			backupPath:   "/backups/failing-server.tar.gz",
-			shouldErr:    true,
+			name:           "restore failure",
+			containerID:    "failing-container",
+			backupFilename: "failing-backup.tar.gz",
+			shouldErr:      true,
 		},
 	}
 
@@ -498,7 +498,7 @@ func TestRestoreBackup(t *testing.T) {
 				mock.shouldFail["restore_backup"] = true
 			}
 
-			err := mock.RestoreBackup(tt.gameserverID, tt.backupPath)
+			err := mock.RestoreBackup(tt.containerID, tt.backupFilename)
 
 			if tt.shouldErr && err == nil {
 				t.Errorf("expected error but got none")

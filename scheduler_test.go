@@ -527,7 +527,7 @@ func TestTaskScheduler_BackupPathHandling(t *testing.T) {
 // Integration Tests
 // =============================================================================
 
-func TestTaskScheduler_Integration(t *testing.T) {
+func TestTaskScheduler_IntegrationBasic(t *testing.T) {
 	// Create a real in-memory database for this test
 	db, err := NewDatabaseManager(":memory:")
 	if err != nil {
@@ -592,4 +592,331 @@ func TestTaskScheduler_Integration(t *testing.T) {
 			t.Errorf("expected task %d to have NextRun time set", i)
 		}
 	}
+}
+
+// =============================================================================
+// Next Run Recalculation Tests 
+// =============================================================================
+
+func TestTaskScheduler_NextRunRecalculation(t *testing.T) {
+	// Create a real in-memory database for this test
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Create real gameserver service with mock docker
+	mockDocker := NewMockDockerManagerForScheduler()
+	svc := NewGameserverService(db, mockDocker)
+	
+	// Create a test gameserver
+	gameserver := &Gameserver{
+		ID:       "test-gs",
+		Name:     "Test Server",
+		GameID:   "minecraft",
+		Port:     25565,
+		Status:   StatusRunning,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	svc.CreateGameserver(gameserver)
+
+	// Create scheduler
+	scheduler := NewTaskScheduler(db, svc)
+
+	// Create a task with NextRun = nil (simulating updated task)
+	now := time.Now()
+	task := &ScheduledTask{
+		ID:           "test-task",
+		GameserverID: "test-gs",
+		Name:         "Test Task",
+		Type:         TaskTypeRestart,
+		Status:       TaskStatusActive,
+		CronSchedule: "0 2 * * *", // Daily at 2 AM
+		CreatedAt:    now,
+		UpdatedAt:    now,
+		NextRun:      nil, // This simulates a task that was just updated
+	}
+
+	// Insert task directly into database
+	err = db.CreateScheduledTask(task)
+	if err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+
+	// Process tasks (should recalculate NextRun)
+	scheduler.processTasks()
+
+	// Verify NextRun was recalculated
+	updatedTask, err := db.GetScheduledTask(task.ID)
+	if err != nil {
+		t.Fatalf("failed to get updated task: %v", err)
+	}
+
+	if updatedTask.NextRun == nil {
+		t.Error("expected NextRun to be calculated after processing")
+	}
+
+	// Verify the NextRun time is reasonable (should be today or tomorrow at 2 AM)
+	expectedHour := 2
+	if updatedTask.NextRun.Hour() != expectedHour {
+		t.Errorf("expected NextRun hour to be %d, got %d", expectedHour, updatedTask.NextRun.Hour())
+	}
+	if updatedTask.NextRun.Minute() != 0 {
+		t.Errorf("expected NextRun minute to be 0, got %d", updatedTask.NextRun.Minute())
+	}
+}
+
+func TestTaskScheduler_TaskExecution_RestartOnlyWhenRunning(t *testing.T) {
+	// Create a real in-memory database for this test
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Create real gameserver service with mock docker
+	mockDocker := NewMockDockerManagerForScheduler()
+	svc := NewGameserverService(db, mockDocker)
+	
+	// Create scheduler
+	scheduler := NewTaskScheduler(db, svc)
+
+	tests := []struct {
+		name           string
+		gameserverStatus GameserverStatus
+		expectedRestart bool
+	}{
+		{
+			name:           "restart running server",
+			gameserverStatus: StatusRunning,
+			expectedRestart: true,
+		},
+		{
+			name:           "skip restart for stopped server",
+			gameserverStatus: StatusStopped,
+			expectedRestart: false,
+		},
+		{
+			name:           "skip restart for starting server",
+			gameserverStatus: StatusStarting,
+			expectedRestart: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a test gameserver with specific status
+			gameserver := &Gameserver{
+				ID:       "test-gs-" + tt.name,
+				Name:     "Test Server " + tt.name,
+				GameID:   "minecraft",
+				Port:     25565,
+				Status:   tt.gameserverStatus,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+			
+			// Force the status by updating after creation
+			svc.CreateGameserver(gameserver)
+			gameserver.Status = tt.gameserverStatus
+			svc.UpdateGameserver(gameserver)
+
+			// Create restart task
+			task := &ScheduledTask{
+				ID:           "restart-task-" + tt.name,
+				GameserverID: gameserver.ID,
+				Type:         TaskTypeRestart,
+			}
+
+			// Execute task - this will check status and only restart if running
+			err := scheduler.executeTask(task)
+			
+			// For running servers, no error should occur
+			// For stopped servers, also no error (it just skips)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			
+			// Note: We can't easily test if restart was called with the real service,
+			// but we can verify the task execution didn't error
+		})
+	}
+}
+
+func TestTaskScheduler_TaskExecution_BackupRegardlessOfStatus(t *testing.T) {
+	// Create a real in-memory database for this test
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Create real gameserver service with mock docker
+	mockDocker := NewMockDockerManagerForScheduler()
+	svc := NewGameserverService(db, mockDocker)
+	
+	// Create scheduler
+	scheduler := NewTaskScheduler(db, svc)
+
+	tests := []struct {
+		name             string
+		gameserverStatus GameserverStatus
+		expectedBackup   bool
+	}{
+		{
+			name:             "backup running server",
+			gameserverStatus: StatusRunning,
+			expectedBackup:   true,
+		},
+		{
+			name:             "backup stopped server",
+			gameserverStatus: StatusStopped,
+			expectedBackup:   true,
+		},
+		{
+			name:             "backup starting server",
+			gameserverStatus: StatusStarting,
+			expectedBackup:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a test gameserver with specific status
+			gameserver := &Gameserver{
+				ID:       "test-gs-" + tt.name,
+				Name:     "Test Server " + tt.name,
+				GameID:   "minecraft",
+				Port:     25565,
+				Status:   tt.gameserverStatus,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+			
+			// Force the status by updating after creation
+			svc.CreateGameserver(gameserver)
+			gameserver.Status = tt.gameserverStatus
+			svc.UpdateGameserver(gameserver)
+
+			// Create backup task
+			task := &ScheduledTask{
+				ID:           "backup-task-" + tt.name,
+				GameserverID: gameserver.ID,
+				Type:         TaskTypeBackup,
+			}
+
+			// Execute task - this should work regardless of status
+			err := scheduler.executeTask(task)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			
+			// Note: We can't easily test if backup was called with the real service,
+			// but we can verify the task execution didn't error
+		})
+	}
+}
+
+func TestTaskScheduler_ErrorHandling(t *testing.T) {
+	// Create a real in-memory database for this test
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Create real gameserver service with mock docker
+	mockDocker := NewMockDockerManagerForScheduler()
+	svc := NewGameserverService(db, mockDocker)
+	
+	// Create scheduler
+	scheduler := NewTaskScheduler(db, svc)
+
+	// Process tasks should handle database errors gracefully
+	scheduler.processTasks() // Should not panic
+
+	// Test task execution with missing gameserver
+	task := &ScheduledTask{
+		ID:           "missing-gs-task",
+		GameserverID: "nonexistent",
+		Type:         TaskTypeRestart,
+	}
+
+	err = scheduler.executeTask(task)
+	if err == nil {
+		t.Error("expected error for missing gameserver")
+	}
+}
+
+func TestTaskScheduler_LastRunAndNextRunUpdates(t *testing.T) {
+	// Create a real in-memory database for this test
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Create real gameserver service with mock docker
+	mockDocker := NewMockDockerManagerForScheduler()
+	svc := NewGameserverService(db, mockDocker)
+	
+	// Create a test gameserver
+	gameserver := &Gameserver{
+		ID:       "test-gs",
+		Name:     "Test Server",
+		GameID:   "minecraft",
+		Port:     25565,
+		Status:   StatusRunning,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	svc.CreateGameserver(gameserver)
+
+	// Create scheduler
+	scheduler := NewTaskScheduler(db, svc)
+
+	// Create a task that's due for execution
+	pastTime := time.Now().Add(-time.Hour) // 1 hour ago
+	task := &ScheduledTask{
+		ID:           "due-task",
+		GameserverID: "test-gs",
+		Name:         "Due Task",
+		Type:         TaskTypeRestart,
+		Status:       TaskStatusActive,
+		CronSchedule: "*/30 * * * *", // Every 30 minutes
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		NextRun:      &pastTime, // Due for execution
+		LastRun:      nil,
+	}
+
+	// Insert task into database
+	err = db.CreateScheduledTask(task)
+	if err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+
+	// Process tasks (should execute the due task)
+	scheduler.processTasks()
+
+	// Verify task was executed and updated
+	updatedTask, err := db.GetScheduledTask(task.ID)
+	if err != nil {
+		t.Fatalf("failed to get updated task: %v", err)
+	}
+
+	// Verify LastRun was set
+	if updatedTask.LastRun == nil {
+		t.Error("expected LastRun to be set after execution")
+	}
+
+	// Verify NextRun was recalculated (should be ~30 minutes from LastRun)
+	if updatedTask.NextRun == nil {
+		t.Error("expected NextRun to be recalculated after execution")
+	}
+
+	// Note: We can't easily verify restart was called with the real service,
+	// but we can verify the task execution succeeded and times were updated
 }

@@ -210,3 +210,171 @@ func TestDatabaseManager_ScheduledTaskCascadeDelete(t *testing.T) {
 		t.Error("Expected task to be cascade deleted")
 	}
 }
+
+// =============================================================================
+// GameserverService Tests for New Features
+// =============================================================================
+
+func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Mock docker manager
+	mockDocker := NewMockDockerManager()
+
+	svc := NewGameserverService(db, mockDocker)
+
+	// Create gameserver first
+	gameserver := &Gameserver{
+		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
+		Port: 25565, Status: StatusStopped,
+	}
+
+	err = svc.CreateGameserver(gameserver)
+	if err != nil {
+		t.Fatalf("Failed to create gameserver: %v", err)
+	}
+
+	// Test creating a scheduled task with next run calculation
+	task := &ScheduledTask{
+		GameserverID: gameserver.ID,
+		Name:         "Test Task",
+		Type:         TaskTypeRestart,
+		Status:       TaskStatusActive,
+		CronSchedule: "0 2 * * *", // Daily at 2 AM
+	}
+
+	err = svc.CreateScheduledTask(task)
+	if err != nil {
+		t.Fatalf("Failed to create scheduled task: %v", err)
+	}
+
+	// Verify task was created with NextRun calculated
+	if task.NextRun == nil {
+		t.Error("Expected NextRun to be calculated during task creation")
+	}
+
+	// Test updating task (should clear NextRun)
+	task.Name = "Updated Task"
+	task.CronSchedule = "0 3 * * *" // 3 AM instead
+	err = svc.UpdateScheduledTask(task)
+	if err != nil {
+		t.Fatalf("Failed to update scheduled task: %v", err)
+	}
+
+	// Verify NextRun was cleared
+	if task.NextRun != nil {
+		t.Error("Expected NextRun to be cleared after update")
+	}
+
+	// Retrieve task and verify it's cleared in database too
+	retrieved, err := svc.GetScheduledTask(task.ID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve updated task: %v", err)
+	}
+	if retrieved.NextRun != nil {
+		t.Error("Expected NextRun to be nil in database after update")
+	}
+}
+
+func TestGameserverService_BackupOperations(t *testing.T) {
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Mock docker manager
+	mockDocker := NewMockDockerManager()
+
+	svc := NewGameserverService(db, mockDocker)
+
+	// Create gameserver
+	gameserver := &Gameserver{
+		ID: "backup-test-gs", Name: "Backup Test Server", GameID: "minecraft", 
+		Port: 25565, Status: StatusStopped, MaxBackups: 5,
+	}
+
+	err = svc.CreateGameserver(gameserver)
+	if err != nil {
+		t.Fatalf("Failed to create gameserver: %v", err)
+	}
+
+	// Test backup creation
+	err = svc.CreateGameserverBackup(gameserver.ID)
+	if err != nil {
+		t.Errorf("Failed to create backup: %v", err)
+	}
+
+	// Test backup restoration
+	err = svc.RestoreGameserverBackup(gameserver.ID, "test-backup.tar.gz")
+	if err != nil {
+		t.Errorf("Failed to restore backup: %v", err)
+	}
+
+	// Test backup creation failure
+	mockDocker.shouldFail["create_backup"] = true
+	err = svc.CreateGameserverBackup(gameserver.ID)
+	if err == nil {
+		t.Error("Expected backup creation to fail")
+	}
+
+	// Test backup restoration failure
+	mockDocker.shouldFail["restore_backup"] = true
+	err = svc.RestoreGameserverBackup(gameserver.ID, "test-backup.tar.gz")
+	if err == nil {
+		t.Error("Expected backup restoration to fail")
+	}
+}
+
+func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Mock docker manager
+	mockDocker := NewMockDockerManager()
+
+	svc := NewGameserverService(db, mockDocker)
+
+	// Create gameserver
+	gameserver := &Gameserver{
+		ID: "auto-backup-test", Name: "Auto Backup Test", GameID: "minecraft", 
+		Port: 25565, Status: StatusStopped,
+	}
+
+	err = svc.CreateGameserver(gameserver)
+	if err != nil {
+		t.Fatalf("Failed to create gameserver: %v", err)
+	}
+
+	// Verify automatic daily backup task was created
+	tasks, err := svc.ListScheduledTasksForGameserver(gameserver.ID)
+	if err != nil {
+		t.Fatalf("Failed to list tasks: %v", err)
+	}
+
+	if len(tasks) != 1 {
+		t.Errorf("Expected 1 automatic backup task, got %d", len(tasks))
+	}
+
+	backupTask := tasks[0]
+	if backupTask.Type != TaskTypeBackup {
+		t.Errorf("Expected backup task type, got %s", backupTask.Type)
+	}
+	if backupTask.CronSchedule != "0 2 * * *" {
+		t.Errorf("Expected daily 2 AM schedule, got %s", backupTask.CronSchedule)
+	}
+	if backupTask.Name != "Daily Backup" {
+		t.Errorf("Expected 'Daily Backup' name, got %s", backupTask.Name)
+	}
+	if backupTask.Status != TaskStatusActive {
+		t.Errorf("Expected active status, got %s", backupTask.Status)
+	}
+}
+
