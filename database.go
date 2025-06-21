@@ -550,6 +550,8 @@ func (gss *GameserverService) GetScheduledTask(id string) (*ScheduledTask, error
 
 func (gss *GameserverService) UpdateScheduledTask(task *ScheduledTask) error {
 	task.UpdatedAt = time.Now()
+	// Clear next run time so scheduler will recalculate it
+	task.NextRun = nil
 	return gss.db.UpdateScheduledTask(task)
 }
 
@@ -809,4 +811,5 @@ func (dm *DatabaseManager) scanScheduledTask(row ScheduledTaskScanner) (*Schedul
 	
 	return &task, nil
 }
+
 

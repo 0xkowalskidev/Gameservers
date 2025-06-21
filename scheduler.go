@@ -85,7 +85,18 @@ func (ts *TaskScheduler) processTasks() {
 	}
 
 	for _, task := range tasks {
-		if task.NextRun != nil && now.After(*task.NextRun) {
+		// Recalculate next run time if it's nil (e.g., after task update)
+		if task.NextRun == nil {
+			log.Info().Str("task_id", task.ID).Str("task_name", task.Name).Msg("Recalculating next run time for updated task")
+			task.NextRun = ts.calculateNextRun(task.CronSchedule, now)
+			task.UpdatedAt = now
+			if err := ts.db.UpdateScheduledTask(task); err != nil {
+				log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to update task next run time")
+			}
+			continue
+		}
+		
+		if now.After(*task.NextRun) {
 			log.Info().Str("task_id", task.ID).Str("task_name", task.Name).Str("type", string(task.Type)).Msg("Executing scheduled task")
 			
 			if err := ts.executeTask(task); err != nil {
