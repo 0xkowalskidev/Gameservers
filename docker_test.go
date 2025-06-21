@@ -13,7 +13,6 @@ import (
 type MockDockerManager struct {
 	containers map[string]*Gameserver
 	logs       map[string][]string
-	stats      map[string]*ContainerStats
 	shouldFail map[string]bool
 }
 
@@ -21,7 +20,6 @@ func NewMockDockerManager() *MockDockerManager {
 	return &MockDockerManager{
 		containers: make(map[string]*Gameserver),
 		logs:       make(map[string][]string),
-		stats:      make(map[string]*ContainerStats),
 		shouldFail: make(map[string]bool),
 	}
 }
@@ -87,41 +85,19 @@ func (m *MockDockerManager) GetContainerStatus(containerID string) (GameserverSt
 	return StatusError, &DockerError{Op: "status", Msg: "container not found"}
 }
 
-func (m *MockDockerManager) GetContainerStats(containerID string) (*ContainerStats, error) {
-	if m.shouldFail["stats"] {
-		return nil, &DockerError{Op: "stats", Msg: "mock stats error"}
-	}
-	if stats, exists := m.stats[containerID]; exists {
-		return stats, nil
-	}
-	return &ContainerStats{
-		CPUPercent:    25.5,
-		MemoryUsage:   1024 * 1024 * 512, // 512MB
-		MemoryLimit:   1024 * 1024 * 1024, // 1GB
-		MemoryPercent: 50.0,
-		NetworkRx:     1024 * 100,
-		NetworkTx:     1024 * 200,
-	}, nil
-}
-
-func (m *MockDockerManager) GetContainerLogs(containerID string, lines int) ([]string, error) {
-	if m.shouldFail["logs"] {
-		return nil, &DockerError{Op: "logs", Msg: "mock logs error"}
-	}
-	if logs, exists := m.logs[containerID]; exists {
-		if lines > len(logs) {
-			return logs, nil
-		}
-		return logs[len(logs)-lines:], nil
-	}
-	return []string{"Mock log line 1", "Mock log line 2"}, nil
-}
 
 func (m *MockDockerManager) StreamContainerLogs(containerID string) (io.ReadCloser, error) {
 	if m.shouldFail["stream_logs"] {
 		return nil, &DockerError{Op: "stream_logs", Msg: "mock stream logs error"}
 	}
 	return io.NopCloser(strings.NewReader("Mock log stream")), nil
+}
+
+func (m *MockDockerManager) StreamContainerStats(containerID string) (io.ReadCloser, error) {
+	if m.shouldFail["stream_stats"] {
+		return nil, &DockerError{Op: "stream_stats", Msg: "mock stream stats error"}
+	}
+	return io.NopCloser(strings.NewReader(`{"cpu_stats":{"cpu_usage":{"total_usage":100},"system_cpu_usage":200},"precpu_stats":{"cpu_usage":{"total_usage":50},"system_cpu_usage":100},"memory_stats":{"usage":536870912,"limit":1073741824}}`)), nil
 }
 
 func (m *MockDockerManager) ListContainers() ([]string, error) {
@@ -307,57 +283,6 @@ func TestRestartContainer(t *testing.T) {
 // Container Monitoring Tests (Stats/Logs/Status)
 // =============================================================================
 
-func TestGetContainerStats(t *testing.T) {
-	mock := NewMockDockerManager()
-	server := &Gameserver{
-		ID:       "test-1",
-		Name:     "Test Server",
-		GameType: "minecraft",
-		Image:    "minecraft:latest",
-		Port:     25565,
-	}
-
-	mock.CreateContainer(server)
-
-	stats, err := mock.GetContainerStats(server.ContainerID)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	if stats == nil {
-		t.Errorf("expected stats to not be nil")
-	}
-
-	if stats.CPUPercent <= 0 {
-		t.Errorf("expected CPUPercent to be positive, got %f", stats.CPUPercent)
-	}
-
-	if stats.MemoryUsage <= 0 {
-		t.Errorf("expected MemoryUsage to be positive, got %d", stats.MemoryUsage)
-	}
-}
-
-func TestGetContainerLogs(t *testing.T) {
-	mock := NewMockDockerManager()
-	server := &Gameserver{
-		ID:       "test-1",
-		Name:     "Test Server",
-		GameType: "minecraft",
-		Image:    "minecraft:latest",
-		Port:     25565,
-	}
-
-	mock.CreateContainer(server)
-
-	logs, err := mock.GetContainerLogs(server.ContainerID, 10)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	if len(logs) == 0 {
-		t.Errorf("expected logs to not be empty")
-	}
-}
 
 // =============================================================================
 // Container Management Tests (List/Remove)

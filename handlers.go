@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
@@ -22,9 +24,8 @@ type GameserverServiceInterface interface {
 	StopGameserver(id string) error
 	RestartGameserver(id string) error
 	DeleteGameserver(id string) error
-	GetGameserverLogs(id string, lines int) ([]string, error)
-	GetGameserverStats(id string) (*ContainerStats, error)
 	StreamGameserverLogs(id string) (io.ReadCloser, error)
+	StreamGameserverStats(id string) (io.ReadCloser, error)
 	ListGames() ([]*Game, error)
 	GetGame(id string) (*Game, error)
 	CreateGame(game *Game) error
@@ -100,13 +101,13 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) StartGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	log.Info().Str("gameserver_id", id).Msg("Starting gameserver")
-	
+
 	if err := h.service.StartGameserver(id); err != nil {
 		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to start gameserver")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	h.GameserverRow(w, r)
 }
 
@@ -187,7 +188,78 @@ func (h *Handlers) GameserverLogs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handlers) GameserverStats(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	stats, err := h.service.StreamGameserverStats(id)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to stream stats")
+		fmt.Fprintf(w, "event: error\ndata: Failed to stream stats: %v\n\n", err)
+		flusher.Flush()
+		return
+	}
+	defer stats.Close()
+
+	scanner := bufio.NewScanner(stats)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.TrimSpace(line) != "" {
+			var v container.StatsResponse
+			if err := json.Unmarshal([]byte(line), &v); err != nil {
+				continue
+			}
+
+			// Calculate CPU percentage
+			cpuDelta := float64(v.CPUStats.CPUUsage.TotalUsage - v.PreCPUStats.CPUUsage.TotalUsage)
+			systemDelta := float64(v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage)
+			cpuPercent := 0.0
+
+			if systemDelta > 0.0 && cpuDelta > 0.0 {
+				onlineCPUs := float64(len(v.CPUStats.CPUUsage.PercpuUsage))
+				if onlineCPUs == 0 {
+					onlineCPUs = float64(v.CPUStats.OnlineCPUs)
+					if onlineCPUs == 0 {
+						onlineCPUs = 1
+					}
+				}
+				cpuPercent = (cpuDelta / systemDelta) * onlineCPUs * 100.0
+			}
+
+			// Memory stats
+			memUsage := v.MemoryStats.Usage
+			if cache, ok := v.MemoryStats.Stats["cache"]; ok {
+				memUsage -= cache
+			}
+			memLimit := v.MemoryStats.Limit
+
+			memUsageGB := float64(memUsage) / (1024 * 1024 * 1024)
+			memLimitGB := float64(memLimit) / (1024 * 1024 * 1024)
+
+			data := fmt.Sprintf(`{"cpu":%.2f,"memoryUsageGB":%.2f,"memoryLimitGB":%.2f}`,
+				cpuPercent, memUsageGB, memLimitGB)
+			fmt.Fprintf(w, "event: stats\ndata: %s\n\n", data)
+			flusher.Flush()
+		}
+
+		select {
+		case <-r.Context().Done():
+			return
+		default:
+		}
+	}
+}
+
 func generateID() string {
 	return strconv.FormatInt(time.Now().UnixNano(), 36)
 }
-

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -232,63 +231,6 @@ func (d *DockerManager) GetContainerStatus(containerID string) (GameserverStatus
 	}
 }
 
-func (d *DockerManager) GetContainerStats(containerID string) (*ContainerStats, error) {
-	// TODO: Implement proper stats collection
-	// For now, return mock stats to satisfy the interface
-	return &ContainerStats{
-		CPUPercent:    25.5,
-		MemoryUsage:   1024 * 1024 * 512, // 512MB
-		MemoryLimit:   1024 * 1024 * 1024, // 1GB
-		MemoryPercent: 50.0,
-		NetworkRx:     1024 * 100,
-		NetworkTx:     1024 * 200,
-	}, nil
-}
-
-func (d *DockerManager) GetContainerLogs(containerID string, lines int) ([]string, error) {
-	ctx := context.Background()
-
-	options := container.LogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-		Tail:       strconv.Itoa(lines),
-	}
-
-	logs, err := d.client.ContainerLogs(ctx, containerID, options)
-	if err != nil {
-		return nil, &DockerError{
-			Op: "logs",
-			Msg:   fmt.Sprintf("failed to get logs for container %s", containerID),
-			Err:       err,
-		}
-	}
-	defer logs.Close()
-
-	// Read logs
-	logData, err := io.ReadAll(logs)
-	if err != nil {
-		return nil, &DockerError{
-			Op: "logs",
-			Msg:   "failed to read logs response",
-			Err:       err,
-		}
-	}
-
-	// Split logs into lines and clean them
-	logLines := strings.Split(string(logData), "\n")
-	var cleanLines []string
-	for _, line := range logLines {
-		// Docker logs include headers, we need to strip them
-		if len(line) > 8 {
-			cleanLine := line[8:] // Remove Docker log header
-			if strings.TrimSpace(cleanLine) != "" {
-				cleanLines = append(cleanLines, cleanLine)
-			}
-		}
-	}
-
-	return cleanLines, nil
-}
 
 func (d *DockerManager) StreamContainerLogs(containerID string) (io.ReadCloser, error) {
 	ctx := context.Background()
@@ -311,6 +253,21 @@ func (d *DockerManager) StreamContainerLogs(containerID string) (io.ReadCloser, 
 	}
 
 	return logs, nil
+}
+
+func (d *DockerManager) StreamContainerStats(containerID string) (io.ReadCloser, error) {
+	ctx := context.Background()
+
+	stats, err := d.client.ContainerStats(ctx, containerID, true)
+	if err != nil {
+		return nil, &DockerError{
+			Op:  "stream_stats",
+			Msg: fmt.Sprintf("failed to stream stats for container %s", containerID),
+			Err: err,
+		}
+	}
+
+	return stats.Body, nil
 }
 
 func (d *DockerManager) ListContainers() ([]string, error) {

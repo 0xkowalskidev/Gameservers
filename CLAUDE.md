@@ -27,10 +27,10 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 ## Features
 
 ### Phase 1: Core Functionality
-- [ ] Docker container management (start/stop/restart)
-- [ ] Real-time console output via WebSockets
-- [ ] Resource monitoring via SSE (CPU, RAM, disk)
-- [ ] Gameserver CRUD
+- [x] Docker container management (start/stop/restart)
+- [x] Real-time console output (via SSE log streaming)
+- [x] Resource monitoring via SSE (CPU, RAM)
+- [ ] Gameserver CRUD (missing Update/Edit functionality)
 
 ### Phase 2: Enhanced Features
 - [ ] Advanced file manager with editor

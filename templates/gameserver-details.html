@@ -14,6 +14,31 @@
         <div class="flex justify-between"><dt class="font-medium">Image:</dt><dd class="truncate">{{.Gameserver.Image}}</dd></div>
         <div class="flex justify-between"><dt class="font-medium">Container:</dt><dd class="font-mono text-xs truncate">{{.Gameserver.ContainerID}}</dd></div>
       </dl>
+      {{if eq .Gameserver.Status "running"}}
+      <div class="mt-4 pt-4 border-t">
+        <h4 class="text-sm font-semibold mb-2">Resource Usage</h4>
+        <div class="space-y-2">
+          <div>
+            <div class="flex justify-between text-sm">
+              <span>CPU</span>
+              <span id="cpu-percent">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div id="cpu-bar" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm">
+              <span>Memory</span>
+              <span id="mem-usage">0.0 / 0.0 GB</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div id="mem-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {{end}}
     </div>
     
     <div class="bg-white shadow rounded-lg p-6">
@@ -66,4 +91,26 @@ eventSource.addEventListener('error', function(e) {
   errorLine.className = 'text-red-400';
   logs.appendChild(errorLine);
 });
+
+{{if eq .Gameserver.Status "running"}}
+// Stats monitoring
+const statsSource = new EventSource('/{{.Gameserver.ID}}/stats');
+
+statsSource.addEventListener('stats', function(e) {
+  const stats = JSON.parse(e.data);
+  
+  // Update CPU
+  document.getElementById('cpu-percent').textContent = stats.cpu.toFixed(1) + '%';
+  document.getElementById('cpu-bar').style.width = Math.min(stats.cpu, 100) + '%';
+  
+  // Update Memory
+  const memPercent = stats.memoryLimitGB > 0 ? (stats.memoryUsageGB / stats.memoryLimitGB) * 100 : 0;
+  document.getElementById('mem-usage').textContent = stats.memoryUsageGB.toFixed(1) + ' / ' + stats.memoryLimitGB.toFixed(1) + ' GB';
+  document.getElementById('mem-bar').style.width = Math.min(memPercent, 100) + '%';
+});
+
+statsSource.addEventListener('error', function(e) {
+  console.error('Stats error:', e);
+});
+{{end}}
 </script>

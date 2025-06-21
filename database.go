@@ -371,27 +371,6 @@ func (gss *GameserverService) ListGameservers() ([]*Gameserver, error) {
 	return servers, nil
 }
 
-func (gss *GameserverService) GetGameserverLogs(id string, lines int) ([]string, error) {
-	server, err := gss.db.GetGameserver(id)
-	if err != nil {
-		return nil, err
-	}
-	if server.ContainerID == "" {
-		return []string{}, nil
-	}
-	return gss.docker.GetContainerLogs(server.ContainerID, lines)
-}
-
-func (gss *GameserverService) GetGameserverStats(id string) (*ContainerStats, error) {
-	server, err := gss.db.GetGameserver(id)
-	if err != nil {
-		return nil, err
-	}
-	if server.ContainerID == "" {
-		return nil, &DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
-	}
-	return gss.docker.GetContainerStats(server.ContainerID)
-}
 
 func (gss *GameserverService) StreamGameserverLogs(id string) (io.ReadCloser, error) {
 	server, err := gss.db.GetGameserver(id)
@@ -402,6 +381,17 @@ func (gss *GameserverService) StreamGameserverLogs(id string) (io.ReadCloser, er
 		return nil, &DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
 	}
 	return gss.docker.StreamContainerLogs(server.ContainerID)
+}
+
+func (gss *GameserverService) StreamGameserverStats(id string) (io.ReadCloser, error) {
+	server, err := gss.db.GetGameserver(id)
+	if err != nil {
+		return nil, err
+	}
+	if server.ContainerID == "" {
+		return nil, &DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
+	}
+	return gss.docker.StreamContainerStats(server.ContainerID)
 }
 
 func (gss *GameserverService) ListGames() ([]*Game, error) {

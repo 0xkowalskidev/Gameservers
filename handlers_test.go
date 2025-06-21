@@ -33,14 +33,11 @@ func (m *mockGameserverService) DeleteGameserver(id string) error        { retur
 func (m *mockGameserverService) ListGames() ([]*Game, error)             { return m.games, nil }
 func (m *mockGameserverService) GetGame(id string) (*Game, error)        { return nil, nil }
 func (m *mockGameserverService) CreateGame(game *Game) error             { return nil }
-func (m *mockGameserverService) GetGameserverLogs(id string, lines int) ([]string, error) {
-	return []string{"log1", "log2"}, nil
-}
-func (m *mockGameserverService) GetGameserverStats(id string) (*ContainerStats, error) {
-	return &ContainerStats{}, nil
-}
 func (m *mockGameserverService) StreamGameserverLogs(id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("log stream")), nil
+}
+func (m *mockGameserverService) StreamGameserverStats(id string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader(`{"cpu_stats":{"cpu_usage":{"total_usage":100},"system_cpu_usage":200},"precpu_stats":{"cpu_usage":{"total_usage":50},"system_cpu_usage":100},"memory_stats":{"usage":536870912,"limit":1073741824}}`)), nil
 }
 
 func TestHandlers_IndexGameservers(t *testing.T) {

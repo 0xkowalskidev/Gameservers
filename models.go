@@ -41,14 +41,6 @@ type Gameserver struct {
 	Image       string            `json:"image"`     // From Game.Image
 }
 
-type ContainerStats struct {
-	CPUPercent    float64 `json:"cpu_percent"`
-	MemoryUsage   uint64  `json:"memory_usage"`
-	MemoryLimit   uint64  `json:"memory_limit"`
-	MemoryPercent float64 `json:"memory_percent"`
-	NetworkRx     uint64  `json:"network_rx"`
-	NetworkTx     uint64  `json:"network_tx"`
-}
 
 type DockerManagerInterface interface {
 	CreateContainer(server *Gameserver) error
@@ -57,8 +49,7 @@ type DockerManagerInterface interface {
 	RestartContainer(containerID string) error
 	RemoveContainer(containerID string) error
 	GetContainerStatus(containerID string) (GameserverStatus, error)
-	GetContainerStats(containerID string) (*ContainerStats, error)
-	GetContainerLogs(containerID string, lines int) ([]string, error)
 	StreamContainerLogs(containerID string) (io.ReadCloser, error)
+	StreamContainerStats(containerID string) (io.ReadCloser, error)
 	ListContainers() ([]string, error)
 }
