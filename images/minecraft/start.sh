@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Change to server directory
+cd /data/server
+
 # Create EULA file based on environment variable
 echo "eula=${EULA}" > eula.txt
 
