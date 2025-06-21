@@ -36,7 +36,7 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 - [x] Advanced file manager with editor
 - [x] Backup/restore functionality
 - [x] Schedule tasks (restarts, backups)
-- [ ] RCON console integration
+- [x] Console integration (unified command interface)
 
 ### Phase 3: Future File Manager Enhancements
 - [ ] File upload functionality (drag & drop support)

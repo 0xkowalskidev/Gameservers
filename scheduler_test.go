@@ -270,6 +270,13 @@ func (m *MockDockerManagerForScheduler) RenameFile(containerID string, oldPath s
 	return nil
 }
 
+func (m *MockDockerManagerForScheduler) SendCommand(containerID string, command string) error {
+	if m.shouldFail["send_command"] {
+		return &DockerError{Op: "send_command", Msg: "mock send command error"}
+	}
+	return nil
+}
+
 func (m *MockDockerManagerForScheduler) ExecCommand(containerID string, cmd []string) ([]byte, error) {
 	if m.shouldFail["exec_command"] {
 		return nil, &DockerError{Op: "exec_command", Msg: "mock exec command error"}

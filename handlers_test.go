@@ -30,6 +30,7 @@ func (m *mockGameserverService) ListGameservers() ([]*Gameserver, error) { retur
 func (m *mockGameserverService) StartGameserver(id string) error         { return nil }
 func (m *mockGameserverService) StopGameserver(id string) error          { return nil }
 func (m *mockGameserverService) RestartGameserver(id string) error       { return nil }
+func (m *mockGameserverService) SendGameserverCommand(id string, command string) error { return nil }
 func (m *mockGameserverService) DeleteGameserver(id string) error        { return nil }
 func (m *mockGameserverService) ListGames() ([]*Game, error)             { return m.games, nil }
 func (m *mockGameserverService) GetGame(id string) (*Game, error)        { return nil, nil }

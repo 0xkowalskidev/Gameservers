@@ -27,6 +27,7 @@ type GameserverServiceInterface interface {
 	StopGameserver(id string) error
 	RestartGameserver(id string) error
 	DeleteGameserver(id string) error
+	SendGameserverCommand(id string, command string) error
 	StreamGameserverLogs(id string) (io.ReadCloser, error)
 	StreamGameserverStats(id string) (io.ReadCloser, error)
 	ListGames() ([]*Game, error)
@@ -251,6 +252,27 @@ func (h *Handlers) RestartGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.GameserverRow(w, r)
+}
+
+func (h *Handlers) SendGameserverCommand(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.ParseForm()
+	command := r.FormValue("command")
+	
+	if command == "" {
+		http.Error(w, "Command is required", http.StatusBadRequest)
+		return
+	}
+	
+	log.Info().Str("gameserver_id", id).Str("command", command).Msg("Sending console command")
+	
+	if err := h.service.SendGameserverCommand(id, command); err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("command", command).Msg("Failed to send console command")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handlers) DestroyGameserver(w http.ResponseWriter, r *http.Request) {

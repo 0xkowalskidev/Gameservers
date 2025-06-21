@@ -116,6 +116,7 @@ func main() {
 	r.Post("/{id}/start", handlers.StartGameserver)
 	r.Post("/{id}/stop", handlers.StopGameserver)
 	r.Post("/{id}/restart", handlers.RestartGameserver)
+	r.Post("/{id}/console", handlers.SendGameserverCommand)
 	r.Delete("/{id}", handlers.DestroyGameserver)
 	r.Get("/{id}/logs", handlers.GameserverLogs)
 	r.Get("/{id}/stats", handlers.GameserverStats)

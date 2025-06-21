@@ -439,6 +439,31 @@ func (gss *GameserverService) RestartGameserver(id string) error {
 	return gss.StartGameserver(id)
 }
 
+func (gss *GameserverService) SendGameserverCommand(id string, command string) error {
+	server, err := gss.db.GetGameserver(id)
+	if err != nil {
+		return err
+	}
+	
+	if server.ContainerID == "" {
+		return &DatabaseError{
+			Op:  "send_command",
+			Msg: "gameserver has no container",
+			Err: nil,
+		}
+	}
+	
+	if server.Status != StatusRunning {
+		return &DatabaseError{
+			Op:  "send_command", 
+			Msg: "gameserver is not running",
+			Err: nil,
+		}
+	}
+	
+	return gss.docker.SendCommand(server.ContainerID, command)
+}
+
 func (gss *GameserverService) DeleteGameserver(id string) error {
 	server, err := gss.db.GetGameserver(id)
 	if err != nil {

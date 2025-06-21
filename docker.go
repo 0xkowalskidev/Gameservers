@@ -524,6 +524,22 @@ type FileInfo struct {
 	Group    string    `json:"group"`
 }
 
+func (d *DockerManager) SendCommand(containerID string, command string) error {
+	// Execute the send-command.sh script with the given command
+	cmd := []string{"/data/scripts/send-command.sh", command}
+	
+	_, err := d.ExecCommand(containerID, cmd)
+	if err != nil {
+		return &DockerError{
+			Op:  "send_command",
+			Msg: fmt.Sprintf("failed to send command to container %s", containerID),
+			Err: err,
+		}
+	}
+	
+	return nil
+}
+
 func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, error) {
 	ctx := context.Background()
 	

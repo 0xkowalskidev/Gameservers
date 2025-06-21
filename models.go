@@ -88,6 +88,7 @@ type DockerManagerInterface interface {
 	CreateContainer(server *Gameserver) error
 	StartContainer(containerID string) error
 	RemoveContainer(containerID string) error
+	SendCommand(containerID string, command string) error
 	GetContainerStatus(containerID string) (GameserverStatus, error)
 	StreamContainerLogs(containerID string) (io.ReadCloser, error)
 	StreamContainerStats(containerID string) (io.ReadCloser, error)
