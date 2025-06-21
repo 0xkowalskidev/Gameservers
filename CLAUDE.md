@@ -39,10 +39,8 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 - [ ] Console with Log viewer with SSE streaming + RCON/other with sending command when possible
 
 ## Current TODOs
-- [ ] Implement SQLite database layer with GameServer CRUD operations
-- [ ] Create database schema and migration for GameServer table
-- [ ] Integrate database with Docker manager for persistent gameserver storage
-- [ ] Add HTTP handlers for gameserver CRUD operations
+- [ ] Docker image pull policy - Currently Docker only pulls if image doesn't exist locally, even if remote image is updated. Need to decide on pull strategy (Always, IfNotPresent, Never, or user-configurable)
+- [ ] Gameserver update/edit functionality (only remaining Phase 1 CRUD operation)
 
 ## File Structure
 ```
