@@ -70,10 +70,19 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 	// Convert port to nat.Port
 	exposedPort := nat.Port(fmt.Sprintf("%d/tcp", server.Port))
 	
+	// Prepare environment variables with automatic resource settings
+	env := make([]string, len(server.Environment))
+	copy(env, server.Environment)
+	
+	// Automatically set MEMORY_MB for images that need it
+	if server.MemoryMB > 0 {
+		env = append(env, fmt.Sprintf("MEMORY_MB=%d", server.MemoryMB))
+	}
+	
 	// Container configuration
 	config := &container.Config{
 		Image: server.Image,
-		Env:   server.Environment,
+		Env:   env,
 		ExposedPorts: nat.PortSet{
 			exposedPort: struct{}{},
 		},
@@ -84,7 +93,7 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 		},
 	}
 
-	// Host configuration
+	// Host configuration with resource constraints
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
 			exposedPort: []nat.PortBinding{
@@ -97,6 +106,17 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 		RestartPolicy: container.RestartPolicy{
 			Name: "unless-stopped",
 		},
+	}
+	
+	// Apply memory constraint (always required)
+	hostConfig.Memory = int64(server.MemoryMB) * 1024 * 1024 // Convert MB to bytes
+	
+	// Apply CPU constraint (optional - 0 means unlimited)
+	if server.CPUCores > 0 {
+		// Convert CPU cores to Docker's quota/period system
+		// 1 core = 100000 quota with 100000 period
+		hostConfig.CPUQuota = int64(server.CPUCores * 100000)
+		hostConfig.CPUPeriod = 100000
 	}
 
 	// Add volumes if specified

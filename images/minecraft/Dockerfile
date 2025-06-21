@@ -9,11 +9,6 @@ RUN wget -O server.jar https://piston-data.mojang.com/v1/objects/4707d00eb834b44
 COPY start.sh start.sh
 RUN chmod +x start.sh
 
-# Environment variables
-ENV EULA=false
-ENV MAX_MEMORY=2048M
-ENV MIN_MEMORY=1024M
-
 EXPOSE 25565
 
 CMD ["./start.sh"]

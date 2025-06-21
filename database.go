@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -68,6 +69,7 @@ func (dm *DatabaseManager) migrate() error {
 	CREATE TABLE IF NOT EXISTS gameservers (
 		id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, game_id TEXT NOT NULL,
 		container_id TEXT, status TEXT NOT NULL DEFAULT 'stopped', port INTEGER NOT NULL,
+		memory_mb INTEGER NOT NULL DEFAULT 1024, cpu_cores REAL NOT NULL DEFAULT 0,
 		environment TEXT, volumes TEXT, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
 		FOREIGN KEY (game_id) REFERENCES games(id)
 	);
@@ -78,6 +80,21 @@ func (dm *DatabaseManager) migrate() error {
 	if err != nil {
 		return &DatabaseError{Op: "db", Msg: "failed to create schema", Err: err}
 	}
+
+	// Add new columns if they don't exist (for existing databases)
+	alterQueries := []string{
+		`ALTER TABLE gameservers ADD COLUMN memory_mb INTEGER DEFAULT 1024`,
+		`ALTER TABLE gameservers ADD COLUMN cpu_cores REAL DEFAULT 0`,
+	}
+	
+	for _, query := range alterQueries {
+		_, err := dm.db.Exec(query)
+		// Ignore errors for columns that already exist
+		if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+			log.Warn().Err(err).Str("query", query).Msg("Failed to add column, may already exist")
+		}
+	}
+	
 	return nil
 }
 
@@ -162,8 +179,8 @@ func (dm *DatabaseManager) CreateGameserver(server *Gameserver) error {
 	envJSON, _ := json.Marshal(server.Environment)
 	volumesJSON, _ := json.Marshal(server.Volumes)
 
-	_, err := dm.db.Exec(`INSERT INTO gameservers (id, name, game_id, container_id, status, port, environment, volumes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		server.ID, server.Name, server.GameID, server.ContainerID, server.Status, server.Port, string(envJSON), string(volumesJSON), server.CreatedAt, server.UpdatedAt)
+	_, err := dm.db.Exec(`INSERT INTO gameservers (id, name, game_id, container_id, status, port, memory_mb, cpu_cores, environment, volumes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		server.ID, server.Name, server.GameID, server.ContainerID, server.Status, server.Port, server.MemoryMB, server.CPUCores, string(envJSON), string(volumesJSON), server.CreatedAt, server.UpdatedAt)
 
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create gameserver in database")
@@ -186,7 +203,7 @@ func (dm *DatabaseManager) scanGameserver(row interface{ Scan(...interface{}) er
 	var server Gameserver
 	var envJSON, volumesJSON string
 
-	err := row.Scan(&server.ID, &server.Name, &server.GameID, &server.ContainerID, &server.Status, &server.Port, &envJSON, &volumesJSON, &server.CreatedAt, &server.UpdatedAt)
+	err := row.Scan(&server.ID, &server.Name, &server.GameID, &server.ContainerID, &server.Status, &server.Port, &server.MemoryMB, &server.CPUCores, &envJSON, &volumesJSON, &server.CreatedAt, &server.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +214,7 @@ func (dm *DatabaseManager) scanGameserver(row interface{ Scan(...interface{}) er
 }
 
 func (dm *DatabaseManager) GetGameserver(id string) (*Gameserver, error) {
-	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, environment, volumes, created_at, updated_at FROM gameservers WHERE id = ?`, id)
+	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, environment, volumes, created_at, updated_at FROM gameservers WHERE id = ?`, id)
 	server, err := dm.scanGameserver(row)
 	if err == sql.ErrNoRows {
 		return nil, &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", id), Err: nil}
@@ -213,8 +230,8 @@ func (dm *DatabaseManager) UpdateGameserver(server *Gameserver) error {
 	volumesJSON, _ := json.Marshal(server.Volumes)
 	server.UpdatedAt = time.Now()
 
-	result, err := dm.db.Exec(`UPDATE gameservers SET name = ?, game_id = ?, container_id = ?, status = ?, port = ?, environment = ?, volumes = ?, updated_at = ? WHERE id = ?`,
-		server.Name, server.GameID, server.ContainerID, server.Status, server.Port, string(envJSON), string(volumesJSON), server.UpdatedAt, server.ID)
+	result, err := dm.db.Exec(`UPDATE gameservers SET name = ?, game_id = ?, container_id = ?, status = ?, port = ?, memory_mb = ?, cpu_cores = ?, environment = ?, volumes = ?, updated_at = ? WHERE id = ?`,
+		server.Name, server.GameID, server.ContainerID, server.Status, server.Port, server.MemoryMB, server.CPUCores, string(envJSON), string(volumesJSON), server.UpdatedAt, server.ID)
 
 	if err != nil {
 		return &DatabaseError{Op: fmt.Sprintf("failed to update gameserver %s", server.ID),Err: err}
@@ -238,7 +255,7 @@ func (dm *DatabaseManager) DeleteGameserver(id string) error {
 }
 
 func (dm *DatabaseManager) ListGameservers() ([]*Gameserver, error) {
-	rows, err := dm.db.Query(`SELECT id, name, game_id, container_id, status, port, environment, volumes, created_at, updated_at FROM gameservers ORDER BY created_at DESC`)
+	rows, err := dm.db.Query(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, environment, volumes, created_at, updated_at FROM gameservers ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, &DatabaseError{Op: "db", Msg: "failed to query gameservers", Err: err}
 	}
@@ -256,7 +273,7 @@ func (dm *DatabaseManager) ListGameservers() ([]*Gameserver, error) {
 }
 
 func (dm *DatabaseManager) GetGameserverByContainerID(containerID string) (*Gameserver, error) {
-	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, environment, volumes, created_at, updated_at FROM gameservers WHERE container_id = ?`, containerID)
+	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, environment, volumes, created_at, updated_at FROM gameservers WHERE container_id = ?`, containerID)
 	server, err := dm.scanGameserver(row)
 	if err == sql.ErrNoRows {
 		return nil, &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver with container %s not found", containerID), Err: nil}
@@ -302,6 +319,7 @@ func (gss *GameserverService) populateGameFields(server *Gameserver) error {
 	}
 	server.GameType = game.Name
 	server.Image = game.Image
+	server.MemoryGB = float64(server.MemoryMB) / 1024.0
 	return nil
 }
 

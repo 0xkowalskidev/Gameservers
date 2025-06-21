@@ -11,6 +11,8 @@
         <div class="flex justify-between"><dt class="font-medium">Status:</dt><dd class="{{if eq .Gameserver.Status "running"}}text-green-600{{else if eq .Gameserver.Status "stopped"}}text-red-600{{else}}text-yellow-600{{end}} font-medium">{{.Gameserver.Status}}</dd></div>
         <div class="flex justify-between"><dt class="font-medium">Game Type:</dt><dd>{{.Gameserver.GameType}}</dd></div>
         <div class="flex justify-between"><dt class="font-medium">Port:</dt><dd>{{.Gameserver.Port}}</dd></div>
+        <div class="flex justify-between"><dt class="font-medium">Memory Limit:</dt><dd>{{.Gameserver.MemoryGB}} GB</dd></div>
+        {{if gt .Gameserver.CPUCores 0.0}}<div class="flex justify-between"><dt class="font-medium">CPU Limit:</dt><dd>{{.Gameserver.CPUCores}} cores</dd></div>{{else}}<div class="flex justify-between"><dt class="font-medium">CPU Limit:</dt><dd>Unlimited</dd></div>{{end}}
         <div class="flex justify-between"><dt class="font-medium">Image:</dt><dd class="truncate">{{.Gameserver.Image}}</dd></div>
         <div class="flex justify-between"><dt class="font-medium">Container:</dt><dd class="font-mono text-xs truncate">{{.Gameserver.ContainerID}}</dd></div>
       </dl>

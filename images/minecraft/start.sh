@@ -4,4 +4,4 @@
 echo "eula=${EULA}" > eula.txt
 
 # Start server with configurable memory
-exec java -Xmx${MAX_MEMORY} -Xms${MIN_MEMORY} -jar server.jar nogui
+exec java -Xmx${MEMORY_MB}M -Xms${MEMORY_MB}M -jar server.jar nogui

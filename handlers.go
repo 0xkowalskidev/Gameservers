@@ -73,6 +73,19 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	port, _ := strconv.Atoi(r.FormValue("port"))
+	memoryGB, _ := strconv.ParseFloat(r.FormValue("memory_gb"), 64)
+	cpuCores, _ := strconv.ParseFloat(r.FormValue("cpu_cores"), 64)
+	
+	// Convert GB to MB for storage
+	memoryMB := int(memoryGB * 1024)
+	
+	// Set default memory if not provided (1GB = 1024MB)
+	if memoryMB <= 0 {
+		memoryMB = 1024
+	}
+	
+	// CPU cores are optional (0 = unlimited)
+	
 	env := strings.Split(r.FormValue("environment"), "\n")
 	if len(env) == 1 && env[0] == "" {
 		env = []string{}
@@ -83,10 +96,12 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 		Name:        r.FormValue("name"),
 		GameID:      r.FormValue("game_id"),
 		Port:        port,
+		MemoryMB:    memoryMB,
+		CPUCores:    cpuCores,
 		Environment: env,
 	}
 
-	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Creating gameserver")
+	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Int("memory_mb", memoryMB).Float64("cpu_cores", cpuCores).Msg("Creating gameserver")
 
 	if err := h.service.CreateGameserver(server); err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create gameserver")

@@ -31,6 +31,8 @@ type Gameserver struct {
 	ContainerID string            `json:"container_id,omitempty"`
 	Status      GameserverStatus  `json:"status"`
 	Port        int               `json:"port"`
+	MemoryMB    int               `json:"memory_mb"`    // Memory limit in MB
+	CPUCores    float64           `json:"cpu_cores"`    // CPU cores (0 = unlimited)
 	Environment []string          `json:"environment,omitempty"`
 	Volumes     []string          `json:"volumes,omitempty"`
 	CreatedAt   time.Time         `json:"created_at"`
@@ -39,6 +41,7 @@ type Gameserver struct {
 	// Derived fields (not stored in DB)
 	GameType    string            `json:"game_type"` // From Game.Name
 	Image       string            `json:"image"`     // From Game.Image
+	MemoryGB    float64           `json:"memory_gb"` // MemoryMB converted to GB for display
 }
 
 
