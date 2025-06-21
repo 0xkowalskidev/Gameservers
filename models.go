@@ -104,4 +104,5 @@ type DockerManagerInterface interface {
 	DeletePath(containerID string, path string) error
 	DownloadFile(containerID string, path string) (io.ReadCloser, error)
 	UploadFile(containerID string, destPath string, reader io.Reader) error
+	RenameFile(containerID string, oldPath string, newPath string) error
 }

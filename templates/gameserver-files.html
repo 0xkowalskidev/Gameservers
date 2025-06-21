@@ -71,6 +71,28 @@
     </div>
 </div>
 
+<!-- Rename file/folder dialog -->
+<div id="rename-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-96">
+        <h3 class="text-lg font-bold mb-4">Rename</h3>
+        <form id="rename-form" hx-post="/{{ .Gameserver.ID }}/files/rename" hx-target="#file-browser">
+            <input type="hidden" name="old_path" id="rename-old-path">
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">New Name</label>
+                <input type="text" name="new_name" id="rename-new-name" required class="w-full border rounded px-3 py-2">
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="hideRenameDialog()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    Cancel
+                </button>
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Rename
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 let currentPath = '{{ .CurrentPath }}';
 let currentFile = null;
@@ -133,8 +155,8 @@ function selectFile(path) {
     fetch(`/{{ .Gameserver.ID }}/files/content?path=${encodeURIComponent(path)}`)
         .then(response => response.json())
         .then(data => {
-            if (data.IsBinary) {
-                showBinaryFile(path);
+            if (!data.Supported) {
+                showUnsupportedFile(path);
             } else {
                 showTextEditor(path, data.Content);
             }
@@ -178,11 +200,11 @@ function showTextEditor(path, content) {
     editor.setSize('100%', '100%');
 }
 
-function showBinaryFile(path) {
+function showUnsupportedFile(path) {
     const filename = path.split('/').pop();
     document.getElementById('file-editor').innerHTML = `
         <div class="p-4 text-center">
-            <p class="text-gray-600 mb-4">Binary file: ${filename}</p>
+            <p class="text-gray-600 mb-4">File type not supported for editing: ${filename}</p>
             <button onclick="downloadFile('${path}')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                 Download File
             </button>
@@ -269,6 +291,16 @@ function showCreateDialog() {
 
 function hideCreateDialog() {
     document.getElementById('create-dialog').classList.add('hidden');
+}
+
+function showRenameDialog(path, currentName) {
+    document.getElementById('rename-old-path').value = path;
+    document.getElementById('rename-new-name').value = currentName;
+    document.getElementById('rename-dialog').classList.remove('hidden');
+}
+
+function hideRenameDialog() {
+    document.getElementById('rename-dialog').classList.add('hidden');
 }
 
 function refreshFiles() {

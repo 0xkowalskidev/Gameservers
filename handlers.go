@@ -45,6 +45,7 @@ type GameserverServiceInterface interface {
 	CreateDirectory(containerID string, path string) error
 	DeletePath(containerID string, path string) error
 	DownloadFile(containerID string, path string) (io.ReadCloser, error)
+	RenameFile(containerID string, oldPath string, newPath string) error
 }
 
 type Handlers struct {
@@ -609,12 +610,27 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 	// Sanitize path
 	path = sanitizePath(path)
 	
+	// Check if file is editable based on extension FIRST
+	isEditable := isEditableFile(path)
+	if !isEditable {
+		// Don't read the file content if it's not editable
+		data := map[string]interface{}{
+			"Path":      path,
+			"Content":   "",
+			"Supported": false,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(data)
+		return
+	}
+	
 	gameserver, err := h.service.GetGameserver(id)
 	if err != nil {
 		http.Error(w, "Gameserver not found", http.StatusNotFound)
 		return
 	}
 	
+	// Only read file content if it's editable
 	content, err := h.service.ReadFile(gameserver.ContainerID, path)
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", id).Str("path", path).Msg("Failed to read file")
@@ -622,13 +638,10 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	
-	// Check if binary file
-	isBinary := isBinaryContent(content)
-	
 	data := map[string]interface{}{
-		"Path":     path,
-		"Content":  string(content),
-		"IsBinary": isBinary,
+		"Path":      path,
+		"Content":   string(content),
+		"Supported": true,
 	}
 	
 	// Return JSON for editor
@@ -785,6 +798,39 @@ func (h *Handlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.ParseForm()
+	
+	oldPath := r.FormValue("old_path")
+	newName := r.FormValue("new_name")
+	
+	if oldPath == "" || newName == "" {
+		http.Error(w, "Old path and new name required", http.StatusBadRequest)
+		return
+	}
+	
+	// Sanitize paths
+	oldPath = sanitizePath(oldPath)
+	newPath := sanitizePath(filepath.Join(filepath.Dir(oldPath), newName))
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	err = h.service.RenameFile(gameserver.ContainerID, oldPath, newPath)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("old_path", oldPath).Str("new_path", newPath).Msg("Failed to rename file")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	// Return updated file listing
+	h.BrowseGameserverFiles(w, r)
+}
+
 // Helper functions
 
 func sanitizePath(path string) string {
@@ -825,40 +871,81 @@ func sanitizePath(path string) string {
 	return path
 }
 
-func isBinaryContent(content []byte) bool {
-	// Simple heuristic: check for null bytes or high proportion of non-printable chars
-	if len(content) == 0 {
-		return false
+func isEditableFile(filename string) bool {
+	// Get file extension
+	ext := strings.ToLower(filepath.Ext(filename))
+	
+	// Whitelist of editable file extensions
+	editableExtensions := map[string]bool{
+		".txt":        true,
+		".json":       true,
+		".xml":        true,
+		".yaml":       true,
+		".yml":        true,
+		".toml":       true,
+		".ini":        true,
+		".conf":       true,
+		".config":     true,
+		".cfg":        true,
+		".properties": true,
+		".log":        true,
+		".md":         true,
+		".js":         true,
+		".ts":         true,
+		".html":       true,
+		".htm":        true,
+		".css":        true,
+		".scss":       true,
+		".less":       true,
+		".sql":        true,
+		".sh":         true,
+		".bash":       true,
+		".bat":        true,
+		".cmd":        true,
+		".ps1":        true,
+		".py":         true,
+		".go":         true,
+		".java":       true,
+		".c":          true,
+		".cpp":        true,
+		".h":          true,
+		".hpp":        true,
+		".cs":         true,
+		".php":        true,
+		".rb":         true,
+		".pl":         true,
+		".r":          true,
+		".lua":        true,
+		".dockerfile": true,
+		".dockerignore": true,
+		".gitignore":  true,
+		".env":        true,
+		".example":    true,
+		"":            true, // Files without extension (like README, LICENSE)
 	}
 	
-	nullCount := 0
-	nonPrintable := 0
-	
-	// Check first 512 bytes
-	checkLen := len(content)
-	if checkLen > 512 {
-		checkLen = 512
-	}
-	
-	for i := 0; i < checkLen; i++ {
-		b := content[i]
-		if b == 0 {
-			nullCount++
+	// Special cases for files without extension that are typically text
+	if ext == "" {
+		baseName := strings.ToLower(filepath.Base(filename))
+		textFiles := map[string]bool{
+			"readme":     true,
+			"license":    true,
+			"changelog":  true,
+			"authors":    true,
+			"contributors": true,
+			"copying":    true,
+			"install":    true,
+			"news":       true,
+			"todo":       true,
+			"makefile":   true,
+			"dockerfile": true,
+			"vagrantfile": true,
 		}
-		if b < 32 && b != '\n' && b != '\r' && b != '\t' {
-			nonPrintable++
+		
+		if textFiles[baseName] {
+			return true
 		}
 	}
 	
-	// If we have null bytes, it's likely binary
-	if nullCount > 0 {
-		return true
-	}
-	
-	// If more than 30% non-printable, consider binary
-	if float64(nonPrintable)/float64(checkLen) > 0.3 {
-		return true
-	}
-	
-	return false
+	return editableExtensions[ext]
 }

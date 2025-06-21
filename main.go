@@ -134,6 +134,7 @@ func main() {
 	r.Get("/{id}/files/download", handlers.DownloadGameserverFile)
 	r.Post("/{id}/files/create", handlers.CreateGameserverFile)
 	r.Delete("/{id}/files/delete", handlers.DeleteGameserverFile)
+	r.Post("/{id}/files/rename", handlers.RenameGameserverFile)
 
 	// Start Chi HTTP server
 	log.Info().Str("port", "3000").Msg("Starting HTTP server")

@@ -573,6 +573,10 @@ func (gss *GameserverService) DownloadFile(containerID string, path string) (io.
 	return gss.docker.DownloadFile(containerID, path)
 }
 
+func (gss *GameserverService) RenameFile(containerID string, oldPath string, newPath string) error {
+	return gss.docker.RenameFile(containerID, oldPath, newPath)
+}
+
 // Simple cron parser for calculating next run times
 func (gss *GameserverService) calculateNextRun(cronSchedule string, from time.Time) *time.Time {
 	parts := strings.Fields(cronSchedule)

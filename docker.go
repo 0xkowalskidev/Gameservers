@@ -728,24 +728,16 @@ func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo,
 		path = "/data"
 	}
 	
-	// Use a simple approach to list files
-	// Try ls -1A (all files except . and .., one per line)
-	cmd := []string{"ls", "-1A", path}
+	// Use simple ls -la command
+	cmd := []string{"ls", "-la", path}
 	
 	output, err := d.ExecCommand(containerID, cmd)
 	if err != nil {
-		// Fallback to basic ls if the above fails
-		cmd = []string{"ls", "-la", path}
-		output, err = d.ExecCommand(containerID, cmd)
-		if err != nil {
-			return nil, err
-		}
-		// Parse ls output (less reliable but more compatible)
-		return sortFiles(parseLsOutput(output, path)), nil
+		return nil, err
 	}
 	
-	// Parse the simple listing and get file info for each
-	return sortFiles(parseSimpleOutput(d, containerID, output, path)), nil
+	// Parse ls output and sort
+	return sortFiles(parseLsOutput(output, path)), nil
 }
 
 func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error) {
@@ -766,7 +758,10 @@ func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error
 		return nil, err
 	}
 	
-	return []byte(output), nil
+	// Clean the output to remove any Docker control characters
+	cleanOutput := cleanDockerOutput(output)
+	
+	return []byte(cleanOutput), nil
 }
 
 func (d *DockerManager) WriteFile(containerID string, path string, content []byte) error {
@@ -892,165 +887,37 @@ func (d *DockerManager) UploadFile(containerID string, destPath string, reader i
 	return nil
 }
 
+func (d *DockerManager) RenameFile(containerID string, oldPath string, newPath string) error {
+	// Ensure both paths are within /data
+	if !strings.HasPrefix(oldPath, "/data") || !strings.HasPrefix(newPath, "/data") {
+		return &DockerError{
+			Op:  "rename_file",
+			Msg: "access denied: paths must be within /data directory",
+			Err: nil,
+		}
+	}
+	
+	// Use mv command to rename/move the file
+	cmd := []string{"mv", oldPath, newPath}
+	_, err := d.ExecCommand(containerID, cmd)
+	return err
+}
+
 // =============================================================================
 // Helper Functions for File Operations
 // =============================================================================
-
-func parseSimpleOutput(d *DockerManager, containerID string, output string, basePath string) []*FileInfo {
-	var files []*FileInfo
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || line == "." || line == ".." {
-			continue
-		}
-		
-		// Clean the filename to handle encoding issues
-		cleanName := cleanFilename(line)
-		if cleanName == "" {
-			continue
-		}
-		
-		// Get file info using stat for each file
-		fullPath := filepath.Join(basePath, cleanName)
-		statCmd := []string{"stat", "-c", "%n|%F|%s|%a|%U|%G|%Y", fullPath}
-		
-		statOutput, err := d.ExecCommand(containerID, statCmd)
-		if err != nil {
-			// If stat fails, create basic file info
-			files = append(files, &FileInfo{
-				Name:     cleanName,
-				Path:     fullPath,
-				IsDir:    false, // Default to file
-				Size:     0,
-				Mode:     "644",
-				Owner:    "unknown",
-				Group:    "unknown",
-				Modified: time.Now(),
-			})
-			continue
-		}
-		
-		// Parse stat output for this file
-		parts := strings.Split(strings.TrimSpace(statOutput), "|")
-		if len(parts) >= 7 {
-			size, _ := strconv.ParseInt(parts[2], 10, 64)
-			mtime, _ := strconv.ParseInt(parts[6], 10, 64)
-			
-			isDir := strings.Contains(parts[1], "directory")
-			
-			files = append(files, &FileInfo{
-				Name:     cleanName,
-				Path:     fullPath,
-				IsDir:    isDir,
-				Size:     size,
-				Mode:     parts[3],
-				Owner:    parts[4],
-				Group:    parts[5],
-				Modified: time.Unix(mtime, 0),
-			})
-		}
-	}
-	
-	return files
-}
-
-func parseFindOutput(output string, basePath string) []*FileInfo {
-	var files []*FileInfo
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		
-		parts := strings.Split(line, "|")
-		if len(parts) < 7 {
-			continue
-		}
-		
-		// Parse file info from find output
-		// Format: name|type|size|mode|owner|group|mtime
-		size, _ := strconv.ParseInt(parts[2], 10, 64)
-		mtimeFloat, _ := strconv.ParseFloat(parts[6], 64)
-		mtime := int64(mtimeFloat)
-		
-		// Find file types: d=directory, f=file, l=link
-		isDir := parts[1] == "d"
-		
-		file := &FileInfo{
-			Name:     parts[0],
-			Path:     filepath.Join(basePath, parts[0]),
-			IsDir:    isDir,
-			Size:     size,
-			Mode:     parts[3],
-			Owner:    parts[4],
-			Group:    parts[5],
-			Modified: time.Unix(mtime, 0),
-		}
-		
-		files = append(files, file)
-	}
-	
-	return files
-}
-
-func parseStatOutput(output string, basePath string) []*FileInfo {
-	var files []*FileInfo
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		
-		parts := strings.Split(line, "|")
-		if len(parts) < 7 {
-			continue
-		}
-		
-		// Parse file info from stat output
-		// Format: name|type|size|mode|owner|group|mtime
-		size, _ := strconv.ParseInt(parts[2], 10, 64)
-		mtime, _ := strconv.ParseInt(parts[6], 10, 64)
-		
-		isDir := strings.Contains(parts[1], "directory")
-		
-		file := &FileInfo{
-			Name:     parts[0],
-			Path:     filepath.Join(basePath, parts[0]),
-			IsDir:    isDir,
-			Size:     size,
-			Mode:     parts[3],
-			Owner:    parts[4],
-			Group:    parts[5],
-			Modified: time.Unix(mtime, 0),
-		}
-		
-		files = append(files, file)
-	}
-	
-	return files
-}
 
 func parseLsOutput(output string, basePath string) []*FileInfo {
 	var files []*FileInfo
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	
-	// Skip the "total" line if present
-	startIdx := 0
-	if len(lines) > 0 && strings.HasPrefix(lines[0], "total") {
-		startIdx = 1
-	}
-	
-	for i := startIdx; i < len(lines); i++ {
-		line := lines[i]
-		if line == "" {
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "total") {
 			continue
 		}
 		
-		// Parse ls -la output (less accurate but more compatible)
+		// Parse ls -la output
 		// Example: drwxr-xr-x 2 root root 4096 Jan 1 12:00 dirname
 		fields := strings.Fields(line)
 		if len(fields) < 9 {
@@ -1064,7 +931,8 @@ func parseLsOutput(output string, basePath string) []*FileInfo {
 		// Get size
 		size, _ := strconv.ParseInt(fields[4], 10, 64)
 		
-		// Get name (last field, but could have spaces)
+		// Get name (everything after the time fields)
+		// Fields: [0]perms [1]links [2]owner [3]group [4]size [5]month [6]day [7]time [8+]name
 		name := strings.Join(fields[8:], " ")
 		
 		// Skip . and .. entries
@@ -1072,9 +940,15 @@ func parseLsOutput(output string, basePath string) []*FileInfo {
 			continue
 		}
 		
+		// Clean the filename
+		cleanName := cleanFilename(name)
+		if cleanName == "" {
+			continue
+		}
+		
 		file := &FileInfo{
-			Name:     name,
-			Path:     filepath.Join(basePath, name),
+			Name:     cleanName,
+			Path:     filepath.Join(basePath, cleanName),
 			IsDir:    isDir,
 			Size:     size,
 			Mode:     perms[1:], // Skip file type indicator
@@ -1163,32 +1037,38 @@ func createTarArchive(filename string, content []byte) (io.Reader, error) {
 }
 
 func cleanFilename(filename string) string {
-	// Remove non-printable characters and handle encoding issues
-	var result strings.Builder
-	for _, r := range filename {
-		// Keep printable ASCII and common Unicode characters
-		if r >= 32 && r <= 126 {
-			// Printable ASCII
-			result.WriteRune(r)
-		} else if r >= 160 && r <= 255 {
-			// Extended ASCII/Latin-1
-			result.WriteRune(r)
-		} else if r > 255 && r < 65536 {
-			// Basic Multilingual Plane Unicode
-			result.WriteRune(r)
-		} else if r == '\t' || r == ' ' {
-			// Allow tabs and spaces
-			result.WriteRune(r)
-		}
-		// Skip other characters (including control characters)
-	}
+	// Simple cleaning - just remove obvious problematic characters
+	cleaned := strings.TrimSpace(filename)
 	
-	cleaned := strings.TrimSpace(result.String())
-	
-	// If the cleaned name is empty or just dots, skip it
+	// Skip empty names and parent directory references
 	if cleaned == "" || cleaned == "." || cleaned == ".." {
 		return ""
 	}
 	
+	// Remove any null bytes or other control characters
+	cleaned = strings.ReplaceAll(cleaned, "\x00", "")
+	cleaned = strings.ReplaceAll(cleaned, "\r", "")
+	cleaned = strings.ReplaceAll(cleaned, "\n", "")
+	
 	return cleaned
+}
+
+func cleanDockerOutput(output string) string {
+	// Docker exec output can contain stream multiplexing headers
+	// These are 8-byte headers: [STREAM_TYPE, 0, 0, 0, SIZE_BYTE1, SIZE_BYTE2, SIZE_BYTE3, SIZE_BYTE4]
+	// followed by the actual data
+	
+	// If the output starts with these control bytes, strip them
+	if len(output) >= 8 {
+		// Check if it looks like a Docker stream header (first byte is 1 or 2 for stdout/stderr)
+		firstByte := output[0]
+		if (firstByte == 1 || firstByte == 2) && output[1] == 0 && output[2] == 0 && output[3] == 0 {
+			// Skip the 8-byte header
+			if len(output) > 8 {
+				return output[8:]
+			}
+		}
+	}
+	
+	return output
 }
