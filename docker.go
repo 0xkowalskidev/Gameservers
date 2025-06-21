@@ -1,6 +1,8 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -629,4 +631,564 @@ func (d *DockerManager) RestoreBackup(gameserverID, backupPath string) error {
 	
 	log.Info().Str("gameserver_id", gameserverID).Str("backup_path", backupPath).Msg("Backup restored successfully")
 	return nil
+}
+
+// =============================================================================
+// File Operations
+// =============================================================================
+
+type FileInfo struct {
+	Name     string    `json:"name"`
+	Path     string    `json:"path"`
+	IsDir    bool      `json:"isDir"`
+	Size     int64     `json:"size"`
+	Mode     string    `json:"mode"`
+	Modified time.Time `json:"modified"`
+	Owner    string    `json:"owner"`
+	Group    string    `json:"group"`
+}
+
+func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, error) {
+	ctx := context.Background()
+	
+	execConfig := container.ExecOptions{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+	
+	// Create exec instance
+	execID, err := d.client.ContainerExecCreate(ctx, containerID, execConfig)
+	if err != nil {
+		return "", &DockerError{
+			Op:  "exec_create",
+			Msg: fmt.Sprintf("failed to create exec for container %s", containerID),
+			Err: err,
+		}
+	}
+	
+	// Attach to the exec instance
+	resp, err := d.client.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
+	if err != nil {
+		return "", &DockerError{
+			Op:  "exec_attach",
+			Msg: fmt.Sprintf("failed to attach to exec for container %s", containerID),
+			Err: err,
+		}
+	}
+	defer resp.Close()
+	
+	// Start the exec instance
+	err = d.client.ContainerExecStart(ctx, execID.ID, container.ExecStartOptions{})
+	if err != nil {
+		return "", &DockerError{
+			Op:  "exec_start",
+			Msg: fmt.Sprintf("failed to start exec for container %s", containerID),
+			Err: err,
+		}
+	}
+	
+	// Read output
+	output, err := io.ReadAll(resp.Reader)
+	if err != nil {
+		return "", &DockerError{
+			Op:  "exec_read",
+			Msg: fmt.Sprintf("failed to read exec output for container %s", containerID),
+			Err: err,
+		}
+	}
+	
+	// Check exec exit code
+	inspectResp, err := d.client.ContainerExecInspect(ctx, execID.ID)
+	if err != nil {
+		return "", &DockerError{
+			Op:  "exec_inspect",
+			Msg: fmt.Sprintf("failed to inspect exec for container %s", containerID),
+			Err: err,
+		}
+	}
+	
+	if inspectResp.ExitCode != 0 {
+		return "", &DockerError{
+			Op:  "exec_failed",
+			Msg: fmt.Sprintf("command failed with exit code %d: %s", inspectResp.ExitCode, string(output)),
+			Err: nil,
+		}
+	}
+	
+	return string(output), nil
+}
+
+func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo, error) {
+	// Ensure path starts with /data
+	if path == "" || path == "/" {
+		path = "/data"
+	}
+	if !strings.HasPrefix(path, "/data") {
+		path = "/data"
+	}
+	
+	// Use a simple approach to list files
+	// Try ls -1A (all files except . and .., one per line)
+	cmd := []string{"ls", "-1A", path}
+	
+	output, err := d.ExecCommand(containerID, cmd)
+	if err != nil {
+		// Fallback to basic ls if the above fails
+		cmd = []string{"ls", "-la", path}
+		output, err = d.ExecCommand(containerID, cmd)
+		if err != nil {
+			return nil, err
+		}
+		// Parse ls output (less reliable but more compatible)
+		return sortFiles(parseLsOutput(output, path)), nil
+	}
+	
+	// Parse the simple listing and get file info for each
+	return sortFiles(parseSimpleOutput(d, containerID, output, path)), nil
+}
+
+func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error) {
+	// Ensure path is within /data
+	if !strings.HasPrefix(path, "/data") {
+		return nil, &DockerError{
+			Op:  "read_file",
+			Msg: "access denied: path must be within /data directory",
+			Err: nil,
+		}
+	}
+	
+	// Use cat to read file contents
+	cmd := []string{"cat", path}
+	
+	output, err := d.ExecCommand(containerID, cmd)
+	if err != nil {
+		return nil, err
+	}
+	
+	return []byte(output), nil
+}
+
+func (d *DockerManager) WriteFile(containerID string, path string, content []byte) error {
+	// Ensure path is within /data
+	if !strings.HasPrefix(path, "/data") {
+		return &DockerError{
+			Op:  "write_file",
+			Msg: "access denied: path must be within /data directory",
+			Err: nil,
+		}
+	}
+	
+	ctx := context.Background()
+	
+	// Create a tar archive with the file
+	tarContent, err := createTarArchive(filepath.Base(path), content)
+	if err != nil {
+		return &DockerError{
+			Op:  "create_tar",
+			Msg: fmt.Sprintf("failed to create tar archive for file %s", path),
+			Err: err,
+		}
+	}
+	
+	// Copy to container
+	err = d.client.CopyToContainer(ctx, containerID, filepath.Dir(path), tarContent, container.CopyToContainerOptions{})
+	if err != nil {
+		return &DockerError{
+			Op:  "copy_to_container",
+			Msg: fmt.Sprintf("failed to copy file to container %s", containerID),
+			Err: err,
+		}
+	}
+	
+	return nil
+}
+
+func (d *DockerManager) CreateDirectory(containerID string, path string) error {
+	// Ensure path is within /data
+	if !strings.HasPrefix(path, "/data") {
+		return &DockerError{
+			Op:  "create_directory",
+			Msg: "access denied: path must be within /data directory",
+			Err: nil,
+		}
+	}
+	
+	cmd := []string{"mkdir", "-p", path}
+	_, err := d.ExecCommand(containerID, cmd)
+	return err
+}
+
+func (d *DockerManager) DeletePath(containerID string, path string) error {
+	// Ensure path is within /data
+	if !strings.HasPrefix(path, "/data") {
+		return &DockerError{
+			Op:  "delete_path",
+			Msg: "access denied: path must be within /data directory",
+			Err: nil,
+		}
+	}
+	
+	// Don't allow deleting /data itself
+	if path == "/data" {
+		return &DockerError{
+			Op:  "delete_path",
+			Msg: "cannot delete /data directory",
+			Err: nil,
+		}
+	}
+	
+	cmd := []string{"rm", "-rf", path}
+	_, err := d.ExecCommand(containerID, cmd)
+	return err
+}
+
+func (d *DockerManager) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
+	// Ensure path is within /data
+	if !strings.HasPrefix(path, "/data") {
+		return nil, &DockerError{
+			Op:  "download_file",
+			Msg: "access denied: path must be within /data directory",
+			Err: nil,
+		}
+	}
+	
+	ctx := context.Background()
+	
+	reader, _, err := d.client.CopyFromContainer(ctx, containerID, path)
+	if err != nil {
+		return nil, &DockerError{
+			Op:  "copy_from_container",
+			Msg: fmt.Sprintf("failed to copy file from container %s", containerID),
+			Err: err,
+		}
+	}
+	
+	return reader, nil
+}
+
+func (d *DockerManager) UploadFile(containerID string, destPath string, reader io.Reader) error {
+	// Ensure path is within /data
+	if !strings.HasPrefix(destPath, "/data") {
+		return &DockerError{
+			Op:  "upload_file",
+			Msg: "access denied: path must be within /data directory",
+			Err: nil,
+		}
+	}
+	
+	ctx := context.Background()
+	
+	// Copy to container
+	err := d.client.CopyToContainer(ctx, containerID, destPath, reader, container.CopyToContainerOptions{})
+	if err != nil {
+		return &DockerError{
+			Op:  "upload_file",
+			Msg: fmt.Sprintf("failed to upload file to container %s", containerID),
+			Err: err,
+		}
+	}
+	
+	return nil
+}
+
+// =============================================================================
+// Helper Functions for File Operations
+// =============================================================================
+
+func parseSimpleOutput(d *DockerManager, containerID string, output string, basePath string) []*FileInfo {
+	var files []*FileInfo
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "." || line == ".." {
+			continue
+		}
+		
+		// Clean the filename to handle encoding issues
+		cleanName := cleanFilename(line)
+		if cleanName == "" {
+			continue
+		}
+		
+		// Get file info using stat for each file
+		fullPath := filepath.Join(basePath, cleanName)
+		statCmd := []string{"stat", "-c", "%n|%F|%s|%a|%U|%G|%Y", fullPath}
+		
+		statOutput, err := d.ExecCommand(containerID, statCmd)
+		if err != nil {
+			// If stat fails, create basic file info
+			files = append(files, &FileInfo{
+				Name:     cleanName,
+				Path:     fullPath,
+				IsDir:    false, // Default to file
+				Size:     0,
+				Mode:     "644",
+				Owner:    "unknown",
+				Group:    "unknown",
+				Modified: time.Now(),
+			})
+			continue
+		}
+		
+		// Parse stat output for this file
+		parts := strings.Split(strings.TrimSpace(statOutput), "|")
+		if len(parts) >= 7 {
+			size, _ := strconv.ParseInt(parts[2], 10, 64)
+			mtime, _ := strconv.ParseInt(parts[6], 10, 64)
+			
+			isDir := strings.Contains(parts[1], "directory")
+			
+			files = append(files, &FileInfo{
+				Name:     cleanName,
+				Path:     fullPath,
+				IsDir:    isDir,
+				Size:     size,
+				Mode:     parts[3],
+				Owner:    parts[4],
+				Group:    parts[5],
+				Modified: time.Unix(mtime, 0),
+			})
+		}
+	}
+	
+	return files
+}
+
+func parseFindOutput(output string, basePath string) []*FileInfo {
+	var files []*FileInfo
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		
+		parts := strings.Split(line, "|")
+		if len(parts) < 7 {
+			continue
+		}
+		
+		// Parse file info from find output
+		// Format: name|type|size|mode|owner|group|mtime
+		size, _ := strconv.ParseInt(parts[2], 10, 64)
+		mtimeFloat, _ := strconv.ParseFloat(parts[6], 64)
+		mtime := int64(mtimeFloat)
+		
+		// Find file types: d=directory, f=file, l=link
+		isDir := parts[1] == "d"
+		
+		file := &FileInfo{
+			Name:     parts[0],
+			Path:     filepath.Join(basePath, parts[0]),
+			IsDir:    isDir,
+			Size:     size,
+			Mode:     parts[3],
+			Owner:    parts[4],
+			Group:    parts[5],
+			Modified: time.Unix(mtime, 0),
+		}
+		
+		files = append(files, file)
+	}
+	
+	return files
+}
+
+func parseStatOutput(output string, basePath string) []*FileInfo {
+	var files []*FileInfo
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		
+		parts := strings.Split(line, "|")
+		if len(parts) < 7 {
+			continue
+		}
+		
+		// Parse file info from stat output
+		// Format: name|type|size|mode|owner|group|mtime
+		size, _ := strconv.ParseInt(parts[2], 10, 64)
+		mtime, _ := strconv.ParseInt(parts[6], 10, 64)
+		
+		isDir := strings.Contains(parts[1], "directory")
+		
+		file := &FileInfo{
+			Name:     parts[0],
+			Path:     filepath.Join(basePath, parts[0]),
+			IsDir:    isDir,
+			Size:     size,
+			Mode:     parts[3],
+			Owner:    parts[4],
+			Group:    parts[5],
+			Modified: time.Unix(mtime, 0),
+		}
+		
+		files = append(files, file)
+	}
+	
+	return files
+}
+
+func parseLsOutput(output string, basePath string) []*FileInfo {
+	var files []*FileInfo
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	
+	// Skip the "total" line if present
+	startIdx := 0
+	if len(lines) > 0 && strings.HasPrefix(lines[0], "total") {
+		startIdx = 1
+	}
+	
+	for i := startIdx; i < len(lines); i++ {
+		line := lines[i]
+		if line == "" {
+			continue
+		}
+		
+		// Parse ls -la output (less accurate but more compatible)
+		// Example: drwxr-xr-x 2 root root 4096 Jan 1 12:00 dirname
+		fields := strings.Fields(line)
+		if len(fields) < 9 {
+			continue
+		}
+		
+		// Get permissions and file type
+		perms := fields[0]
+		isDir := perms[0] == 'd'
+		
+		// Get size
+		size, _ := strconv.ParseInt(fields[4], 10, 64)
+		
+		// Get name (last field, but could have spaces)
+		name := strings.Join(fields[8:], " ")
+		
+		// Skip . and .. entries
+		if name == "." || name == ".." {
+			continue
+		}
+		
+		file := &FileInfo{
+			Name:     name,
+			Path:     filepath.Join(basePath, name),
+			IsDir:    isDir,
+			Size:     size,
+			Mode:     perms[1:], // Skip file type indicator
+			Owner:    fields[2],
+			Group:    fields[3],
+			Modified: time.Now(), // ls doesn't give us full timestamp
+		}
+		
+		files = append(files, file)
+	}
+	
+	return files
+}
+
+func sortFiles(files []*FileInfo) []*FileInfo {
+	if len(files) == 0 {
+		return files
+	}
+	
+	// Separate directories and files
+	var dirs []*FileInfo
+	var regularFiles []*FileInfo
+	
+	for _, file := range files {
+		if file.IsDir {
+			dirs = append(dirs, file)
+		} else {
+			regularFiles = append(regularFiles, file)
+		}
+	}
+	
+	// Sort directories alphabetically by name
+	for i := 0; i < len(dirs); i++ {
+		for j := i + 1; j < len(dirs); j++ {
+			if strings.ToLower(dirs[i].Name) > strings.ToLower(dirs[j].Name) {
+				dirs[i], dirs[j] = dirs[j], dirs[i]
+			}
+		}
+	}
+	
+	// Sort files alphabetically by name
+	for i := 0; i < len(regularFiles); i++ {
+		for j := i + 1; j < len(regularFiles); j++ {
+			if strings.ToLower(regularFiles[i].Name) > strings.ToLower(regularFiles[j].Name) {
+				regularFiles[i], regularFiles[j] = regularFiles[j], regularFiles[i]
+			}
+		}
+	}
+	
+	// Combine: directories first, then files
+	result := make([]*FileInfo, 0, len(files))
+	result = append(result, dirs...)
+	result = append(result, regularFiles...)
+	
+	return result
+}
+
+func createTarArchive(filename string, content []byte) (io.Reader, error) {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	
+	// Create tar header
+	header := &tar.Header{
+		Name: filename,
+		Mode: 0644,
+		Size: int64(len(content)),
+		ModTime: time.Now(),
+	}
+	
+	// Write header
+	if err := tw.WriteHeader(header); err != nil {
+		return nil, err
+	}
+	
+	// Write content
+	if _, err := tw.Write(content); err != nil {
+		return nil, err
+	}
+	
+	// Close tar writer
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	
+	return &buf, nil
+}
+
+func cleanFilename(filename string) string {
+	// Remove non-printable characters and handle encoding issues
+	var result strings.Builder
+	for _, r := range filename {
+		// Keep printable ASCII and common Unicode characters
+		if r >= 32 && r <= 126 {
+			// Printable ASCII
+			result.WriteRune(r)
+		} else if r >= 160 && r <= 255 {
+			// Extended ASCII/Latin-1
+			result.WriteRune(r)
+		} else if r > 255 && r < 65536 {
+			// Basic Multilingual Plane Unicode
+			result.WriteRune(r)
+		} else if r == '\t' || r == ' ' {
+			// Allow tabs and spaces
+			result.WriteRune(r)
+		}
+		// Skip other characters (including control characters)
+	}
+	
+	cleaned := strings.TrimSpace(result.String())
+	
+	// If the cleaned name is empty or just dots, skip it
+	if cleaned == "" || cleaned == "." || cleaned == ".." {
+		return ""
+	}
+	
+	return cleaned
 }

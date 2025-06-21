@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -60,8 +61,10 @@ func main() {
 	// Ensure scheduler is stopped when application exits
 	defer taskScheduler.Stop()
 
-	// Parse html templates
-	tmpl, err := template.ParseFS(templateFiles, "templates/*.html")
+	// Parse html templates with custom functions
+	tmpl, err := template.New("").Funcs(template.FuncMap{
+		"formatFileSize": formatFileSize,
+	}).ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to parse templates")
 	}
@@ -122,6 +125,15 @@ func main() {
 	r.Put("/{id}/tasks/{taskId}", handlers.UpdateGameserverTask)
 	r.Delete("/{id}/tasks/{taskId}", handlers.DeleteGameserverTask)
 	r.Post("/{id}/restore", handlers.RestoreGameserverBackup)
+	
+	// File manager routes
+	r.Get("/{id}/files", handlers.GameserverFiles)
+	r.Get("/{id}/files/browse", handlers.BrowseGameserverFiles)
+	r.Get("/{id}/files/content", handlers.GameserverFileContent)
+	r.Post("/{id}/files/save", handlers.SaveGameserverFile)
+	r.Get("/{id}/files/download", handlers.DownloadGameserverFile)
+	r.Post("/{id}/files/create", handlers.CreateGameserverFile)
+	r.Delete("/{id}/files/delete", handlers.DeleteGameserverFile)
 
 	// Start Chi HTTP server
 	log.Info().Str("port", "3000").Msg("Starting HTTP server")
@@ -154,4 +166,17 @@ func Render(w http.ResponseWriter, r *http.Request, tmpl *template.Template, tem
 			http.Error(w, "Template error", http.StatusInternalServerError)
 		}
 	}
+}
+
+func formatFileSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }

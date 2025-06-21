@@ -96,4 +96,12 @@ type DockerManagerInterface interface {
 	GetVolumeInfo(volumeName string) (*VolumeInfo, error)
 	CreateBackup(gameserverID, backupPath string) error
 	RestoreBackup(gameserverID, backupPath string) error
+	// File operations
+	ListFiles(containerID string, path string) ([]*FileInfo, error)
+	ReadFile(containerID string, path string) ([]byte, error)
+	WriteFile(containerID string, path string, content []byte) error
+	CreateDirectory(containerID string, path string) error
+	DeletePath(containerID string, path string) error
+	DownloadFile(containerID string, path string) (io.ReadCloser, error)
+	UploadFile(containerID string, destPath string, reader io.Reader) error
 }

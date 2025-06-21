@@ -547,6 +547,32 @@ func (gss *GameserverService) RestoreGameserverBackup(gameserverID, backupPath s
 	return gss.docker.RestoreBackup(gameserver.Name, backupPath)
 }
 
+// File operation methods
+
+func (gss *GameserverService) ListFiles(containerID string, path string) ([]*FileInfo, error) {
+	return gss.docker.ListFiles(containerID, path)
+}
+
+func (gss *GameserverService) ReadFile(containerID string, path string) ([]byte, error) {
+	return gss.docker.ReadFile(containerID, path)
+}
+
+func (gss *GameserverService) WriteFile(containerID string, path string, content []byte) error {
+	return gss.docker.WriteFile(containerID, path, content)
+}
+
+func (gss *GameserverService) CreateDirectory(containerID string, path string) error {
+	return gss.docker.CreateDirectory(containerID, path)
+}
+
+func (gss *GameserverService) DeletePath(containerID string, path string) error {
+	return gss.docker.DeletePath(containerID, path)
+}
+
+func (gss *GameserverService) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
+	return gss.docker.DownloadFile(containerID, path)
+}
+
 // Simple cron parser for calculating next run times
 func (gss *GameserverService) calculateNextRun(cronSchedule string, from time.Time) *time.Time {
 	parts := strings.Fields(cronSchedule)

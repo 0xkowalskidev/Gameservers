@@ -1,12 +1,14 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +38,13 @@ type GameserverServiceInterface interface {
 	DeleteScheduledTask(id string) error
 	ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error)
 	RestoreGameserverBackup(gameserverID, backupPath string) error
+	// File operations
+	ListFiles(containerID string, path string) ([]*FileInfo, error)
+	ReadFile(containerID string, path string) ([]byte, error)
+	WriteFile(containerID string, path string, content []byte) error
+	CreateDirectory(containerID string, path string) error
+	DeletePath(containerID string, path string) error
+	DownloadFile(containerID string, path string) (io.ReadCloser, error)
 }
 
 type Handlers struct {
@@ -521,4 +530,335 @@ func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Reques
 
 func generateID() string {
 	return strconv.FormatInt(time.Now().UnixNano(), 36)
+}
+
+// =============================================================================
+// File Manager Handlers
+// =============================================================================
+
+func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	// Get root directory listing - always start at /data
+	files, err := h.service.ListFiles(gameserver.ContainerID, "/data")
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to list files")
+	}
+	
+	data := map[string]interface{}{
+		"Gameserver": gameserver,
+		"Files":      files,
+		"CurrentPath": "/data",
+	}
+	
+	Render(w, r, h.tmpl, "gameserver-files.html", data)
+}
+
+func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	path := r.URL.Query().Get("path")
+	
+	if path == "" {
+		path = "/data"
+	}
+	
+	// Sanitize path
+	path = sanitizePath(path)
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	files, err := h.service.ListFiles(gameserver.ContainerID, path)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("path", path).Msg("Failed to list files")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	data := map[string]interface{}{
+		"Gameserver": gameserver,
+		"Files":      files,
+		"CurrentPath": path,
+	}
+	
+	// Return partial for HTMX
+	err = h.tmpl.ExecuteTemplate(w, "file-browser.html", data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	path := r.URL.Query().Get("path")
+	
+	if path == "" {
+		http.Error(w, "Path required", http.StatusBadRequest)
+		return
+	}
+	
+	// Sanitize path
+	path = sanitizePath(path)
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	content, err := h.service.ReadFile(gameserver.ContainerID, path)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("path", path).Msg("Failed to read file")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	// Check if binary file
+	isBinary := isBinaryContent(content)
+	
+	data := map[string]interface{}{
+		"Path":     path,
+		"Content":  string(content),
+		"IsBinary": isBinary,
+	}
+	
+	// Return JSON for editor
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.ParseForm()
+	
+	path := r.FormValue("path")
+	content := r.FormValue("content")
+	
+	if path == "" {
+		http.Error(w, "Path required", http.StatusBadRequest)
+		return
+	}
+	
+	// Sanitize path
+	path = sanitizePath(path)
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	err = h.service.WriteFile(gameserver.ContainerID, path, []byte(content))
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("path", path).Msg("Failed to write file")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+}
+
+func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	path := r.URL.Query().Get("path")
+	
+	if path == "" {
+		http.Error(w, "Path required", http.StatusBadRequest)
+		return
+	}
+	
+	// Sanitize path
+	path = sanitizePath(path)
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	reader, err := h.service.DownloadFile(gameserver.ContainerID, path)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("path", path).Msg("Failed to download file")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer reader.Close()
+	
+	// Extract filename from path
+	filename := filepath.Base(path)
+	
+	// The reader contains a tar archive, we need to extract the file
+	tarReader := tar.NewReader(reader)
+	
+	// Read the first (and should be only) file from the tar
+	header, err := tarReader.Next()
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("path", path).Msg("Failed to read tar header")
+		http.Error(w, "Failed to read file from archive", http.StatusInternalServerError)
+		return
+	}
+	
+	// Set headers for download
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", strconv.FormatInt(header.Size, 10))
+	
+	// Stream the actual file content (not the tar archive)
+	io.Copy(w, tarReader)
+}
+
+func (h *Handlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.ParseForm()
+	
+	path := r.FormValue("path")
+	name := r.FormValue("name")
+	isDir := r.FormValue("type") == "directory"
+	
+	if path == "" || name == "" {
+		http.Error(w, "Path and name required", http.StatusBadRequest)
+		return
+	}
+	
+	// Sanitize inputs
+	path = sanitizePath(path)
+	fullPath := filepath.Join(path, name)
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	if isDir {
+		err = h.service.CreateDirectory(gameserver.ContainerID, fullPath)
+	} else {
+		// Create empty file
+		err = h.service.WriteFile(gameserver.ContainerID, fullPath, []byte(""))
+	}
+	
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("path", fullPath).Msg("Failed to create file/directory")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	// Return updated file listing
+	h.BrowseGameserverFiles(w, r)
+}
+
+func (h *Handlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	path := r.URL.Query().Get("path")
+	
+	if path == "" {
+		http.Error(w, "Path required", http.StatusBadRequest)
+		return
+	}
+	
+	// Sanitize path
+	path = sanitizePath(path)
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	err = h.service.DeletePath(gameserver.ContainerID, path)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("path", path).Msg("Failed to delete file/directory")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
+}
+
+// Helper functions
+
+func sanitizePath(path string) string {
+	// Base directory for gameserver data
+	const baseDir = "/data"
+	
+	// Clean the path
+	path = filepath.Clean(path)
+	
+	// If path is empty or just "/", use base directory
+	if path == "" || path == "/" {
+		return baseDir
+	}
+	
+	// Ensure path is absolute
+	if !filepath.IsAbs(path) {
+		path = "/" + path
+	}
+	
+	// If path doesn't start with /data, prepend it
+	if !strings.HasPrefix(path, baseDir) {
+		// If user is trying to access parent of /data, return /data
+		if strings.HasPrefix(path, "/..") || path == ".." {
+			return baseDir
+		}
+		// Otherwise, append the path to /data
+		path = filepath.Join(baseDir, path)
+	}
+	
+	// Clean again to resolve any .. sequences
+	path = filepath.Clean(path)
+	
+	// Final check - ensure we're still within /data
+	if !strings.HasPrefix(path, baseDir) {
+		return baseDir
+	}
+	
+	return path
+}
+
+func isBinaryContent(content []byte) bool {
+	// Simple heuristic: check for null bytes or high proportion of non-printable chars
+	if len(content) == 0 {
+		return false
+	}
+	
+	nullCount := 0
+	nonPrintable := 0
+	
+	// Check first 512 bytes
+	checkLen := len(content)
+	if checkLen > 512 {
+		checkLen = 512
+	}
+	
+	for i := 0; i < checkLen; i++ {
+		b := content[i]
+		if b == 0 {
+			nullCount++
+		}
+		if b < 32 && b != '\n' && b != '\r' && b != '\t' {
+			nonPrintable++
+		}
+	}
+	
+	// If we have null bytes, it's likely binary
+	if nullCount > 0 {
+		return true
+	}
+	
+	// If more than 30% non-printable, consider binary
+	if float64(nonPrintable)/float64(checkLen) > 0.3 {
+		return true
+	}
+	
+	return false
 }
