@@ -516,7 +516,8 @@ func (d *DockerManager) SendCommand(containerID string, command string) error {
 }
 
 func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	
 	execConfig := container.ExecOptions{
 		Cmd:          cmd,
@@ -534,7 +535,7 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 		}
 	}
 	
-	// Attach to the exec instance
+	// Attach to the exec instance  
 	resp, err := d.client.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
 	if err != nil {
 		return "", &DockerError{
@@ -555,13 +556,29 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 		}
 	}
 	
-	// Read output
-	output, err := io.ReadAll(resp.Reader)
-	if err != nil {
+	// Read output - use a buffer with deadline
+	var output []byte
+	done := make(chan error, 1)
+	go func() {
+		var err error
+		output, err = io.ReadAll(resp.Reader)
+		done <- err
+	}()
+	
+	select {
+	case err := <-done:
+		if err != nil {
+			return "", &DockerError{
+				Op:  "exec_read",
+				Msg: fmt.Sprintf("failed to read exec output for container %s", containerID),
+				Err: err,
+			}
+		}
+	case <-ctx.Done():
 		return "", &DockerError{
-			Op:  "exec_read",
-			Msg: fmt.Sprintf("failed to read exec output for container %s", containerID),
-			Err: err,
+			Op:  "exec_timeout",
+			Msg: fmt.Sprintf("exec timed out for container %s", containerID),
+			Err: ctx.Err(),
 		}
 	}
 	
@@ -690,7 +707,8 @@ func (d *DockerManager) WriteFile(containerID string, path string, content []byt
 
 // copyToContainer is a helper that creates a tar archive and copies it to the container
 func (d *DockerManager) copyToContainer(containerID string, path string, content []byte) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	
 	// Create a tar archive with the file
 	tarContent, err := createTarArchive(filepath.Base(path), content)
@@ -756,7 +774,8 @@ func (d *DockerManager) DownloadFile(containerID string, path string) (io.ReadCl
 
 // copyFromContainer handles the Docker API path conversion and copy operation
 func (d *DockerManager) copyFromContainer(containerID string, path string) (io.ReadCloser, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	
 	// Convert absolute paths to relative paths for Docker API
 	// Docker CopyFromContainer uses paths relative to WORKDIR (/data/server)
@@ -791,7 +810,8 @@ func (d *DockerManager) UploadFile(containerID string, destPath string, reader i
 		return err
 	}
 	
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 	
 	// Copy to container
 	err = d.client.CopyToContainer(ctx, containerID, destPath, reader, container.CopyToContainerOptions{})

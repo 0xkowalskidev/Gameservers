@@ -64,7 +64,7 @@ func main() {
 	// Parse html templates with custom functions
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"formatFileSize": formatFileSize,
-		"sub": func(a, b int) int { return a - b },
+		"sub":            func(a, b int) int { return a - b },
 		"dict": func(values ...interface{}) map[string]interface{} {
 			if len(values)%2 != 0 {
 				return nil
@@ -110,12 +110,14 @@ func main() {
 	// Chi middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.StripSlashes)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			next.ServeHTTP(ww, r)
-			
+
 			log.Info().
 				Str("method", r.Method).
 				Str("path", r.URL.Path).
@@ -155,7 +157,7 @@ func main() {
 	r.Post("/{id}/backup", handlers.CreateGameserverBackup)
 	r.Get("/{id}/backups", handlers.ListGameserverBackups)
 	r.Delete("/{id}/backups/delete", handlers.DeleteGameserverBackup)
-	
+
 	// File manager routes
 	r.Get("/{id}/files", handlers.GameserverFiles)
 	r.Get("/{id}/files/browse", handlers.BrowseGameserverFiles)
@@ -175,7 +177,7 @@ func main() {
 
 type LayoutData struct {
 	Content          template.HTML
-	Title           string
+	Title            string
 	ShowCreateButton bool
 }
 
@@ -195,10 +197,10 @@ func Render(w http.ResponseWriter, r *http.Request, tmpl *template.Template, tem
 			http.Error(w, "Template error", http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Generate layout data based on the current page
 		layoutData := generateLayoutData(r, template.HTML(buf.String()))
-		
+
 		err = tmpl.ExecuteTemplate(w, "layout.html", layoutData)
 		if err != nil {
 			log.Error().Err(err).Str("template", "layout.html").Msg("Failed to render layout template")
@@ -209,12 +211,12 @@ func Render(w http.ResponseWriter, r *http.Request, tmpl *template.Template, tem
 
 func generateLayoutData(r *http.Request, content template.HTML) LayoutData {
 	path := r.URL.Path
-	
+
 	layout := LayoutData{
-		Content: content,
+		Content:          content,
 		ShowCreateButton: false,
 	}
-	
+
 	// Simple title generation
 	switch {
 	case path == "/":
@@ -225,7 +227,7 @@ func generateLayoutData(r *http.Request, content template.HTML) LayoutData {
 	default:
 		layout.Title = "Gameserver Control Panel"
 	}
-	
+
 	return layout
 }
 
