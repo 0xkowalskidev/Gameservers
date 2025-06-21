@@ -37,7 +37,8 @@ type GameserverServiceInterface interface {
 	UpdateScheduledTask(task *ScheduledTask) error
 	DeleteScheduledTask(id string) error
 	ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error)
-	RestoreGameserverBackup(gameserverID, backupPath string) error
+	CreateGameserverBackup(gameserverID string) error
+	RestoreGameserverBackup(gameserverID, backupFilename string) error
 	// File operations
 	ListFiles(containerID string, path string) ([]*FileInfo, error)
 	ReadFile(containerID string, path string) ([]byte, error)
@@ -112,6 +113,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	port, _ := strconv.Atoi(r.FormValue("port"))
 	memoryGB, _ := strconv.ParseFloat(r.FormValue("memory_gb"), 64)
 	cpuCores, _ := strconv.ParseFloat(r.FormValue("cpu_cores"), 64)
+	maxBackups, _ := strconv.Atoi(r.FormValue("max_backups"))
 	
 	// Convert GB to MB for storage
 	memoryMB := int(memoryGB * 1024)
@@ -119,6 +121,11 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	// Set default memory if not provided (1GB = 1024MB)
 	if memoryMB <= 0 {
 		memoryMB = 1024
+	}
+	
+	// Set default max backups if not provided (7 backups)
+	if maxBackups <= 0 {
+		maxBackups = 7
 	}
 	
 	// CPU cores are optional (0 = unlimited)
@@ -141,6 +148,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 		Port:        port,
 		MemoryMB:    memoryMB,
 		CPUCores:    cpuCores,
+		MaxBackups:  maxBackups,
 		Environment: env,
 	}
 
@@ -163,6 +171,7 @@ func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 	port, _ := strconv.Atoi(r.FormValue("port"))
 	memoryGB, _ := strconv.ParseFloat(r.FormValue("memory_gb"), 64)
 	cpuCores, _ := strconv.ParseFloat(r.FormValue("cpu_cores"), 64)
+	maxBackups, _ := strconv.Atoi(r.FormValue("max_backups"))
 	
 	// Convert GB to MB for storage
 	memoryMB := int(memoryGB * 1024)
@@ -170,6 +179,11 @@ func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 	// Set default memory if not provided (1GB = 1024MB)
 	if memoryMB <= 0 {
 		memoryMB = 1024
+	}
+	
+	// Set default max backups if not provided (7 backups)
+	if maxBackups <= 0 {
+		maxBackups = 7
 	}
 	
 	// CPU cores are optional (0 = unlimited)
@@ -192,6 +206,7 @@ func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 		Port:        port,
 		MemoryMB:    memoryMB,
 		CPUCores:    cpuCores,
+		MaxBackups:  maxBackups,
 		Environment: env,
 	}
 
@@ -503,11 +518,11 @@ func (h *Handlers) DeleteGameserverTask(w http.ResponseWriter, r *http.Request) 
 
 func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	r.ParseForm()
+	backupFilename := r.URL.Query().Get("backup")
 	
-	backupPath := r.FormValue("backup_path")
-	if backupPath == "" {
-		http.Error(w, "Backup path required", http.StatusBadRequest)
+	if backupFilename == "" {
+		log.Error().Str("gameserver_id", id).Msg("No backup filename provided in request")
+		http.Error(w, "Backup filename required", http.StatusBadRequest)
 		return
 	}
 
@@ -517,15 +532,98 @@ func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	log.Info().Str("gameserver_id", id).Str("backup_path", backupPath).Msg("Restoring backup")
+	log.Info().Str("gameserver_id", id).Str("backup_filename", backupFilename).Msg("Restoring backup")
 
-	if err := h.service.RestoreGameserverBackup(gameserver.ID, backupPath); err != nil {
-		log.Error().Err(err).Str("gameserver_id", id).Str("backup_path", backupPath).Msg("Failed to restore backup")
+	if err := h.service.RestoreGameserverBackup(gameserver.ID, backupFilename); err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("backup_filename", backupFilename).Msg("Failed to restore backup")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("HX-Redirect", fmt.Sprintf("/%s", id))
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) CreateGameserverBackup(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	
+	log.Info().Str("gameserver_id", id).Msg("Creating backup")
+	
+	err := h.service.CreateGameserverBackup(id)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to create backup")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	// List files in /data/backups and filter for .tar.gz files
+	files, err := h.service.ListFiles(gameserver.ContainerID, "/data/backups")
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to list server files")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	// Filter for backup files
+	var backups []*FileInfo
+	for _, file := range files {
+		if !file.IsDir && strings.HasSuffix(strings.ToLower(file.Name), ".tar.gz") {
+			backups = append(backups, file)
+		}
+	}
+	
+	data := map[string]interface{}{
+		"Backups":       backups,
+		"GameserverID":  id,
+		"BackupCount":   len(backups),
+		"MaxBackups":    gameserver.MaxBackups,
+	}
+	
+	// Return partial template for HTMX
+	err = h.tmpl.ExecuteTemplate(w, "backup-list.html", data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	backupFilename := r.URL.Query().Get("backup")
+	
+	if backupFilename == "" {
+		http.Error(w, "Backup filename required", http.StatusBadRequest)
+		return
+	}
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	log.Info().Str("gameserver_id", id).Str("backup_filename", backupFilename).Msg("Deleting backup")
+	
+	// Delete the backup file from /data/backups
+	backupPath := fmt.Sprintf("/data/backups/%s", backupFilename)
+	err = h.service.DeletePath(gameserver.ContainerID, backupPath)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", id).Str("backup_filename", backupFilename).Msg("Failed to delete backup")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
 	w.WriteHeader(http.StatusOK)
 }
 

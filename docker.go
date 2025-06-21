@@ -420,216 +420,130 @@ func (d *DockerManager) GetVolumeInfo(volumeName string) (*VolumeInfo, error) {
 // Backup and Restore Operations
 // =============================================================================
 
-func (d *DockerManager) CreateBackup(gameserverID, backupPath string) error {
-	ctx := context.Background()
+func (d *DockerManager) CreateBackup(containerID, gameserverName string) error {
+	// Generate timestamped backup filename
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	backupFilename := fmt.Sprintf("backup-%s.tar.gz", timestamp)
 	
-	// Get the volume name for the gameserver
-	// Assume gameserverID maps to server name for volume naming
-	volumeName := fmt.Sprintf("gameservers-%s-data", gameserverID)
+	log.Info().Str("container_id", containerID).Str("backup_file", backupFilename).Msg("Creating backup")
 	
-	log.Info().Str("volume", volumeName).Str("backup_path", backupPath).Msg("Creating backup")
-	
-	// Pull alpine image if needed
-	if err := d.pullImageIfNeeded(ctx, "alpine:latest"); err != nil {
-		return &DockerError{
-			Op:  "pull_alpine_for_backup",
-			Msg: fmt.Sprintf("failed to pull alpine image for backup of %s", gameserverID),
-			Err: err,
-		}
-	}
-	
-	// Extract directory and filename from backup path
-	backupDir := filepath.Dir(backupPath)
-	backupFile := filepath.Base(backupPath)
-	
-	// Create a temporary container to access the volume
-	config := &container.Config{
-		Image: "alpine:latest", // Use lightweight alpine for backup operations
-		Cmd:   []string{"tar", "-czf", fmt.Sprintf("/backup/%s", backupFile), "-C", "/data/server", "."},
-		WorkingDir: "/",
-	}
-	
-	hostConfig := &container.HostConfig{
-		Binds: []string{
-			fmt.Sprintf("%s:/data", volumeName),
-			fmt.Sprintf("%s:/backup", backupDir), // Mount the backup directory, not the file
-		},
-		AutoRemove: true,
-	}
-	
-	// Create container
-	resp, err := d.client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	// First ensure the backups directory exists
+	mkdirCmd := []string{"mkdir", "-p", "/data/backups"}
+	_, err := d.ExecCommand(containerID, mkdirCmd)
 	if err != nil {
 		return &DockerError{
-			Op:  "create_backup_container",
-			Msg: fmt.Sprintf("failed to create backup container for %s", gameserverID),
+			Op:  "create_backup",
+			Msg: fmt.Sprintf("failed to create backups directory for container %s", containerID),
 			Err: err,
 		}
 	}
 	
-	// Ensure cleanup of container (belt and suspenders approach with AutoRemove)
-	defer func() {
-		if err := d.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}); err != nil {
-			// Only log as debug if it's the expected "removal already in progress" error
-			if strings.Contains(err.Error(), "removal of container") && strings.Contains(err.Error(), "is already in progress") {
-				log.Debug().Str("container_id", resp.ID).Msg("Backup container already being removed by AutoRemove")
-			} else {
-				log.Warn().Err(err).Str("container_id", resp.ID).Msg("Failed to cleanup backup container")
-			}
-		}
-	}()
+	// Create backup using tar inside the existing container
+	cmd := []string{"tar", "-czf", fmt.Sprintf("/data/backups/%s", backupFilename), 
+		"-C", "/data/server", "."}
 	
-	// Start container and wait for completion
-	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	_, err = d.ExecCommand(containerID, cmd)
+	if err != nil {
 		return &DockerError{
-			Op:  "start_backup_container",
-			Msg: fmt.Sprintf("failed to start backup container for %s", gameserverID),
+			Op:  "create_backup",
+			Msg: fmt.Sprintf("failed to create backup for container %s", containerID),
 			Err: err,
 		}
 	}
 	
-	// Wait for container to finish
-	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return &DockerError{
-				Op:  "wait_backup_container",
-				Msg: fmt.Sprintf("failed to wait for backup container for %s", gameserverID),
-				Err: err,
-			}
-		}
-	case status := <-statusCh:
-		if status.StatusCode != 0 {
-			// Get container logs for debugging
-			logMsg := "no logs available"
-			if logs, err := d.client.ContainerLogs(ctx, resp.ID, container.LogsOptions{
-				ShowStdout: true,
-				ShowStderr: true,
-			}); err == nil && logs != nil {
-				defer logs.Close()
-				if logBytes, err := io.ReadAll(logs); err == nil {
-					logMsg = string(logBytes)
-				}
-			}
-			
-			log.Error().Str("container_logs", logMsg).Int64("exit_code", status.StatusCode).Str("gameserver_id", gameserverID).Msg("Backup container failed")
-			
-			return &DockerError{
-				Op:  "backup_container_failed",
-				Msg: fmt.Sprintf("backup container exited with status %d for %s", status.StatusCode, gameserverID),
-				Err: nil,
-			}
-		}
-	}
-	
-	log.Info().Str("gameserver_id", gameserverID).Str("backup_path", backupPath).Msg("Backup created successfully")
+	log.Info().Str("container_id", containerID).Str("backup_file", backupFilename).Msg("Backup created successfully")
 	return nil
 }
 
-func (d *DockerManager) RestoreBackup(gameserverID, backupPath string) error {
-	ctx := context.Background()
-	
-	// Get the volume name for the gameserver
-	volumeName := fmt.Sprintf("gameservers-%s-data", gameserverID)
-	
-	log.Info().Str("volume", volumeName).Str("backup_path", backupPath).Msg("Restoring backup")
-	
-	// Pull alpine image if needed
-	if err := d.pullImageIfNeeded(ctx, "alpine:latest"); err != nil {
-		return &DockerError{
-			Op:  "pull_alpine_for_restore",
-			Msg: fmt.Sprintf("failed to pull alpine image for restore of %s", gameserverID),
-			Err: err,
-		}
+func (d *DockerManager) CleanupOldBackups(containerID string, maxBackups int) error {
+	if maxBackups <= 0 {
+		// Unlimited backups, no cleanup needed
+		return nil
 	}
 	
-	// Extract directory and filename from backup path
-	backupDir := filepath.Dir(backupPath)
-	backupFile := filepath.Base(backupPath)
+	log.Info().Str("container_id", containerID).Int("max_backups", maxBackups).Msg("Cleaning up old backups")
 	
-	// Create a temporary container to restore the volume
-	config := &container.Config{
-		Image: "alpine:latest",
-		Cmd:   []string{"sh", "-c", fmt.Sprintf("cd /data/server && tar -xzf /backup/%s", backupFile)},
-		WorkingDir: "/",
-	}
-	
-	hostConfig := &container.HostConfig{
-		Binds: []string{
-			fmt.Sprintf("%s:/data", volumeName),
-			fmt.Sprintf("%s:/backup", backupDir), // Mount the backup directory, not the file
-		},
-		AutoRemove: true,
-	}
-	
-	// Create container
-	resp, err := d.client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	// List all backup files sorted by modification time (newest first)
+	cmd := []string{"sh", "-c", "find /data/backups -name '*.tar.gz' -type f -printf '%T@ %p\\n' | sort -nr | cut -d' ' -f2-"}
+	output, err := d.ExecCommand(containerID, cmd)
 	if err != nil {
 		return &DockerError{
-			Op:  "create_restore_container",
-			Msg: fmt.Sprintf("failed to create restore container for %s", gameserverID),
+			Op:  "list_backups",
+			Msg: fmt.Sprintf("failed to list backups for cleanup in container %s", containerID),
 			Err: err,
 		}
 	}
 	
-	// Ensure cleanup of container (belt and suspenders approach with AutoRemove)
-	defer func() {
-		if err := d.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}); err != nil {
-			// Only log as debug if it's the expected "removal already in progress" error
-			if strings.Contains(err.Error(), "removal of container") && strings.Contains(err.Error(), "is already in progress") {
-				log.Debug().Str("container_id", resp.ID).Msg("Restore container already being removed by AutoRemove")
-			} else {
-				log.Warn().Err(err).Str("container_id", resp.ID).Msg("Failed to cleanup restore container")
-			}
-		}
-	}()
-	
-	// Start container and wait for completion
-	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return &DockerError{
-			Op:  "start_restore_container",
-			Msg: fmt.Sprintf("failed to start restore container for %s", gameserverID),
-			Err: err,
-		}
+	backupFiles := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(backupFiles) <= maxBackups {
+		// No cleanup needed
+		log.Info().Str("container_id", containerID).Int("backup_count", len(backupFiles)).Int("max_backups", maxBackups).Msg("No backup cleanup needed")
+		return nil
 	}
 	
-	// Wait for container to finish
-	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
+	// Delete the oldest backups (files beyond maxBackups limit)
+	filesToDelete := backupFiles[maxBackups:]
+	for _, file := range filesToDelete {
+		if strings.TrimSpace(file) == "" {
+			continue
+		}
+		
+		log.Info().Str("container_id", containerID).Str("backup_file", file).Msg("Deleting old backup")
+		_, err := d.ExecCommand(containerID, []string{"rm", "-f", file})
 		if err != nil {
-			return &DockerError{
-				Op:  "wait_restore_container",
-				Msg: fmt.Sprintf("failed to wait for restore container for %s", gameserverID),
-				Err: err,
-			}
-		}
-	case status := <-statusCh:
-		if status.StatusCode != 0 {
-			// Get container logs for debugging
-			logMsg := "no logs available"
-			if logs, err := d.client.ContainerLogs(ctx, resp.ID, container.LogsOptions{
-				ShowStdout: true,
-				ShowStderr: true,
-			}); err == nil && logs != nil {
-				defer logs.Close()
-				if logBytes, err := io.ReadAll(logs); err == nil {
-					logMsg = string(logBytes)
-				}
-			}
-			
-			log.Error().Str("container_logs", logMsg).Int64("exit_code", status.StatusCode).Str("gameserver_id", gameserverID).Msg("Restore container failed")
-			
-			return &DockerError{
-				Op:  "restore_container_failed",
-				Msg: fmt.Sprintf("restore container exited with status %d for %s", status.StatusCode, gameserverID),
-				Err: nil,
-			}
+			log.Error().Err(err).Str("container_id", containerID).Str("backup_file", file).Msg("Failed to delete old backup")
+			// Continue with other files even if one fails
 		}
 	}
 	
-	log.Info().Str("gameserver_id", gameserverID).Str("backup_path", backupPath).Msg("Backup restored successfully")
+	log.Info().Str("container_id", containerID).Int("deleted_count", len(filesToDelete)).Msg("Backup cleanup completed")
+	return nil
+}
+
+func (d *DockerManager) RestoreBackup(containerID, backupFilename string) error {
+	log.Info().Str("container_id", containerID).Str("backup_file", backupFilename).Msg("Restoring backup")
+	
+	// Create temporary directory for backups during restore
+	_, err := d.ExecCommand(containerID, []string{"mkdir", "-p", "/tmp/backups"})
+	if err != nil {
+		return &DockerError{
+			Op:  "create_temp_dir",
+			Msg: "failed to create temporary backup directory",
+			Err: err,
+		}
+	}
+	
+	// Clear server directory
+	_, err = d.ExecCommand(containerID, []string{"sh", "-c", "find /data/server -mindepth 1 -delete"})
+	if err != nil {
+		return &DockerError{
+			Op:  "clear_server_dir",
+			Msg: "failed to clear server directory for restore",
+			Err: err,
+		}
+	}
+	
+	// Extract the backup
+	backupPath := fmt.Sprintf("/data/backups/%s", backupFilename)
+	_, err = d.ExecCommand(containerID, []string{"tar", "-xzf", backupPath, "-C", "/data/server"})
+	if err != nil {
+		return &DockerError{
+			Op:  "extract_backup",
+			Msg: fmt.Sprintf("failed to extract backup %s", backupFilename),
+			Err: err,
+		}
+	}
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to move backups back to server directory")
+	}
+	
+	// Clean up temporary directory
+	_, err = d.ExecCommand(containerID, []string{"rm", "-rf", "/tmp/backups"})
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to clean up temporary backup directory")
+	}
+	
+	log.Info().Str("container_id", containerID).Str("backup_file", backupFilename).Msg("Backup restored successfully")
 	return nil
 }
 
@@ -720,11 +634,11 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 }
 
 func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo, error) {
-	// Ensure path starts with /data/server (user root)
+	// Ensure path starts with /data/server or /data/backups
 	if path == "" || path == "/" {
 		path = "/data/server"
 	}
-	if !strings.HasPrefix(path, "/data/server") {
+	if !strings.HasPrefix(path, "/data/server") && !strings.HasPrefix(path, "/data/backups") {
 		path = "/data/server"
 	}
 	
@@ -736,8 +650,9 @@ func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo,
 		return nil, err
 	}
 	
-	// Parse ls output and sort
-	return sortFiles(parseLsOutput(output, path)), nil
+	// Parse ls output and sort with context
+	isBackupsPath := strings.Contains(path, "/backups")
+	return sortFiles(parseLsOutput(output, path), isBackupsPath), nil
 }
 
 func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error) {
@@ -815,20 +730,20 @@ func (d *DockerManager) CreateDirectory(containerID string, path string) error {
 }
 
 func (d *DockerManager) DeletePath(containerID string, path string) error {
-	// Ensure path is within /data/server
-	if !strings.HasPrefix(path, "/data/server") {
+	// Ensure path is within /data/server or /data/backups
+	if !strings.HasPrefix(path, "/data/server") && !strings.HasPrefix(path, "/data/backups") {
 		return &DockerError{
 			Op:  "delete_path",
-			Msg: "access denied: path must be within /data/server directory",
+			Msg: "access denied: path must be within /data/server or /data/backups directory",
 			Err: nil,
 		}
 	}
 	
-	// Don't allow deleting /data/server itself
-	if path == "/data/server" {
+	// Don't allow deleting root directories
+	if path == "/data/server" || path == "/data/backups" {
 		return &DockerError{
 			Op:  "delete_path",
-			Msg: "cannot delete server root directory",
+			Msg: "cannot delete root directories",
 			Err: nil,
 		}
 	}
@@ -839,18 +754,32 @@ func (d *DockerManager) DeletePath(containerID string, path string) error {
 }
 
 func (d *DockerManager) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
-	// Ensure path is within /data/server
-	if !strings.HasPrefix(path, "/data/server") {
+	// Ensure path is within /data/server or /data/backups
+	if !strings.HasPrefix(path, "/data/server") && !strings.HasPrefix(path, "/data/backups") {
 		return nil, &DockerError{
 			Op:  "download_file",
-			Msg: "access denied: path must be within /data/server directory",
+			Msg: "access denied: path must be within /data/server or /data/backups directory",
 			Err: nil,
 		}
 	}
 	
 	ctx := context.Background()
 	
-	reader, _, err := d.client.CopyFromContainer(ctx, containerID, path)
+	// Convert absolute paths to relative paths for Docker API
+	// Docker CopyFromContainer uses paths relative to WORKDIR (/data/server)
+	dockerPath := path
+	if strings.HasPrefix(path, "/data/backups/") {
+		// Convert /data/backups/file.tar.gz to ../backups/file.tar.gz
+		dockerPath = "../backups/" + strings.TrimPrefix(path, "/data/backups/")
+	} else if strings.HasPrefix(path, "/data/server/") {
+		// Convert /data/server/file.txt to file.txt
+		dockerPath = strings.TrimPrefix(path, "/data/server/")
+		if dockerPath == "" {
+			dockerPath = "."
+		}
+	}
+	
+	reader, _, err := d.client.CopyFromContainer(ctx, containerID, dockerPath)
 	if err != nil {
 		return nil, &DockerError{
 			Op:  "copy_from_container",
@@ -946,6 +875,16 @@ func parseLsOutput(output string, basePath string) []*FileInfo {
 			continue
 		}
 		
+		// Parse timestamp - for backup files, extract from filename; otherwise use ls output
+		var modTime time.Time
+		if strings.HasPrefix(cleanName, "backup-") && strings.HasSuffix(cleanName, ".tar.gz") {
+			// Extract timestamp from backup filename: backup-YYYY-MM-DD_HH-MM-SS.tar.gz
+			modTime = parseBackupTimestamp(cleanName)
+		} else {
+			// For other files, parse from ls output
+			modTime = parseFileTimestamp(fields[5], fields[6], fields[7])
+		}
+		
 		file := &FileInfo{
 			Name:     cleanName,
 			Path:     filepath.Join(basePath, cleanName),
@@ -954,7 +893,7 @@ func parseLsOutput(output string, basePath string) []*FileInfo {
 			Mode:     perms[1:], // Skip file type indicator
 			Owner:    fields[2],
 			Group:    fields[3],
-			Modified: time.Now(), // ls doesn't give us full timestamp
+			Modified: modTime,
 		}
 		
 		files = append(files, file)
@@ -963,7 +902,86 @@ func parseLsOutput(output string, basePath string) []*FileInfo {
 	return files
 }
 
-func sortFiles(files []*FileInfo) []*FileInfo {
+func parseBackupTimestamp(filename string) time.Time {
+	// Extract timestamp from backup filename: backup-YYYY-MM-DD_HH-MM-SS.tar.gz
+	// Remove "backup-" prefix and ".tar.gz" suffix
+	if !strings.HasPrefix(filename, "backup-") || !strings.HasSuffix(filename, ".tar.gz") {
+		return time.Now()
+	}
+	
+	// Extract the timestamp part: YYYY-MM-DD_HH-MM-SS
+	timestampPart := filename[7 : len(filename)-7] // Remove "backup-" and ".tar.gz"
+	
+	// Parse the timestamp: YYYY-MM-DD_HH-MM-SS
+	parsedTime, err := time.Parse("2006-01-02_15-04-05", timestampPart)
+	if err != nil {
+		// Fallback to current time if parsing fails
+		return time.Now()
+	}
+	
+	return parsedTime
+}
+
+func parseFileTimestamp(month, day, timeOrYear string) time.Time {
+	// Parse month
+	monthMap := map[string]time.Month{
+		"Jan": time.January, "Feb": time.February, "Mar": time.March,
+		"Apr": time.April, "May": time.May, "Jun": time.June,
+		"Jul": time.July, "Aug": time.August, "Sep": time.September,
+		"Oct": time.October, "Nov": time.November, "Dec": time.December,
+	}
+	
+	monthNum := monthMap[month]
+	if monthNum == 0 {
+		// Fallback to current time if parsing fails
+		return time.Now()
+	}
+	
+	// Parse day
+	dayNum, err := strconv.Atoi(day)
+	if err != nil {
+		return time.Now()
+	}
+	
+	now := time.Now()
+	currentYear := now.Year()
+	
+	// Check if timeOrYear is a time (HH:MM) or year (YYYY)
+	if strings.Contains(timeOrYear, ":") {
+		// It's a time, assume current year
+		timeParts := strings.Split(timeOrYear, ":")
+		if len(timeParts) != 2 {
+			return time.Now()
+		}
+		
+		hour, err1 := strconv.Atoi(timeParts[0])
+		minute, err2 := strconv.Atoi(timeParts[1])
+		if err1 != nil || err2 != nil {
+			return time.Now()
+		}
+		
+		// Create date with current year
+		fileTime := time.Date(currentYear, monthNum, dayNum, hour, minute, 0, 0, time.UTC)
+		
+		// If this date is in the future, it's probably from last year
+		if fileTime.After(now) {
+			fileTime = time.Date(currentYear-1, monthNum, dayNum, hour, minute, 0, 0, time.UTC)
+		}
+		
+		return fileTime
+	} else {
+		// It's a year
+		year, err := strconv.Atoi(timeOrYear)
+		if err != nil {
+			return time.Now()
+		}
+		
+		// Assume noon for files from previous years
+		return time.Date(year, monthNum, dayNum, 12, 0, 0, 0, time.UTC)
+	}
+}
+
+func sortFiles(files []*FileInfo, isBackupsPath bool) []*FileInfo {
 	if len(files) == 0 {
 		return files
 	}
@@ -989,11 +1007,23 @@ func sortFiles(files []*FileInfo) []*FileInfo {
 		}
 	}
 	
-	// Sort files by size (largest first)
-	for i := 0; i < len(regularFiles); i++ {
-		for j := i + 1; j < len(regularFiles); j++ {
-			if regularFiles[i].Size < regularFiles[j].Size {
-				regularFiles[i], regularFiles[j] = regularFiles[j], regularFiles[i]
+	// Sort files: by modification time for backups, by size for file manager
+	if isBackupsPath {
+		// Sort backups by modification time (newest first)
+		for i := 0; i < len(regularFiles); i++ {
+			for j := i + 1; j < len(regularFiles); j++ {
+				if regularFiles[i].Modified.Before(regularFiles[j].Modified) {
+					regularFiles[i], regularFiles[j] = regularFiles[j], regularFiles[i]
+				}
+			}
+		}
+	} else {
+		// Sort files by size (largest first) for file manager
+		for i := 0; i < len(regularFiles); i++ {
+			for j := i + 1; j < len(regularFiles); j++ {
+				if regularFiles[i].Size < regularFiles[j].Size {
+					regularFiles[i], regularFiles[j] = regularFiles[j], regularFiles[i]
+				}
 			}
 		}
 	}

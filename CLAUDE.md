@@ -33,10 +33,17 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 - [x] Gameserver CRUD
 
 ### Phase 2: Enhanced Features
-- [ ] Advanced file manager with editor
-- [ ] Backup/restore functionality
-- [ ] Schedule tasks (restarts, backups)
-- [ ] Console with Log viewer with SSE streaming + RCON/other with sending command when possible
+- [x] Advanced file manager with editor
+- [x] Backup/restore functionality
+- [x] Schedule tasks (restarts, backups)
+- [ ] RCON console integration
+
+### Phase 3: Future File Manager Enhancements
+- [ ] File upload functionality (drag & drop support)
+- [ ] Multi-select for batch file operations
+- [ ] File preview for logs and text files
+- [ ] Zip archive operations (create/extract)
+- [ ] Move/cut files and directories between folders
 
 ## Current TODOs
 - [ ] Docker image pull policy - Currently Docker only pulls if image doesn't exist locally, even if remote image is updated. Need to decide on pull strategy (Always, IfNotPresent, Never, or user-configurable)

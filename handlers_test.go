@@ -54,7 +54,17 @@ func (m *mockGameserverService) ListScheduledTasksForGameserver(gameserverID str
 		{ID: "task-2", GameserverID: gameserverID, Name: "Weekly Backup", Type: TaskTypeBackup, Status: TaskStatusActive},
 	}, nil
 }
-func (m *mockGameserverService) RestoreGameserverBackup(gameserverID, backupPath string) error { return nil }
+func (m *mockGameserverService) CreateGameserverBackup(gameserverID string) error { return nil }
+func (m *mockGameserverService) RestoreGameserverBackup(gameserverID, backupFilename string) error { return nil }
+
+// File manager methods
+func (m *mockGameserverService) ListFiles(containerID string, path string) ([]*FileInfo, error) { return nil, nil }
+func (m *mockGameserverService) ReadFile(containerID string, path string) ([]byte, error) { return nil, nil }
+func (m *mockGameserverService) WriteFile(containerID string, path string, content []byte) error { return nil }
+func (m *mockGameserverService) CreateDirectory(containerID string, path string) error { return nil }
+func (m *mockGameserverService) DeletePath(containerID string, path string) error { return nil }
+func (m *mockGameserverService) DownloadFile(containerID string, path string) (io.ReadCloser, error) { return nil, nil }
+func (m *mockGameserverService) RenameFile(containerID string, oldPath string, newPath string) error { return nil }
 
 func TestHandlers_IndexGameservers(t *testing.T) {
 	tmpl := template.Must(template.New("index.html").Parse(`{{range .Gameservers}}{{.Name}}{{end}}`))

@@ -33,6 +33,7 @@ type Gameserver struct {
 	Port        int               `json:"port"`
 	MemoryMB    int               `json:"memory_mb"`    // Memory limit in MB
 	CPUCores    float64           `json:"cpu_cores"`    // CPU cores (0 = unlimited)
+	MaxBackups  int               `json:"max_backups"`  // Maximum number of backups to keep (0 = unlimited)
 	Environment []string          `json:"environment,omitempty"`
 	Volumes     []string          `json:"volumes,omitempty"`
 	CreatedAt   time.Time         `json:"created_at"`
@@ -96,6 +97,7 @@ type DockerManagerInterface interface {
 	GetVolumeInfo(volumeName string) (*VolumeInfo, error)
 	CreateBackup(gameserverID, backupPath string) error
 	RestoreBackup(gameserverID, backupPath string) error
+	CleanupOldBackups(containerID string, maxBackups int) error
 	// File operations
 	ListFiles(containerID string, path string) ([]*FileInfo, error)
 	ReadFile(containerID string, path string) ([]byte, error)

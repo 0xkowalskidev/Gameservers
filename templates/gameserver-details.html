@@ -13,6 +13,7 @@
         <div class="flex justify-between"><dt class="font-medium">Port:</dt><dd>{{.Gameserver.Port}}</dd></div>
         <div class="flex justify-between"><dt class="font-medium">Memory Limit:</dt><dd>{{.Gameserver.MemoryGB}} GB</dd></div>
         {{if gt .Gameserver.CPUCores 0.0}}<div class="flex justify-between"><dt class="font-medium">CPU Limit:</dt><dd>{{.Gameserver.CPUCores}} cores</dd></div>{{else}}<div class="flex justify-between"><dt class="font-medium">CPU Limit:</dt><dd>Unlimited</dd></div>{{end}}
+        {{if gt .Gameserver.MaxBackups 0}}<div class="flex justify-between"><dt class="font-medium">Max Backups:</dt><dd>{{.Gameserver.MaxBackups}}</dd></div>{{else}}<div class="flex justify-between"><dt class="font-medium">Max Backups:</dt><dd>Unlimited</dd></div>{{end}}
         <div class="flex justify-between"><dt class="font-medium">Image:</dt><dd class="truncate">{{.Gameserver.Image}}</dd></div>
         <div class="flex justify-between"><dt class="font-medium">Container:</dt><dd class="font-mono text-xs truncate">{{.Gameserver.ContainerID}}</dd></div>
         {{if .Gameserver.VolumeInfo}}
@@ -60,6 +61,45 @@
           <button hx-post="/{{.Gameserver.ID}}/start" hx-indicator="#loading" hx-swap="none" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">Start</button>
         {{end}}
         <button hx-delete="/{{.Gameserver.ID}}" hx-confirm="Delete gameserver?" hx-indicator="#loading" hx-swap="none" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium">Delete</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Backup Management Section -->
+  <div class="bg-white shadow rounded-lg p-6 mt-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Backup Management</h3>
+      <button id="create-backup-btn" 
+              hx-post="/{{.Gameserver.ID}}/backup" 
+              hx-indicator="#backup-loading" 
+              hx-target="#backup-list"
+              hx-trigger="click"
+              hx-swap="none"
+              hx-on::after-request="if(event.detail.successful) { htmx.ajax('GET', '/{{.Gameserver.ID}}/backups', {target: '#backup-list'}); showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
+              class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+        <span class="backup-btn-text">Create Backup</span>
+      </button>
+    </div>
+    <div id="backup-list" hx-get="/{{.Gameserver.ID}}/backups" hx-trigger="load" hx-swap="innerHTML">
+      <div class="text-center text-gray-500 py-4">Loading backups...</div>
+    </div>
+    
+    <!-- Backup Loading Indicator -->
+    <div id="backup-loading" class="htmx-indicator overflow-hidden transition-all duration-300 ease-in-out max-h-0 opacity-0">
+      <div class="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <div class="flex items-center space-x-3">
+        <svg class="animate-spin h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <div>
+          <p class="text-sm font-medium text-emerald-900">Creating backup...</p>
+          <p class="text-xs text-emerald-700">Please wait while we create your backup</p>
+        </div>
+        </div>
       </div>
     </div>
   </div>
@@ -122,4 +162,76 @@ statsSource.addEventListener('error', function(e) {
   console.error('Stats error:', e);
 });
 {{end}}
+
+// Custom CSS for animated indicators
+const style = document.createElement('style');
+style.textContent = `
+  .htmx-indicator {
+    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+  
+  .htmx-indicator.htmx-request {
+    max-height: 120px !important;
+    opacity: 1 !important;
+  }
+`;
+document.head.appendChild(style);
+
+// Backup functions
+function deleteBackup(filename) {
+  if (!confirm(`Delete backup "${filename}"? This action cannot be undone.`)) return;
+  
+  fetch('/{{.Gameserver.ID}}/backups/delete?backup=' + encodeURIComponent(filename), {
+    method: 'DELETE'
+  })
+  .then(response => {
+    if (response.ok) {
+      showNotification('Backup deleted successfully', 'success');
+      // Refresh backup list
+      htmx.ajax('GET', '/{{.Gameserver.ID}}/backups', {target: '#backup-list'});
+    } else {
+      response.text().then(text => showNotification('Failed to delete backup: ' + text, 'error'));
+    }
+  })
+  .catch(error => {
+    showNotification('Error deleting backup: ' + error.message, 'error');
+  });
+}
+
+function showNotification(message, type) {
+  const notification = document.createElement('div');
+  const isSuccess = type === 'success';
+  
+  notification.className = `fixed top-4 right-4 px-6 py-4 rounded-lg shadow-lg border z-50 transition-all duration-300 transform translate-x-full ${isSuccess ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`;
+  
+  notification.innerHTML = `
+    <div class="flex items-center">
+      <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+        ${isSuccess 
+          ? '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>'
+          : '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>'
+        }
+      </svg>
+      <span class="font-medium">${message}</span>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Slide in
+  setTimeout(() => {
+    notification.classList.remove('translate-x-full');
+  }, 100);
+  
+  // Slide out and remove
+  setTimeout(() => {
+    notification.classList.add('translate-x-full');
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
+  }, 4000);
+}
 </script>

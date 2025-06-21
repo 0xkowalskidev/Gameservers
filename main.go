@@ -64,6 +64,7 @@ func main() {
 	// Parse html templates with custom functions
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"formatFileSize": formatFileSize,
+		"sub": func(a, b int) int { return a - b },
 	}).ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to parse templates")
@@ -125,6 +126,9 @@ func main() {
 	r.Put("/{id}/tasks/{taskId}", handlers.UpdateGameserverTask)
 	r.Delete("/{id}/tasks/{taskId}", handlers.DeleteGameserverTask)
 	r.Post("/{id}/restore", handlers.RestoreGameserverBackup)
+	r.Post("/{id}/backup", handlers.CreateGameserverBackup)
+	r.Get("/{id}/backups", handlers.ListGameserverBackups)
+	r.Delete("/{id}/backups/delete", handlers.DeleteGameserverBackup)
 	
 	// File manager routes
 	r.Get("/{id}/files", handlers.GameserverFiles)

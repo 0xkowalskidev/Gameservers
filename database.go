@@ -101,6 +101,7 @@ func (dm *DatabaseManager) migrate() error {
 	alterQueries := []string{
 		`ALTER TABLE gameservers ADD COLUMN memory_mb INTEGER DEFAULT 1024`,
 		`ALTER TABLE gameservers ADD COLUMN cpu_cores REAL DEFAULT 0`,
+		`ALTER TABLE gameservers ADD COLUMN max_backups INTEGER DEFAULT 7`,
 	}
 	
 	for _, query := range alterQueries {
@@ -195,8 +196,8 @@ func (dm *DatabaseManager) CreateGameserver(server *Gameserver) error {
 	envJSON, _ := json.Marshal(server.Environment)
 	volumesJSON, _ := json.Marshal(server.Volumes)
 
-	_, err := dm.db.Exec(`INSERT INTO gameservers (id, name, game_id, container_id, status, port, memory_mb, cpu_cores, environment, volumes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		server.ID, server.Name, server.GameID, server.ContainerID, server.Status, server.Port, server.MemoryMB, server.CPUCores, string(envJSON), string(volumesJSON), server.CreatedAt, server.UpdatedAt)
+	_, err := dm.db.Exec(`INSERT INTO gameservers (id, name, game_id, container_id, status, port, memory_mb, cpu_cores, max_backups, environment, volumes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		server.ID, server.Name, server.GameID, server.ContainerID, server.Status, server.Port, server.MemoryMB, server.CPUCores, server.MaxBackups, string(envJSON), string(volumesJSON), server.CreatedAt, server.UpdatedAt)
 
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create gameserver in database")
@@ -219,7 +220,7 @@ func (dm *DatabaseManager) scanGameserver(row interface{ Scan(...interface{}) er
 	var server Gameserver
 	var envJSON, volumesJSON string
 
-	err := row.Scan(&server.ID, &server.Name, &server.GameID, &server.ContainerID, &server.Status, &server.Port, &server.MemoryMB, &server.CPUCores, &envJSON, &volumesJSON, &server.CreatedAt, &server.UpdatedAt)
+	err := row.Scan(&server.ID, &server.Name, &server.GameID, &server.ContainerID, &server.Status, &server.Port, &server.MemoryMB, &server.CPUCores, &server.MaxBackups, &envJSON, &volumesJSON, &server.CreatedAt, &server.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +231,7 @@ func (dm *DatabaseManager) scanGameserver(row interface{ Scan(...interface{}) er
 }
 
 func (dm *DatabaseManager) GetGameserver(id string) (*Gameserver, error) {
-	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, environment, volumes, created_at, updated_at FROM gameservers WHERE id = ?`, id)
+	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, max_backups, environment, volumes, created_at, updated_at FROM gameservers WHERE id = ?`, id)
 	server, err := dm.scanGameserver(row)
 	if err == sql.ErrNoRows {
 		return nil, &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", id), Err: nil}
@@ -246,8 +247,8 @@ func (dm *DatabaseManager) UpdateGameserver(server *Gameserver) error {
 	volumesJSON, _ := json.Marshal(server.Volumes)
 	server.UpdatedAt = time.Now()
 
-	result, err := dm.db.Exec(`UPDATE gameservers SET name = ?, game_id = ?, container_id = ?, status = ?, port = ?, memory_mb = ?, cpu_cores = ?, environment = ?, volumes = ?, updated_at = ? WHERE id = ?`,
-		server.Name, server.GameID, server.ContainerID, server.Status, server.Port, server.MemoryMB, server.CPUCores, string(envJSON), string(volumesJSON), server.UpdatedAt, server.ID)
+	result, err := dm.db.Exec(`UPDATE gameservers SET name = ?, game_id = ?, container_id = ?, status = ?, port = ?, memory_mb = ?, cpu_cores = ?, max_backups = ?, environment = ?, volumes = ?, updated_at = ? WHERE id = ?`,
+		server.Name, server.GameID, server.ContainerID, server.Status, server.Port, server.MemoryMB, server.CPUCores, server.MaxBackups, string(envJSON), string(volumesJSON), server.UpdatedAt, server.ID)
 
 	if err != nil {
 		return &DatabaseError{Op: fmt.Sprintf("failed to update gameserver %s", server.ID),Err: err}
@@ -271,7 +272,7 @@ func (dm *DatabaseManager) DeleteGameserver(id string) error {
 }
 
 func (dm *DatabaseManager) ListGameservers() ([]*Gameserver, error) {
-	rows, err := dm.db.Query(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, environment, volumes, created_at, updated_at FROM gameservers ORDER BY created_at DESC`)
+	rows, err := dm.db.Query(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, max_backups, environment, volumes, created_at, updated_at FROM gameservers ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, &DatabaseError{Op: "db", Msg: "failed to query gameservers", Err: err}
 	}
@@ -289,7 +290,7 @@ func (dm *DatabaseManager) ListGameservers() ([]*Gameserver, error) {
 }
 
 func (dm *DatabaseManager) GetGameserverByContainerID(containerID string) (*Gameserver, error) {
-	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, environment, volumes, created_at, updated_at FROM gameservers WHERE container_id = ?`, containerID)
+	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, memory_mb, cpu_cores, max_backups, environment, volumes, created_at, updated_at FROM gameservers WHERE container_id = ?`, containerID)
 	server, err := dm.scanGameserver(row)
 	if err == sql.ErrNoRows {
 		return nil, &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver with container %s not found", containerID), Err: nil}
@@ -319,7 +320,28 @@ func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
 		return err
 	}
 
-	return gss.db.CreateGameserver(server)
+	// Create the gameserver in database
+	if err := gss.db.CreateGameserver(server); err != nil {
+		return err
+	}
+
+	// Create automatic daily backup task
+	backupTask := &ScheduledTask{
+		GameserverID: server.ID,
+		Name:         "Daily Backup",
+		Type:         TaskTypeBackup,
+		Status:       TaskStatusActive,
+		CronSchedule: "0 2 * * *", // Daily at 2 AM
+	}
+	
+	if err := gss.CreateScheduledTask(backupTask); err != nil {
+		log.Error().Err(err).Str("gameserver_id", server.ID).Msg("Failed to create automatic backup task")
+		// Don't fail gameserver creation if backup task creation fails
+	} else {
+		log.Info().Str("gameserver_id", server.ID).Msg("Created automatic daily backup task")
+	}
+
+	return nil
 }
 
 func (gss *GameserverService) UpdateGameserver(server *Gameserver) error {
@@ -539,12 +561,34 @@ func (gss *GameserverService) ListScheduledTasksForGameserver(gameserverID strin
 	return gss.db.ListScheduledTasksForGameserver(gameserverID)
 }
 
-func (gss *GameserverService) RestoreGameserverBackup(gameserverID, backupPath string) error {
+func (gss *GameserverService) CreateGameserverBackup(gameserverID string) error {
 	gameserver, err := gss.db.GetGameserver(gameserverID)
 	if err != nil {
 		return err
 	}
-	return gss.docker.RestoreBackup(gameserver.Name, backupPath)
+	
+	// Create backup
+	err = gss.docker.CreateBackup(gameserver.ContainerID, gameserver.Name)
+	if err != nil {
+		return err
+	}
+	
+	// Clean up old backups if max_backups is set
+	err = gss.docker.CleanupOldBackups(gameserver.ContainerID, gameserver.MaxBackups)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", gameserverID).Msg("Failed to cleanup old backups")
+		// Don't return error for cleanup failure, backup creation was successful
+	}
+	
+	return nil
+}
+
+func (gss *GameserverService) RestoreGameserverBackup(gameserverID, backupFilename string) error {
+	gameserver, err := gss.db.GetGameserver(gameserverID)
+	if err != nil {
+		return err
+	}
+	return gss.docker.RestoreBackup(gameserver.ContainerID, backupFilename)
 }
 
 // File operation methods

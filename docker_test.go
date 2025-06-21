@@ -4,6 +4,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 )
 
 // =============================================================================
@@ -128,6 +129,81 @@ func (m *MockDockerManager) CreateBackup(gameserverID, backupPath string) error 
 func (m *MockDockerManager) RestoreBackup(gameserverID, backupPath string) error {
 	if m.shouldFail["restore_backup"] {
 		return &DockerError{Op: "restore_backup", Msg: "mock restore backup error"}
+	}
+	return nil
+}
+
+// File manager methods
+func (m *MockDockerManager) ListFiles(containerID string, path string) ([]*FileInfo, error) {
+	if m.shouldFail["list_files"] {
+		return nil, &DockerError{Op: "list_files", Msg: "mock list files error"}
+	}
+	modTime, _ := time.Parse(time.RFC3339, "2025-06-21T00:00:00Z")
+	return []*FileInfo{
+		{Name: "server.properties", Size: 1024, IsDir: false, Modified: modTime},
+		{Name: "logs", Size: 0, IsDir: true, Modified: modTime},
+	}, nil
+}
+
+func (m *MockDockerManager) ReadFile(containerID string, path string) ([]byte, error) {
+	if m.shouldFail["read_file"] {
+		return nil, &DockerError{Op: "read_file", Msg: "mock read file error"}
+	}
+	return []byte("mock file content"), nil
+}
+
+func (m *MockDockerManager) WriteFile(containerID string, path string, content []byte) error {
+	if m.shouldFail["write_file"] {
+		return &DockerError{Op: "write_file", Msg: "mock write file error"}
+	}
+	return nil
+}
+
+func (m *MockDockerManager) CreateDirectory(containerID string, path string) error {
+	if m.shouldFail["create_directory"] {
+		return &DockerError{Op: "create_directory", Msg: "mock create directory error"}
+	}
+	return nil
+}
+
+func (m *MockDockerManager) DeletePath(containerID string, path string) error {
+	if m.shouldFail["delete_path"] {
+		return &DockerError{Op: "delete_path", Msg: "mock delete path error"}
+	}
+	return nil
+}
+
+func (m *MockDockerManager) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
+	if m.shouldFail["download_file"] {
+		return nil, &DockerError{Op: "download_file", Msg: "mock download file error"}
+	}
+	return io.NopCloser(strings.NewReader("mock file content")), nil
+}
+
+func (m *MockDockerManager) RenameFile(containerID string, oldPath string, newPath string) error {
+	if m.shouldFail["rename_file"] {
+		return &DockerError{Op: "rename_file", Msg: "mock rename file error"}
+	}
+	return nil
+}
+
+func (m *MockDockerManager) ExecCommand(containerID string, cmd []string) ([]byte, error) {
+	if m.shouldFail["exec_command"] {
+		return nil, &DockerError{Op: "exec_command", Msg: "mock exec command error"}
+	}
+	return []byte("mock command output"), nil
+}
+
+func (m *MockDockerManager) UploadFile(containerID string, destPath string, reader io.Reader) error {
+	if m.shouldFail["upload_file"] {
+		return &DockerError{Op: "upload_file", Msg: "mock upload file error"}
+	}
+	return nil
+}
+
+func (m *MockDockerManager) CleanupOldBackups(containerID string, maxBackups int) error {
+	if m.shouldFail["cleanup_backups"] {
+		return &DockerError{Op: "cleanup_backups", Msg: "mock cleanup backups error"}
 	}
 	return nil
 }

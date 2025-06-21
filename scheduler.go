@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -109,13 +107,26 @@ func (ts *TaskScheduler) processTasks() {
 }
 
 func (ts *TaskScheduler) executeTask(task *ScheduledTask) error {
+	// First check if the gameserver exists and get its status
+	gameserver, err := ts.gameserverSvc.GetGameserver(task.GameserverID)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", task.GameserverID).Msg("Gameserver not found, skipping task")
+		return fmt.Errorf("gameserver not found: %w", err)
+	}
+	
 	switch task.Type {
 	case TaskTypeRestart:
+		// Only restart if the gameserver is currently running
+		if gameserver.Status != StatusRunning {
+			log.Info().Str("gameserver_id", task.GameserverID).Str("status", string(gameserver.Status)).Msg("Skipping restart - gameserver not running")
+			return nil // Don't treat this as an error, just skip
+		}
 		log.Info().Str("gameserver_id", task.GameserverID).Msg("Executing scheduled restart")
 		return ts.gameserverSvc.RestartGameserver(task.GameserverID)
 	
 	case TaskTypeBackup:
-		log.Info().Str("gameserver_id", task.GameserverID).Msg("Executing scheduled backup")
+		// Backups can run regardless of gameserver status (stopped servers can still be backed up)
+		log.Info().Str("gameserver_id", task.GameserverID).Str("status", string(gameserver.Status)).Msg("Executing scheduled backup")
 		return ts.createBackup(task.GameserverID)
 	
 	default:
@@ -124,31 +135,26 @@ func (ts *TaskScheduler) executeTask(task *ScheduledTask) error {
 }
 
 func (ts *TaskScheduler) createBackup(gameserverID string) error {
-	// Get gameserver info for backup naming
+	// Get gameserver info
 	gameserver, err := ts.gameserverSvc.GetGameserver(gameserverID)
 	if err != nil {
 		return fmt.Errorf("failed to get gameserver: %w", err)
 	}
 	
-	// Create backup filename with timestamp
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	backupDir := "./backups"
-	
-	// Convert to absolute path for Docker bind mount
-	absBackupDir, err := filepath.Abs(backupDir)
+	// Create backup directly in the server volume
+	err = ts.gameserverSvc.docker.CreateBackup(gameserver.ContainerID, gameserver.Name)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path for backup directory: %w", err)
+		return err
 	}
 	
-	backupPath := fmt.Sprintf("%s/%s_%s.tar.gz", absBackupDir, gameserver.Name, timestamp)
-	
-	// Create backups directory if it doesn't exist
-	if err := createDirIfNotExists(backupDir); err != nil {
-		return fmt.Errorf("failed to create backup directory: %w", err)
+	// Clean up old backups if max_backups is set
+	err = ts.gameserverSvc.docker.CleanupOldBackups(gameserver.ContainerID, gameserver.MaxBackups)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", gameserverID).Msg("Failed to cleanup old backups")
+		// Don't return error for cleanup failure, backup creation was successful
 	}
 	
-	// Create the backup using the gameserver name (not ID) since volume names use the name
-	return ts.gameserverSvc.docker.CreateBackup(gameserver.Name, backupPath)
+	return nil
 }
 
 // Simple cron parser for basic patterns: "minute hour day month weekday"
@@ -211,9 +217,3 @@ func (ts *TaskScheduler) fieldMatches(value int, pattern string) bool {
 	return false
 }
 
-func createDirIfNotExists(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return os.MkdirAll(path, 0755)
-	}
-	return nil
-}
