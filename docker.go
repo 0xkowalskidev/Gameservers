@@ -390,3 +390,24 @@ func (d *DockerManager) RemoveVolume(volumeName string) error {
 func (d *DockerManager) getVolumeNameForServer(server *Gameserver) string {
 	return fmt.Sprintf("gameservers-%s-data", server.Name)
 }
+
+func (d *DockerManager) GetVolumeInfo(volumeName string) (*VolumeInfo, error) {
+	ctx := context.Background()
+	
+	vol, err := d.client.VolumeInspect(ctx, volumeName)
+	if err != nil {
+		return nil, &DockerError{
+			Op:  "inspect_volume",
+			Msg: fmt.Sprintf("failed to inspect volume %s", volumeName),
+			Err: err,
+		}
+	}
+	
+	return &VolumeInfo{
+		Name:       vol.Name,
+		MountPoint: vol.Mountpoint,
+		Driver:     vol.Driver,
+		CreatedAt:  vol.CreatedAt,
+		Labels:     vol.Labels,
+	}, nil
+}

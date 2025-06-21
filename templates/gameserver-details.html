@@ -15,6 +15,10 @@
         {{if gt .Gameserver.CPUCores 0.0}}<div class="flex justify-between"><dt class="font-medium">CPU Limit:</dt><dd>{{.Gameserver.CPUCores}} cores</dd></div>{{else}}<div class="flex justify-between"><dt class="font-medium">CPU Limit:</dt><dd>Unlimited</dd></div>{{end}}
         <div class="flex justify-between"><dt class="font-medium">Image:</dt><dd class="truncate">{{.Gameserver.Image}}</dd></div>
         <div class="flex justify-between"><dt class="font-medium">Container:</dt><dd class="font-mono text-xs truncate">{{.Gameserver.ContainerID}}</dd></div>
+        {{if .Gameserver.VolumeInfo}}
+        <div class="flex justify-between"><dt class="font-medium">Volume:</dt><dd class="font-mono text-xs">{{.Gameserver.VolumeInfo.Name}}</dd></div>
+        <div class="flex justify-between"><dt class="font-medium">Host Path:</dt><dd class="font-mono text-xs truncate">{{.Gameserver.VolumeInfo.MountPoint}}</dd></div>
+        {{end}}
       </dl>
       {{if eq .Gameserver.Status "running"}}
       <div class="mt-4 pt-4 border-t">

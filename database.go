@@ -335,6 +335,13 @@ func (gss *GameserverService) populateGameFields(server *Gameserver) error {
 	server.GameType = game.Name
 	server.Image = game.Image
 	server.MemoryGB = float64(server.MemoryMB) / 1024.0
+	
+	// Get volume information
+	volumeName := fmt.Sprintf("gameservers-%s-data", server.Name)
+	if volumeInfo, err := gss.docker.GetVolumeInfo(volumeName); err == nil {
+		server.VolumeInfo = volumeInfo
+	}
+	
 	return nil
 }
 
