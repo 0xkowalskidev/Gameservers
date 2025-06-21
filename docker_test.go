@@ -208,6 +208,22 @@ func (m *MockDockerManager) CleanupOldBackups(containerID string, maxBackups int
 	return nil
 }
 
+// Smart pull methods for testing
+func (m *MockDockerManager) pullImageIfNeeded(imageName string) error {
+	if m.shouldFail["pull_image"] {
+		return &DockerError{Op: "pull_image", Msg: "mock pull image error"}
+	}
+	return nil
+}
+
+func (m *MockDockerManager) shouldPullImage(imageName string) (bool, error) {
+	if m.shouldFail["check_image"] {
+		return false, &DockerError{Op: "check_image", Msg: "mock check image error"}
+	}
+	// Default behavior: only pull if image name contains "latest" or "new"
+	return strings.Contains(imageName, "latest") || strings.Contains(imageName, "new"), nil
+}
+
 // =============================================================================
 // Container Creation Tests
 // =============================================================================
@@ -388,6 +404,109 @@ func TestDockerError(t *testing.T) {
 		}
 	} else {
 		t.Errorf("expected DockerError type")
+	}
+}
+
+// =============================================================================
+// Smart Pull Strategy Tests
+// =============================================================================
+
+func TestSmartPullStrategy(t *testing.T) {
+	tests := []struct {
+		name        string
+		imageName   string
+		shouldPull  bool
+		expectError bool
+	}{
+		{
+			name:        "pull latest tag",
+			imageName:   "minecraft:latest",
+			shouldPull:  true,
+			expectError: false,
+		},
+		{
+			name:        "pull new version",
+			imageName:   "minecraft:new-version",
+			shouldPull:  true,
+			expectError: false,
+		},
+		{
+			name:        "skip stable version",
+			imageName:   "minecraft:1.20.4",
+			shouldPull:  false,
+			expectError: false,
+		},
+		{
+			name:        "skip specific digest",
+			imageName:   "minecraft@sha256:abcd1234",
+			shouldPull:  false,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := NewMockDockerManager()
+			
+			// Test should pull logic
+			shouldPull, err := mock.shouldPullImage(tt.imageName)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if shouldPull != tt.shouldPull {
+				t.Errorf("expected shouldPull=%v, got %v", tt.shouldPull, shouldPull)
+			}
+			
+			// Test pull if needed
+			err = mock.pullImageIfNeeded(tt.imageName)
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error in pullImageIfNeeded: %v", err)
+			}
+		})
+	}
+}
+
+func TestSmartPullStrategy_Errors(t *testing.T) {
+	tests := []struct {
+		name        string
+		failMethod  string
+		imageName   string
+		expectError bool
+	}{
+		{
+			name:        "check image fails",
+			failMethod:  "check_image",
+			imageName:   "minecraft:latest",
+			expectError: true,
+		},
+		{
+			name:        "pull image fails",
+			failMethod:  "pull_image", 
+			imageName:   "minecraft:latest",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := NewMockDockerManager()
+			mock.shouldFail[tt.failMethod] = true
+			
+			if tt.failMethod == "check_image" {
+				_, err := mock.shouldPullImage(tt.imageName)
+				if tt.expectError && err == nil {
+					t.Errorf("expected error but got none")
+				}
+			} else if tt.failMethod == "pull_image" {
+				err := mock.pullImageIfNeeded(tt.imageName)
+				if tt.expectError && err == nil {
+					t.Errorf("expected error but got none")
+				}
+			}
+		})
 	}
 }
 

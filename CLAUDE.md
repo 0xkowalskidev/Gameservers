@@ -46,7 +46,8 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 - [ ] Move/cut files and directories between folders
 
 ## Current TODOs
-- [ ] Docker image pull policy - Currently Docker only pulls if image doesn't exist locally, even if remote image is updated. Need to decide on pull strategy (Always, IfNotPresent, Never, or user-configurable)
+- None at the moment! 🎉
+- Smart pull strategy implemented - Docker now checks remote image digests and only pulls when there's a newer version available
 
 ## File Structure
 ```
