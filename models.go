@@ -53,4 +53,6 @@ type DockerManagerInterface interface {
 	StreamContainerLogs(containerID string) (io.ReadCloser, error)
 	StreamContainerStats(containerID string) (io.ReadCloser, error)
 	ListContainers() ([]string, error)
+	CreateVolume(volumeName string) error
+	RemoveVolume(volumeName string) error
 }

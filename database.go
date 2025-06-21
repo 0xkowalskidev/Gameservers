@@ -399,9 +399,18 @@ func (gss *GameserverService) DeleteGameserver(id string) error {
 	if err != nil {
 		return err
 	}
+	
+	// Remove container if it exists
 	if server.ContainerID != "" {
 		gss.docker.RemoveContainer(server.ContainerID)
 	}
+	
+	// Remove the auto-managed volume (this will delete all data!)
+	volumeName := fmt.Sprintf("gameservers-%s-data", server.Name)
+	if err := gss.docker.RemoveVolume(volumeName); err != nil {
+		log.Warn().Err(err).Str("volume", volumeName).Msg("Failed to remove volume, may not exist")
+	}
+	
 	return gss.db.DeleteGameserver(id)
 }
 

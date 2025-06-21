@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/rs/zerolog/log"
@@ -119,9 +120,21 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 		hostConfig.CPUPeriod = 100000
 	}
 
-	// Add volumes if specified
+	// Create and mount auto-managed volume for data persistence
+	volumeName := d.getVolumeNameForServer(server)
+	if err := d.CreateVolume(volumeName); err != nil {
+		log.Error().Err(err).Str("volume", volumeName).Msg("Failed to create volume")
+		return err
+	}
+	
+	// Mount the volume to /data in the container (standard gameserver path)
+	hostConfig.Binds = []string{
+		fmt.Sprintf("%s:/data", volumeName),
+	}
+	
+	// Add any additional volumes if specified
 	if len(server.Volumes) > 0 {
-		hostConfig.Binds = server.Volumes
+		hostConfig.Binds = append(hostConfig.Binds, server.Volumes...)
 	}
 
 	// Network configuration
@@ -319,4 +332,61 @@ func (d *DockerManager) pullImageIfNeeded(ctx context.Context, imageName string)
 
 	log.Info().Str("image", imageName).Msg("Successfully pulled Docker image")
 	return nil
+}
+
+// =============================================================================
+// Volume Management
+// =============================================================================
+
+func (d *DockerManager) CreateVolume(volumeName string) error {
+	ctx := context.Background()
+	
+	// Check if volume already exists
+	_, err := d.client.VolumeInspect(ctx, volumeName)
+	if err == nil {
+		// Volume already exists, no need to create
+		log.Debug().Str("volume", volumeName).Msg("Volume already exists")
+		return nil
+	}
+	
+	log.Info().Str("volume", volumeName).Msg("Creating Docker volume")
+	
+	_, err = d.client.VolumeCreate(ctx, volume.CreateOptions{
+		Name: volumeName,
+		Labels: map[string]string{
+			"gameserver.managed": "true",
+		},
+	})
+	if err != nil {
+		return &DockerError{
+			Op:  "create_volume",
+			Msg: fmt.Sprintf("failed to create volume %s", volumeName),
+			Err: err,
+		}
+	}
+	
+	log.Info().Str("volume", volumeName).Msg("Successfully created Docker volume")
+	return nil
+}
+
+func (d *DockerManager) RemoveVolume(volumeName string) error {
+	ctx := context.Background()
+	
+	log.Info().Str("volume", volumeName).Msg("Removing Docker volume")
+	
+	err := d.client.VolumeRemove(ctx, volumeName, true) // force=true
+	if err != nil {
+		return &DockerError{
+			Op:  "remove_volume",
+			Msg: fmt.Sprintf("failed to remove volume %s", volumeName),
+			Err: err,
+		}
+	}
+	
+	log.Info().Str("volume", volumeName).Msg("Successfully removed Docker volume")
+	return nil
+}
+
+func (d *DockerManager) getVolumeNameForServer(server *Gameserver) string {
+	return fmt.Sprintf("gameservers-%s-data", server.Name)
 }

@@ -91,6 +91,20 @@ func (m *MockDockerManager) ListContainers() ([]string, error) {
 	return containers, nil
 }
 
+func (m *MockDockerManager) CreateVolume(volumeName string) error {
+	if m.shouldFail["create_volume"] {
+		return &DockerError{Op: "create_volume", Msg: "mock create volume error"}
+	}
+	return nil
+}
+
+func (m *MockDockerManager) RemoveVolume(volumeName string) error {
+	if m.shouldFail["remove_volume"] {
+		return &DockerError{Op: "remove_volume", Msg: "mock remove volume error"}
+	}
+	return nil
+}
+
 // =============================================================================
 // Container Creation Tests
 // =============================================================================
