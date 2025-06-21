@@ -65,6 +65,30 @@ func main() {
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"formatFileSize": formatFileSize,
 		"sub": func(a, b int) int { return a - b },
+		"dict": func(values ...interface{}) map[string]interface{} {
+			if len(values)%2 != 0 {
+				return nil
+			}
+			dict := make(map[string]interface{}, len(values)/2)
+			for i := 0; i < len(values); i += 2 {
+				key, ok := values[i].(string)
+				if !ok {
+					return nil
+				}
+				dict[key] = values[i+1]
+			}
+			return dict
+		},
+		"slice": func(values ...interface{}) []interface{} {
+			return values
+		},
+		"printf": fmt.Sprintf,
+		"if": func(condition bool, trueVal, falseVal interface{}) interface{} {
+			if condition {
+				return trueVal
+			}
+			return falseVal
+		},
 	}).ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to parse templates")

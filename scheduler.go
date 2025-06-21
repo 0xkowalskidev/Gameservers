@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -65,9 +63,9 @@ func (ts *TaskScheduler) calculateNextRunTimes() {
 	}
 
 	for _, task := range tasks {
-		nextRun := ts.calculateNextRun(task.CronSchedule, time.Now())
-		if nextRun != nil {
-			task.NextRun = nextRun
+		nextRun := CalculateNextRun(task.CronSchedule, time.Now())
+		if !nextRun.IsZero() {
+			task.NextRun = &nextRun
 			task.UpdatedAt = time.Now()
 			if err := ts.db.UpdateScheduledTask(task); err != nil {
 				log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to update task next run time")
@@ -88,7 +86,12 @@ func (ts *TaskScheduler) processTasks() {
 		// Recalculate next run time if it's nil (e.g., after task update)
 		if task.NextRun == nil {
 			log.Info().Str("task_id", task.ID).Str("task_name", task.Name).Msg("Recalculating next run time for updated task")
-			task.NextRun = ts.calculateNextRun(task.CronSchedule, now)
+			nextRun := CalculateNextRun(task.CronSchedule, now)
+			if !nextRun.IsZero() {
+				task.NextRun = &nextRun
+			} else {
+				task.NextRun = nil
+			}
 			task.UpdatedAt = now
 			if err := ts.db.UpdateScheduledTask(task); err != nil {
 				log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to update task next run time")
@@ -107,7 +110,12 @@ func (ts *TaskScheduler) processTasks() {
 			// Update last run and calculate next run
 			now := time.Now()
 			task.LastRun = &now
-			task.NextRun = ts.calculateNextRun(task.CronSchedule, now)
+			nextRun := CalculateNextRun(task.CronSchedule, now)
+			if !nextRun.IsZero() {
+				task.NextRun = &nextRun
+			} else {
+				task.NextRun = nil
+			}
 			task.UpdatedAt = now
 
 			if err := ts.db.UpdateScheduledTask(task); err != nil {
@@ -166,65 +174,5 @@ func (ts *TaskScheduler) createBackup(gameserverID string) error {
 	}
 	
 	return nil
-}
-
-// Simple cron parser for basic patterns: "minute hour day month weekday"
-// Supports: numbers, asterisks (*), and step values (*/5)
-func (ts *TaskScheduler) calculateNextRun(cronSchedule string, from time.Time) *time.Time {
-	parts := strings.Fields(cronSchedule)
-	if len(parts) != 5 {
-		log.Error().Str("cron", cronSchedule).Msg("Invalid cron schedule format")
-		return nil
-	}
-
-	minute := parts[0]
-	hour := parts[1]
-	day := parts[2]
-	month := parts[3]
-	weekday := parts[4]
-
-	// Start from the next minute
-	next := from.Truncate(time.Minute).Add(time.Minute)
-	
-	// Simple implementation - find next matching time within next 7 days
-	for attempts := 0; attempts < 7*24*60; attempts++ {
-		if ts.cronMatches(next, minute, hour, day, month, weekday) {
-			return &next
-		}
-		next = next.Add(time.Minute)
-	}
-
-	log.Error().Str("cron", cronSchedule).Msg("Could not calculate next run time")
-	return nil
-}
-
-func (ts *TaskScheduler) cronMatches(t time.Time, minute, hour, day, month, weekday string) bool {
-	return ts.fieldMatches(t.Minute(), minute) &&
-		ts.fieldMatches(t.Hour(), hour) &&
-		ts.fieldMatches(t.Day(), day) &&
-		ts.fieldMatches(int(t.Month()), month) &&
-		ts.fieldMatches(int(t.Weekday()), weekday)
-}
-
-func (ts *TaskScheduler) fieldMatches(value int, pattern string) bool {
-	if pattern == "*" {
-		return true
-	}
-	
-	// Handle step values like */5
-	if strings.HasPrefix(pattern, "*/") {
-		stepStr := pattern[2:]
-		if step, err := strconv.Atoi(stepStr); err == nil {
-			return value%step == 0
-		}
-		return false
-	}
-	
-	// Handle exact matches
-	if patternValue, err := strconv.Atoi(pattern); err == nil {
-		return value == patternValue
-	}
-	
-	return false
 }
 

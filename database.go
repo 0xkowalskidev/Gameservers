@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -562,8 +561,9 @@ func (gss *GameserverService) CreateScheduledTask(task *ScheduledTask) error {
 	task.ID = generateID()
 	
 	// Calculate initial next run time
-	if nextRun := gss.calculateNextRun(task.CronSchedule, now); nextRun != nil {
-		task.NextRun = nextRun
+	nextRun := CalculateNextRun(task.CronSchedule, now)
+	if !nextRun.IsZero() {
+		task.NextRun = &nextRun
 	}
 	
 	return gss.db.CreateScheduledTask(task)
@@ -648,62 +648,29 @@ func (gss *GameserverService) RenameFile(containerID string, oldPath string, new
 	return gss.docker.RenameFile(containerID, oldPath, newPath)
 }
 
-// Simple cron parser for calculating next run times
-func (gss *GameserverService) calculateNextRun(cronSchedule string, from time.Time) *time.Time {
-	parts := strings.Fields(cronSchedule)
-	if len(parts) != 5 {
-		return nil
+func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*FileInfo, error) {
+	gameserver, err := gss.db.GetGameserver(gameserverID)
+	if err != nil {
+		return nil, err
 	}
-
-	minute := parts[0]
-	hour := parts[1]
-	day := parts[2]
-	month := parts[3]
-	weekday := parts[4]
-
-	// Start from the next minute
-	next := from.Truncate(time.Minute).Add(time.Minute)
 	
-	// Simple implementation - find next matching time within next 7 days
-	for attempts := 0; attempts < 7*24*60; attempts++ {
-		if gss.cronMatches(next, minute, hour, day, month, weekday) {
-			return &next
+	// List files in /data/backups and filter for .tar.gz files
+	files, err := gss.docker.ListFiles(gameserver.ContainerID, "/data/backups")
+	if err != nil {
+		return nil, err
+	}
+	
+	// Filter for backup files
+	var backups []*FileInfo
+	for _, file := range files {
+		if !file.IsDir && strings.HasSuffix(strings.ToLower(file.Name), ".tar.gz") {
+			backups = append(backups, file)
 		}
-		next = next.Add(time.Minute)
-	}
-
-	return nil
-}
-
-func (gss *GameserverService) cronMatches(t time.Time, minute, hour, day, month, weekday string) bool {
-	return gss.fieldMatches(t.Minute(), minute) &&
-		gss.fieldMatches(t.Hour(), hour) &&
-		gss.fieldMatches(t.Day(), day) &&
-		gss.fieldMatches(int(t.Month()), month) &&
-		gss.fieldMatches(int(t.Weekday()), weekday)
-}
-
-func (gss *GameserverService) fieldMatches(value int, pattern string) bool {
-	if pattern == "*" {
-		return true
 	}
 	
-	// Handle step values like */5
-	if strings.HasPrefix(pattern, "*/") {
-		stepStr := pattern[2:]
-		if step, err := strconv.Atoi(stepStr); err == nil {
-			return value%step == 0
-		}
-		return false
-	}
-	
-	// Handle exact matches
-	if patternValue, err := strconv.Atoi(pattern); err == nil {
-		return value == patternValue
-	}
-	
-	return false
+	return backups, nil
 }
+
 
 // =============================================================================
 // Scheduled Task Database Operations

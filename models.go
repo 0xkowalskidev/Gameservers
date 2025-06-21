@@ -87,6 +87,7 @@ type ScheduledTask struct {
 type DockerManagerInterface interface {
 	CreateContainer(server *Gameserver) error
 	StartContainer(containerID string) error
+	StopContainer(containerID string) error
 	RemoveContainer(containerID string) error
 	SendCommand(containerID string, command string) error
 	GetContainerStatus(containerID string) (GameserverStatus, error)

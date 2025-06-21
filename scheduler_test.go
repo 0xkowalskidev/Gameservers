@@ -132,6 +132,17 @@ func (m *MockDockerManagerForScheduler) StartContainer(containerID string) error
 	return &DockerError{Op: "start", Msg: "container not found"}
 }
 
+func (m *MockDockerManagerForScheduler) StopContainer(containerID string) error {
+	if m.shouldFail["stop"] {
+		return &DockerError{Op: "stop", Msg: "mock stop error"}
+	}
+	if server, exists := m.containers[containerID]; exists {
+		server.Status = StatusStopped
+		return nil
+	}
+	return &DockerError{Op: "stop", Msg: "container not found"}
+}
+
 func (m *MockDockerManagerForScheduler) RemoveContainer(containerID string) error {
 	if m.shouldFail["remove"] {
 		return &DockerError{Op: "remove", Msg: "mock remove error"}
@@ -314,9 +325,7 @@ func NewMockTaskScheduler() *MockTaskScheduler {
 // Cron Parsing Tests
 // =============================================================================
 
-func TestTaskScheduler_calculateNextRun(t *testing.T) {
-	scheduler := NewMockTaskScheduler()
-
+func TestCronCalculateNextRun(t *testing.T) {
 	tests := []struct {
 		name         string
 		cronSchedule string
@@ -357,17 +366,17 @@ func TestTaskScheduler_calculateNextRun(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nextRun := scheduler.calculateNextRun(tt.cronSchedule, tt.from)
+			nextRun := CalculateNextRun(tt.cronSchedule, tt.from)
 			
 			if tt.expected == "" {
-				if nextRun != nil {
-					t.Errorf("expected nil, got %v", nextRun)
+				if !nextRun.IsZero() {
+					t.Errorf("expected zero time, got %v", nextRun)
 				}
 				return
 			}
 			
-			if nextRun == nil {
-				t.Errorf("expected valid time, got nil")
+			if nextRun.IsZero() {
+				t.Errorf("expected valid time, got zero time")
 				return
 			}
 			
@@ -379,32 +388,30 @@ func TestTaskScheduler_calculateNextRun(t *testing.T) {
 	}
 }
 
-func TestTaskScheduler_fieldMatches(t *testing.T) {
-	scheduler := NewMockTaskScheduler()
-
+func TestCronFieldMatches(t *testing.T) {
 	tests := []struct {
 		name     string
+		field    string
 		value    int
-		pattern  string
 		expected bool
 	}{
-		{"asterisk matches any", 42, "*", true},
-		{"exact match", 15, "15", true},
-		{"exact mismatch", 15, "30", false},
-		{"step value match", 30, "*/30", true},
-		{"step value mismatch", 25, "*/30", false},
-		{"step value every 2", 4, "*/2", true},
-		{"step value every 2 odd", 5, "*/2", false},
-		{"invalid step", 10, "*/abc", false},
-		{"invalid pattern", 10, "abc", false},
+		{"asterisk matches any", "*", 42, true},
+		{"exact match", "15", 15, true},
+		{"exact mismatch", "30", 15, false},
+		{"step value match", "*/30", 30, true},
+		{"step value mismatch", "*/30", 25, false},
+		{"step value every 2", "*/2", 4, true},
+		{"step value every 2 odd", "*/2", 5, false},
+		{"invalid step", "*/abc", 10, false},
+		{"invalid pattern", "abc", 10, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := scheduler.fieldMatches(tt.value, tt.pattern)
+			result := fieldMatches(tt.field, tt.value)
 			if result != tt.expected {
-				t.Errorf("fieldMatches(%d, %q) = %v, expected %v", 
-					tt.value, tt.pattern, result, tt.expected)
+				t.Errorf("fieldMatches(%q, %d) = %v, expected %v", 
+					tt.field, tt.value, result, tt.expected)
 			}
 		})
 	}

@@ -46,6 +46,16 @@ func (m *MockDockerManager) StartContainer(containerID string) error {
 	return &DockerError{Op: "start", Msg: "container not found"}
 }
 
+func (m *MockDockerManager) StopContainer(containerID string) error {
+	if m.shouldFail["stop"] {
+		return &DockerError{Op: "stop", Msg: "mock stop error"}
+	}
+	if server, exists := m.containers[containerID]; exists {
+		server.Status = StatusStopped
+		return nil
+	}
+	return &DockerError{Op: "stop", Msg: "container not found"}
+}
 
 
 func (m *MockDockerManager) RemoveContainer(containerID string) error {

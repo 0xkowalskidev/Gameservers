@@ -187,7 +187,23 @@ func (d *DockerManager) StartContainer(containerID string) error {
 	return nil
 }
 
+func (d *DockerManager) StopContainer(containerID string) error {
+	ctx := context.Background()
 
+	timeout := 30 // 30 seconds timeout
+	err := d.client.ContainerStop(ctx, containerID, container.StopOptions{
+		Timeout: &timeout,
+	})
+	if err != nil {
+		return &DockerError{
+			Op: "stop",
+			Msg:   fmt.Sprintf("failed to stop container %s", containerID),
+			Err:       err,
+		}
+	}
+
+	return nil
+}
 
 func (d *DockerManager) RemoveContainer(containerID string) error {
 	ctx := context.Background()
@@ -390,27 +406,16 @@ func (d *DockerManager) CreateBackup(containerID, gameserverName string) error {
 	log.Info().Str("container_id", containerID).Str("backup_file", backupFilename).Msg("Creating backup")
 	
 	// First ensure the backups directory exists
-	mkdirCmd := []string{"mkdir", "-p", "/data/backups"}
-	_, err := d.ExecCommand(containerID, mkdirCmd)
-	if err != nil {
-		return &DockerError{
-			Op:  "create_backup",
-			Msg: fmt.Sprintf("failed to create backups directory for container %s", containerID),
-			Err: err,
-		}
+	if err := d.execCommandSimple(containerID, []string{"mkdir", "-p", "/data/backups"}, "create_backup_dir"); err != nil {
+		return err
 	}
 	
 	// Create backup using tar inside the existing container
 	cmd := []string{"tar", "-czf", fmt.Sprintf("/data/backups/%s", backupFilename), 
 		"-C", "/data/server", "."}
 	
-	_, err = d.ExecCommand(containerID, cmd)
-	if err != nil {
-		return &DockerError{
-			Op:  "create_backup",
-			Msg: fmt.Sprintf("failed to create backup for container %s", containerID),
-			Err: err,
-		}
+	if err := d.execCommandSimple(containerID, cmd, "create_backup"); err != nil {
+		return err
 	}
 	
 	log.Info().Str("container_id", containerID).Str("backup_file", backupFilename).Msg("Backup created successfully")
@@ -466,41 +471,23 @@ func (d *DockerManager) RestoreBackup(containerID, backupFilename string) error 
 	log.Info().Str("container_id", containerID).Str("backup_file", backupFilename).Msg("Restoring backup")
 	
 	// Create temporary directory for backups during restore
-	_, err := d.ExecCommand(containerID, []string{"mkdir", "-p", "/tmp/backups"})
-	if err != nil {
-		return &DockerError{
-			Op:  "create_temp_dir",
-			Msg: "failed to create temporary backup directory",
-			Err: err,
-		}
+	if err := d.execCommandSimple(containerID, []string{"mkdir", "-p", "/tmp/backups"}, "create_temp_dir"); err != nil {
+		return err
 	}
 	
 	// Clear server directory
-	_, err = d.ExecCommand(containerID, []string{"sh", "-c", "find /data/server -mindepth 1 -delete"})
-	if err != nil {
-		return &DockerError{
-			Op:  "clear_server_dir",
-			Msg: "failed to clear server directory for restore",
-			Err: err,
-		}
+	if err := d.execCommandSimple(containerID, []string{"sh", "-c", "find /data/server -mindepth 1 -delete"}, "clear_server_dir"); err != nil {
+		return err
 	}
 	
 	// Extract the backup
 	backupPath := fmt.Sprintf("/data/backups/%s", backupFilename)
-	_, err = d.ExecCommand(containerID, []string{"tar", "-xzf", backupPath, "-C", "/data/server"})
-	if err != nil {
-		return &DockerError{
-			Op:  "extract_backup",
-			Msg: fmt.Sprintf("failed to extract backup %s", backupFilename),
-			Err: err,
-		}
-	}
-	if err != nil {
-		log.Warn().Err(err).Msg("Failed to move backups back to server directory")
+	if err := d.execCommandSimple(containerID, []string{"tar", "-xzf", backupPath, "-C", "/data/server"}, "extract_backup"); err != nil {
+		return err
 	}
 	
 	// Clean up temporary directory
-	_, err = d.ExecCommand(containerID, []string{"rm", "-rf", "/tmp/backups"})
+	_, err := d.ExecCommand(containerID, []string{"rm", "-rf", "/tmp/backups"})
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to clean up temporary backup directory")
 	}
@@ -525,19 +512,7 @@ type FileInfo struct {
 }
 
 func (d *DockerManager) SendCommand(containerID string, command string) error {
-	// Execute the send-command.sh script with the given command
-	cmd := []string{"/data/scripts/send-command.sh", command}
-	
-	_, err := d.ExecCommand(containerID, cmd)
-	if err != nil {
-		return &DockerError{
-			Op:  "send_command",
-			Msg: fmt.Sprintf("failed to send command to container %s", containerID),
-			Err: err,
-		}
-	}
-	
-	return nil
+	return d.execCommandSimple(containerID, []string{"/data/scripts/send-command.sh", command}, "send_command")
 }
 
 func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, error) {
@@ -611,17 +586,70 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 	return string(output), nil
 }
 
-func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo, error) {
-	// Ensure path starts with /data/server or /data/backups
-	if path == "" || path == "/" {
-		path = "/data/server"
+// =============================================================================
+// Path Validation Helpers
+// =============================================================================
+
+type pathValidation struct {
+	allowedPrefixes []string
+	defaultPath     string
+}
+
+var (
+	serverOnlyValidation = pathValidation{
+		allowedPrefixes: []string{"/data/server"},
+		defaultPath:     "/data/server",
 	}
-	if !strings.HasPrefix(path, "/data/server") && !strings.HasPrefix(path, "/data/backups") {
-		path = "/data/server"
+	serverAndBackupsValidation = pathValidation{
+		allowedPrefixes: []string{"/data/server", "/data/backups"},
+		defaultPath:     "/data/server",
+	}
+)
+
+func (d *DockerManager) validatePath(path string, validation pathValidation) (string, error) {
+	// Handle empty paths
+	if path == "" || path == "/" {
+		return validation.defaultPath, nil
 	}
 	
+	// Check if path has any allowed prefix
+	for _, prefix := range validation.allowedPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return path, nil
+		}
+	}
+	
+	// If no valid prefix found, return default or error based on context
+	if validation.defaultPath != "" {
+		return validation.defaultPath, nil
+	}
+	
+	return "", &DockerError{
+		Op:  "validate_path",
+		Msg: fmt.Sprintf("access denied: path must be within %v", validation.allowedPrefixes),
+		Err: nil,
+	}
+}
+
+// execCommandSimple is a helper for simple exec operations that just need to run a command
+func (d *DockerManager) execCommandSimple(containerID string, cmd []string, operation string) error {
+	_, err := d.ExecCommand(containerID, cmd)
+	if err != nil {
+		return &DockerError{
+			Op:  operation,
+			Msg: fmt.Sprintf("failed to %s in container %s", operation, containerID),
+			Err: err,
+		}
+	}
+	return nil
+}
+
+func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo, error) {
+	// Validate and normalize path
+	validPath, _ := d.validatePath(path, serverAndBackupsValidation)
+	
 	// Use simple ls -la command
-	cmd := []string{"ls", "-la", path}
+	cmd := []string{"ls", "-la", validPath}
 	
 	output, err := d.ExecCommand(containerID, cmd)
 	if err != nil {
@@ -629,44 +657,39 @@ func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo,
 	}
 	
 	// Parse ls output and sort with context
-	isBackupsPath := strings.Contains(path, "/backups")
-	return sortFiles(parseLsOutput(output, path), isBackupsPath), nil
+	isBackupsPath := strings.Contains(validPath, "/backups")
+	return sortFiles(parseLsOutput(output, validPath), isBackupsPath), nil
 }
 
 func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error) {
-	// Ensure path is within /data/server
-	if !strings.HasPrefix(path, "/data/server") {
-		return nil, &DockerError{
-			Op:  "read_file",
-			Msg: "access denied: path must be within /data/server directory",
-			Err: nil,
-		}
+	// Validate path
+	_, err := d.validatePath(path, serverOnlyValidation)
+	if err != nil {
+		return nil, err
 	}
 	
 	// Use cat to read file contents
-	cmd := []string{"cat", path}
-	
-	output, err := d.ExecCommand(containerID, cmd)
+	output, err := d.ExecCommand(containerID, []string{"cat", path})
 	if err != nil {
 		return nil, err
 	}
 	
 	// Clean the output to remove any Docker control characters
-	cleanOutput := cleanDockerOutput(output)
-	
-	return []byte(cleanOutput), nil
+	return []byte(cleanDockerOutput(output)), nil
 }
 
 func (d *DockerManager) WriteFile(containerID string, path string, content []byte) error {
-	// Ensure path is within /data/server
-	if !strings.HasPrefix(path, "/data/server") {
-		return &DockerError{
-			Op:  "write_file",
-			Msg: "access denied: path must be within /data/server directory",
-			Err: nil,
-		}
+	// Validate path
+	_, err := d.validatePath(path, serverOnlyValidation)
+	if err != nil {
+		return err
 	}
 	
+	return d.copyToContainer(containerID, path, content)
+}
+
+// copyToContainer is a helper that creates a tar archive and copies it to the container
+func (d *DockerManager) copyToContainer(containerID string, path string, content []byte) error {
 	ctx := context.Background()
 	
 	// Create a tar archive with the file
@@ -693,28 +716,20 @@ func (d *DockerManager) WriteFile(containerID string, path string, content []byt
 }
 
 func (d *DockerManager) CreateDirectory(containerID string, path string) error {
-	// Ensure path is within /data/server
-	if !strings.HasPrefix(path, "/data/server") {
-		return &DockerError{
-			Op:  "create_directory",
-			Msg: "access denied: path must be within /data/server directory",
-			Err: nil,
-		}
+	// Validate path
+	_, err := d.validatePath(path, serverOnlyValidation)
+	if err != nil {
+		return err
 	}
 	
-	cmd := []string{"mkdir", "-p", path}
-	_, err := d.ExecCommand(containerID, cmd)
-	return err
+	return d.execCommandSimple(containerID, []string{"mkdir", "-p", path}, "create_directory")
 }
 
 func (d *DockerManager) DeletePath(containerID string, path string) error {
-	// Ensure path is within /data/server or /data/backups
-	if !strings.HasPrefix(path, "/data/server") && !strings.HasPrefix(path, "/data/backups") {
-		return &DockerError{
-			Op:  "delete_path",
-			Msg: "access denied: path must be within /data/server or /data/backups directory",
-			Err: nil,
-		}
+	// Validate path
+	_, err := d.validatePath(path, serverAndBackupsValidation)
+	if err != nil {
+		return err
 	}
 	
 	// Don't allow deleting root directories
@@ -726,21 +741,21 @@ func (d *DockerManager) DeletePath(containerID string, path string) error {
 		}
 	}
 	
-	cmd := []string{"rm", "-rf", path}
-	_, err := d.ExecCommand(containerID, cmd)
-	return err
+	return d.execCommandSimple(containerID, []string{"rm", "-rf", path}, "delete_path")
 }
 
 func (d *DockerManager) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
-	// Ensure path is within /data/server or /data/backups
-	if !strings.HasPrefix(path, "/data/server") && !strings.HasPrefix(path, "/data/backups") {
-		return nil, &DockerError{
-			Op:  "download_file",
-			Msg: "access denied: path must be within /data/server or /data/backups directory",
-			Err: nil,
-		}
+	// Validate path
+	_, err := d.validatePath(path, serverAndBackupsValidation)
+	if err != nil {
+		return nil, err
 	}
 	
+	return d.copyFromContainer(containerID, path)
+}
+
+// copyFromContainer handles the Docker API path conversion and copy operation
+func (d *DockerManager) copyFromContainer(containerID string, path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 	
 	// Convert absolute paths to relative paths for Docker API
@@ -770,19 +785,16 @@ func (d *DockerManager) DownloadFile(containerID string, path string) (io.ReadCl
 }
 
 func (d *DockerManager) UploadFile(containerID string, destPath string, reader io.Reader) error {
-	// Ensure path is within /data/server
-	if !strings.HasPrefix(destPath, "/data/server") {
-		return &DockerError{
-			Op:  "upload_file",
-			Msg: "access denied: path must be within /data/server directory",
-			Err: nil,
-		}
+	// Validate path
+	_, err := d.validatePath(destPath, serverOnlyValidation)
+	if err != nil {
+		return err
 	}
 	
 	ctx := context.Background()
 	
 	// Copy to container
-	err := d.client.CopyToContainer(ctx, containerID, destPath, reader, container.CopyToContainerOptions{})
+	err = d.client.CopyToContainer(ctx, containerID, destPath, reader, container.CopyToContainerOptions{})
 	if err != nil {
 		return &DockerError{
 			Op:  "upload_file",
@@ -795,19 +807,17 @@ func (d *DockerManager) UploadFile(containerID string, destPath string, reader i
 }
 
 func (d *DockerManager) RenameFile(containerID string, oldPath string, newPath string) error {
-	// Ensure both paths are within /data/server
-	if !strings.HasPrefix(oldPath, "/data/server") || !strings.HasPrefix(newPath, "/data/server") {
-		return &DockerError{
-			Op:  "rename_file",
-			Msg: "access denied: paths must be within /data/server directory",
-			Err: nil,
-		}
+	// Validate both paths
+	_, err := d.validatePath(oldPath, serverOnlyValidation)
+	if err != nil {
+		return err
+	}
+	_, err = d.validatePath(newPath, serverOnlyValidation)
+	if err != nil {
+		return err
 	}
 	
-	// Use mv command to rename/move the file
-	cmd := []string{"mv", oldPath, newPath}
-	_, err := d.ExecCommand(containerID, cmd)
-	return err
+	return d.execCommandSimple(containerID, []string{"mv", oldPath, newPath}, "rename_file")
 }
 
 // =============================================================================

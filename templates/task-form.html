@@ -1,0 +1,195 @@
+<!-- Unified task form for new and edit -->
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
+    
+    <!-- Form header -->
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="flex-shrink-0 w-10 h-10 {{if .Task}}bg-blue-100 dark:bg-blue-900{{else}}bg-green-100 dark:bg-green-900{{end}} rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 {{if .Task}}text-blue-600 dark:text-blue-400{{else}}text-green-600 dark:text-green-400{{end}}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {{if .Task}}
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+              {{else}}
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              {{end}}
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{if .Task}}Edit Task{{else}}Create New Task{{end}}</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              {{if .Task}}Modify {{.Task.Name}} settings{{else}}Schedule automated tasks for {{.Gameserver.Name}}{{end}}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form content -->
+    <form {{if .Task}}hx-put="/{{.Gameserver.ID}}/tasks/{{.Task.ID}}"{{else}}hx-post="/{{.Gameserver.ID}}/tasks"{{end}}
+          hx-indicator="#task-loading" hx-swap="none"
+          hx-on::after-request="if(event.detail.successful) { showNotification('Task {{if .Task}}updated{{else}}created{{end}} successfully', 'success'); } else { showNotification('Failed to {{if .Task}}update{{else}}create{{end}} task', 'error'); }">
+      
+      <div class="p-6 space-y-6">
+        
+        <!-- Basic Information Section -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Basic Information</h3>
+          
+          <div class="{{if .Task}}grid gap-4 sm:grid-cols-3{{else}}grid gap-4 sm:grid-cols-2{{end}}">
+            <!-- Task Name -->
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Task Name</label>
+              <input type="text" id="name" name="name" required {{if .Task}}value="{{.Task.Name}}"{{end}}
+                     {{if not .Task}}placeholder="e.g., Daily restart"{{end}}
+                     class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+            </div>
+            
+            <!-- Task Type -->
+            <div>
+              <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Task Type</label>
+              <select id="type" name="type" required
+                      class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+                {{if not .Task}}<option value="">Select task type...</option>{{end}}
+                <option value="restart" {{if and .Task (eq .Task.Type "restart")}}selected{{end}}>Restart Server</option>
+                <option value="backup" {{if and .Task (eq .Task.Type "backup")}}selected{{end}}>Create Backup</option>
+              </select>
+            </div>
+            
+            <!-- Status (only for edit) -->
+            {{if .Task}}
+            <div>
+              <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+              <select id="status" name="status" required
+                      class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+                <option value="active" {{if eq .Task.Status "active"}}selected{{end}}>Active</option>
+                <option value="disabled" {{if eq .Task.Status "disabled"}}selected{{end}}>Disabled</option>
+              </select>
+            </div>
+            {{end}}
+          </div>
+        </div>
+        
+        <!-- Schedule Configuration Section -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Schedule Configuration</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Configure when this task should run using cron syntax</p>
+          
+          <div>
+            <label for="cron_schedule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Cron Schedule
+              <span class="text-xs text-gray-500 dark:text-gray-400">(minute hour day month weekday)</span>
+            </label>
+            <input type="text" id="cron_schedule" name="cron_schedule" required
+                   {{if .Task}}value="{{.Task.CronSchedule}}"{{end}}
+                   placeholder="0 3 * * * (daily at 3 AM)"
+                   class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+            
+            <!-- Cron examples -->
+            <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p class="font-medium mb-1">Common examples:</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">0 3 * * *</code> - Daily at 3 AM</span>
+                <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">0 */6 * * *</code> - Every 6 hours</span>
+                <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">0 0 * * 0</code> - Weekly on Sunday</span>
+                <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">*/30 * * * *</code> - Every 30 minutes</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Next Run Preview (for edit mode) -->
+        {{if .Task}}
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Schedule Information</h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span class="text-gray-500 dark:text-gray-400">Last Run:</span>
+              <span class="text-gray-900 dark:text-gray-100 ml-2">
+                {{if .Task.LastRun}}{{.Task.LastRun.Format "Jan 2, 2006 3:04 PM"}}{{else}}Never{{end}}
+              </span>
+            </div>
+            <div>
+              <span class="text-gray-500 dark:text-gray-400">Next Run:</span>
+              <span class="text-gray-900 dark:text-gray-100 ml-2">
+                {{if .Task.NextRun}}{{.Task.NextRun.Format "Jan 2, 2006 3:04 PM"}}{{else}}Not scheduled{{end}}
+              </span>
+            </div>
+          </div>
+        </div>
+        {{end}}
+      </div>
+
+      <!-- Form actions -->
+      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
+        <div class="flex items-center justify-between">
+          <a href="/{{.Gameserver.ID}}/tasks" 
+             hx-get="/{{.Gameserver.ID}}/tasks" 
+             hx-target="#content" 
+             hx-push-url="true"
+             class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-gray-800 transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Cancel
+          </a>
+          
+          <div class="flex items-center space-x-3">
+            <div class="htmx-indicator">
+              <div class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700 dark:text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading...
+              </div>
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white {{if .Task}}bg-blue-600 hover:bg-blue-700{{else}}bg-green-600 hover:bg-green-700{{end}} focus:outline-none focus:ring-2 focus:ring-offset-2 {{if .Task}}focus:ring-blue-500{{else}}focus:ring-green-500{{end}} dark:focus:ring-offset-gray-800 transition-smooth">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {{if .Task}}
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                {{else}}
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                {{end}}
+              </svg>
+              {{if .Task}}Update Task{{else}}Create Task{{end}}
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add some JavaScript for form validation and UX -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const cronInput = document.getElementById('cron_schedule');
+  const taskTypeSelect = document.getElementById('type');
+  
+  // Auto-suggest cron schedules based on task type
+  taskTypeSelect?.addEventListener('change', function() {
+    if (!cronInput.value && this.value) {
+      switch(this.value) {
+        case 'restart':
+          cronInput.value = '0 3 * * *'; // Daily at 3 AM
+          break;
+        case 'backup':
+          cronInput.value = '0 0 * * 0'; // Weekly on Sunday
+          break;
+      }
+    }
+  });
+  
+  // Simple cron validation
+  cronInput?.addEventListener('blur', function() {
+    const cronParts = this.value.trim().split(/\s+/);
+    if (cronParts.length !== 5) {
+      this.setCustomValidity('Cron expression must have exactly 5 parts: minute hour day month weekday');
+    } else {
+      this.setCustomValidity('');
+    }
+  });
+});
+</script>
