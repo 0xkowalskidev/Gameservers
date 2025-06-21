@@ -15,11 +15,19 @@ const (
 	StatusError   GameServerStatus = "error"
 )
 
+type Game struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Image       string    `json:"image"`
+	DefaultPort int       `json:"default_port"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 type GameServer struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
-	GameType    string            `json:"game_type"`
-	Image       string            `json:"image"`
+	GameID      string            `json:"game_id"`
 	ContainerID string            `json:"container_id,omitempty"`
 	Status      GameServerStatus  `json:"status"`
 	Port        int               `json:"port"`
@@ -27,6 +35,10 @@ type GameServer struct {
 	Volumes     []string          `json:"volumes,omitempty"`
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
+	
+	// Derived fields (not stored in DB)
+	GameType    string            `json:"game_type"` // From Game.Name
+	Image       string            `json:"image"`     // From Game.Image
 }
 
 type ContainerStats struct {

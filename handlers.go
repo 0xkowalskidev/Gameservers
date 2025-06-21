@@ -43,7 +43,12 @@ func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) NewGameserver(w http.ResponseWriter, r *http.Request) {
-	Render(w, r, h.tmpl, "new-gameserver.html", nil)
+	games, err := h.service.ListGames()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	Render(w, r, h.tmpl, "new-gameserver.html", map[string]interface{}{"Games": games})
 }
 
 func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
@@ -58,8 +63,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	server := &GameServer{
 		ID:          generateID(),
 		Name:        r.FormValue("name"),
-		GameType:    r.FormValue("game_type"),
-		Image:       r.FormValue("image"),
+		GameID:      r.FormValue("game_id"),
 		Port:        port,
 		Environment: env,
 	}
