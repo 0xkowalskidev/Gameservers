@@ -118,6 +118,7 @@ func main() {
 	r.Post("/{id}/restart", handlers.RestartGameserver)
 	r.Post("/{id}/console", handlers.SendGameserverCommand)
 	r.Delete("/{id}", handlers.DestroyGameserver)
+	r.Get("/{id}/console", handlers.GameserverConsole)
 	r.Get("/{id}/logs", handlers.GameserverLogs)
 	r.Get("/{id}/stats", handlers.GameserverStats)
 	r.Get("/{id}/tasks", handlers.ListGameserverTasks)
@@ -148,6 +149,12 @@ func main() {
 	}
 }
 
+type LayoutData struct {
+	Content          template.HTML
+	Title           string
+	ShowCreateButton bool
+}
+
 func Render(w http.ResponseWriter, r *http.Request, tmpl *template.Template, templateName string, data interface{}) {
 	// If request is made using HTMX
 	if r.Header.Get("HX-Request") == "true" {
@@ -164,14 +171,38 @@ func Render(w http.ResponseWriter, r *http.Request, tmpl *template.Template, tem
 			http.Error(w, "Template error", http.StatusInternalServerError)
 			return
 		}
-		err = tmpl.ExecuteTemplate(w, "layout.html", map[string]interface{}{
-			"Content": template.HTML(buf.String()),
-		})
+		
+		// Generate layout data based on the current page
+		layoutData := generateLayoutData(r, template.HTML(buf.String()))
+		
+		err = tmpl.ExecuteTemplate(w, "layout.html", layoutData)
 		if err != nil {
 			log.Error().Err(err).Str("template", "layout.html").Msg("Failed to render layout template")
 			http.Error(w, "Template error", http.StatusInternalServerError)
 		}
 	}
+}
+
+func generateLayoutData(r *http.Request, content template.HTML) LayoutData {
+	path := r.URL.Path
+	
+	layout := LayoutData{
+		Content: content,
+		ShowCreateButton: false,
+	}
+	
+	// Simple title generation
+	switch {
+	case path == "/":
+		layout.Title = "Dashboard"
+		layout.ShowCreateButton = true
+	case path == "/new":
+		layout.Title = "Create Server"
+	default:
+		layout.Title = "Gameserver Control Panel"
+	}
+	
+	return layout
 }
 
 func formatFileSize(size int64) string {

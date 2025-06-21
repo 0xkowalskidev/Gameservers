@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -59,6 +60,26 @@ func NewHandlers(service GameserverServiceInterface, tmpl *template.Template) *H
 	return &Handlers{service: service, tmpl: tmpl}
 }
 
+func (h *Handlers) renderGameserverPage(w http.ResponseWriter, r *http.Request, gameserver *Gameserver, currentPage string, contentTemplate string, data map[string]interface{}) {
+	// Render the content template to get the inner content
+	var buf bytes.Buffer
+	err := h.tmpl.ExecuteTemplate(&buf, contentTemplate, data)
+	if err != nil {
+		log.Error().Err(err).Str("template", contentTemplate).Msg("Failed to render content template")
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
+	
+	// Wrap with gameserver wrapper
+	wrapperData := map[string]interface{}{
+		"Gameserver":  gameserver,
+		"CurrentPage": currentPage,
+		"Content":     template.HTML(buf.String()),
+	}
+	
+	Render(w, r, h.tmpl, "gameserver-wrapper.html", wrapperData)
+}
+
 func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 	gameservers, err := h.service.ListGameservers()
 	if err != nil {
@@ -76,7 +97,14 @@ func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Gameserver not found", http.StatusNotFound)
 		return
 	}
-	Render(w, r, h.tmpl, "gameserver-details.html", map[string]interface{}{"Gameserver": gameserver})
+	
+	// If HTMX request, render just the content
+	if r.Header.Get("HX-Request") == "true" {
+		Render(w, r, h.tmpl, "gameserver-details.html", map[string]interface{}{"Gameserver": gameserver})
+	} else {
+		// Full page load, use wrapper
+		h.renderGameserverPage(w, r, gameserver, "overview", "gameserver-details.html", map[string]interface{}{"Gameserver": gameserver})
+	}
 }
 
 func (h *Handlers) NewGameserver(w http.ResponseWriter, r *http.Request) {
@@ -102,10 +130,18 @@ func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	Render(w, r, h.tmpl, "edit-gameserver.html", map[string]interface{}{
+	data := map[string]interface{}{
 		"Gameserver": gameserver,
 		"Games":      games,
-	})
+	}
+	
+	// If HTMX request, render just the content
+	if r.Header.Get("HX-Request") == "true" {
+		Render(w, r, h.tmpl, "edit-gameserver.html", data)
+	} else {
+		// Full page load, use wrapper
+		h.renderGameserverPage(w, r, gameserver, "edit", "edit-gameserver.html", data)
+	}
 }
 
 func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +288,28 @@ func (h *Handlers) RestartGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.GameserverRow(w, r)
+}
+
+func (h *Handlers) GameserverConsole(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	data := map[string]interface{}{
+		"Gameserver": gameserver,
+	}
+	
+	// If HTMX request, render just the content
+	if r.Header.Get("HX-Request") == "true" {
+		Render(w, r, h.tmpl, "gameserver-console.html", data)
+	} else {
+		// Full page load, use wrapper
+		h.renderGameserverPage(w, r, gameserver, "console", "gameserver-console.html", data)
+	}
 }
 
 func (h *Handlers) SendGameserverCommand(w http.ResponseWriter, r *http.Request) {
@@ -431,7 +489,13 @@ func (h *Handlers) ListGameserverTasks(w http.ResponseWriter, r *http.Request) {
 		"Tasks":      tasks,
 	}
 
-	Render(w, r, h.tmpl, "gameserver-tasks.html", data)
+	// If HTMX request, render just the content
+	if r.Header.Get("HX-Request") == "true" {
+		Render(w, r, h.tmpl, "gameserver-tasks.html", data)
+	} else {
+		// Full page load, use wrapper
+		h.renderGameserverPage(w, r, gameserver, "tasks", "gameserver-tasks.html", data)
+	}
 }
 
 func (h *Handlers) NewGameserverTask(w http.ResponseWriter, r *http.Request) {
@@ -447,7 +511,13 @@ func (h *Handlers) NewGameserverTask(w http.ResponseWriter, r *http.Request) {
 		"Gameserver": gameserver,
 	}
 
-	Render(w, r, h.tmpl, "new-task.html", data)
+	// If HTMX request, render just the content
+	if r.Header.Get("HX-Request") == "true" {
+		Render(w, r, h.tmpl, "new-task.html", data)
+	} else {
+		// Full page load, use wrapper
+		h.renderGameserverPage(w, r, gameserver, "tasks", "new-task.html", data)
+	}
 }
 
 func (h *Handlers) CreateGameserverTask(w http.ResponseWriter, r *http.Request) {
@@ -495,7 +565,13 @@ func (h *Handlers) EditGameserverTask(w http.ResponseWriter, r *http.Request) {
 		"Task":       task,
 	}
 
-	Render(w, r, h.tmpl, "edit-task.html", data)
+	// If HTMX request, render just the content
+	if r.Header.Get("HX-Request") == "true" {
+		Render(w, r, h.tmpl, "edit-task.html", data)
+	} else {
+		// Full page load, use wrapper
+		h.renderGameserverPage(w, r, gameserver, "tasks", "edit-task.html", data)
+	}
 }
 
 func (h *Handlers) UpdateGameserverTask(w http.ResponseWriter, r *http.Request) {
@@ -562,7 +638,6 @@ func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	w.Header().Set("HX-Redirect", fmt.Sprintf("/%s", id))
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -607,16 +682,28 @@ func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request)
 	}
 	
 	data := map[string]interface{}{
-		"Backups":       backups,
-		"GameserverID":  id,
-		"BackupCount":   len(backups),
-		"MaxBackups":    gameserver.MaxBackups,
+		"Gameserver":   gameserver,
+		"Backups":      backups,
+		"GameserverID": id,
+		"BackupCount":  len(backups),
+		"MaxBackups":   gameserver.MaxBackups,
 	}
 	
-	// Return partial template for HTMX
-	err = h.tmpl.ExecuteTemplate(w, "backup-list.html", data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// If HTMX request, check if it's targeting a specific element
+	if r.Header.Get("HX-Request") == "true" {
+		// If the request is targeting #backup-list specifically, return just the list
+		target := r.Header.Get("HX-Target")
+		if target == "#backup-list" || r.URL.Query().Get("list") == "true" {
+			err = h.tmpl.ExecuteTemplate(w, "backup-list.html", data)
+		} else {
+			err = h.tmpl.ExecuteTemplate(w, "gameserver-backups.html", data)
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	} else {
+		// Full page load, use wrapper
+		h.renderGameserverPage(w, r, gameserver, "backups", "gameserver-backups.html", data)
 	}
 }
 
@@ -673,12 +760,18 @@ func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	data := map[string]interface{}{
-		"Gameserver": gameserver,
-		"Files":      files,
+		"Gameserver":  gameserver,
+		"Files":       files,
 		"CurrentPath": "/data/server",
 	}
 	
-	Render(w, r, h.tmpl, "gameserver-files.html", data)
+	// If HTMX request, render just the content
+	if r.Header.Get("HX-Request") == "true" {
+		Render(w, r, h.tmpl, "gameserver-files.html", data)
+	} else {
+		// Full page load, use wrapper
+		h.renderGameserverPage(w, r, gameserver, "files", "gameserver-files.html", data)
+	}
 }
 
 func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request) {

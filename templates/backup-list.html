@@ -1,18 +1,41 @@
 <!-- Backup stats header -->
-<div class="flex justify-between items-center mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-  <div class="flex items-center space-x-2">
-    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+<div class="flex justify-between items-center mb-6 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
+  <div class="flex items-center space-x-3">
+    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
     </svg>
-    <span class="text-sm font-medium text-blue-900">
-      Backups: {{ .BackupCount }}{{ if gt .MaxBackups 0 }} / {{ .MaxBackups }}{{ else }} (unlimited){{ end }}
-    </span>
+    <div>
+      <p class="text-sm font-medium text-blue-900 dark:text-blue-200">
+        {{ .BackupCount }} backup{{ if ne .BackupCount 1 }}s{{ end }} available
+      </p>
+      <p class="text-xs text-blue-700 dark:text-blue-300">
+        {{ if gt .MaxBackups 0 }}
+          {{ if ge .BackupCount .MaxBackups }}
+            At limit ({{ .MaxBackups }}) - oldest will be auto-deleted
+          {{ else }}
+            {{ sub .MaxBackups .BackupCount }} more allowed (limit: {{ .MaxBackups }})
+          {{ end }}
+        {{ else }}
+          Unlimited backups allowed
+        {{ end }}
+      </p>
+    </div>
   </div>
   {{ if gt .MaxBackups 0 }}
     {{ if ge .BackupCount .MaxBackups }}
-      <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">At limit - oldest will be auto-deleted</span>
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+        </svg>
+        At Limit
+      </span>
     {{ else }}
-      <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">{{ sub .MaxBackups .BackupCount }} remaining</span>
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+        </svg>
+        {{ sub .MaxBackups .BackupCount }} Remaining
+      </span>
     {{ end }}
   {{ end }}
 </div>
@@ -20,20 +43,35 @@
 {{ if .Backups }}
 <div class="space-y-3">
   {{ range .Backups }}
-  <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-    <div class="flex items-center space-x-3">
-      <svg class="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
-      </svg>
+  <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-smooth">
+    <div class="flex items-center space-x-4">
+      <div class="flex-shrink-0 w-10 h-10 bg-emerald-100 dark:bg-emerald-900 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+      </div>
       <div>
-        <p class="font-mono text-sm font-medium text-gray-900">{{ .Name }}</p>
-        <p class="text-xs text-gray-500">{{ formatFileSize .Size }} • {{ .Modified.Format "2006-01-02 15:04:05" }}</p>
+        <p class="font-mono text-sm font-medium text-gray-900 dark:text-gray-100">{{ .Name }}</p>
+        <div class="flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <span class="flex items-center">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l6-2v13M9 19l-3-2-3 2v-13l3-2 3 2"></path>
+            </svg>
+            {{ formatFileSize .Size }}
+          </span>
+          <span class="flex items-center">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            {{ .Modified.Format "Jan 2, 2006 15:04" }}
+          </span>
+        </div>
       </div>
     </div>
     <div class="flex items-center space-x-2">
       <a href="/{{ $.GameserverID }}/files/download?path=/data/backups/{{ .Name }}" 
-         class="inline-flex items-center px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors duration-150">
-        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+         class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
         </svg>
         Download
@@ -41,17 +79,17 @@
       <button hx-post="/{{ $.GameserverID }}/restore?backup={{ .Name }}"
               hx-indicator="#restore-loading"
               hx-swap="none"
-              hx-confirm="Restore from backup '{{ .Name }}'? This will replace all current server files."
-              hx-on::after-request="if(event.detail.successful) { showNotification('Backup restored successfully', 'success'); setTimeout(() => window.location.reload(), 2000); } else { showNotification('Failed to restore backup', 'error'); }"
-              class="inline-flex items-center px-3 py-1 bg-emerald-500 text-white text-sm rounded hover:bg-emerald-600 transition-colors duration-150 disabled:opacity-50">
-        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              hx-confirm="Restore from backup '{{ .Name }}'?\n\nThis will replace all current server files with the backup contents. This action cannot be undone.\n\nMake sure to stop the server first if it's running."
+              hx-on::after-request="if(event.detail.successful) { showNotification('Backup restored successfully - server files have been replaced', 'success'); setTimeout(() => window.location.reload(), 3000); } else { showNotification('Failed to restore backup', 'error'); }"
+              class="inline-flex items-center px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
         </svg>
         Restore
       </button>
       <button onclick="deleteBackup('{{ .Name }}')" 
-              class="inline-flex items-center px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors duration-150">
-        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="inline-flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-smooth">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
         </svg>
         Delete
@@ -61,27 +99,58 @@
   {{ end }}
 </div>
 {{ else }}
-<div class="text-center text-gray-500 py-8">
-  <svg class="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-  </svg>
-  <p class="text-sm font-medium text-gray-400 mb-2">No backups found</p>
-  <p class="text-xs text-gray-400">Create your first backup to get started</p>
+<div class="text-center py-12">
+  <div class="mx-auto w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+    <svg class="w-10 h-10 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+    </svg>
+  </div>
+  <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No backups yet</h3>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">Create your first backup to protect your server data.</p>
+  <button hx-post="/{{ $.GameserverID }}/backup" hx-indicator="#backup-loading" hx-swap="none" hx-on::after-request="if(event.detail.successful) { htmx.ajax('GET', '/{{ $.GameserverID }}/backups?list=true', {target: '#backup-list'}); showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
+          class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
+    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+    </svg>
+    Create First Backup
+  </button>
 </div>
 {{ end }}
 
 <!-- Restore Loading Indicator -->
-<div id="restore-loading" class="htmx-indicator overflow-hidden transition-all duration-300 ease-in-out max-h-0 opacity-0">
-  <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+<div id="restore-loading" class="htmx-indicator mt-6">
+  <div class="p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
     <div class="flex items-center space-x-3">
-    <svg class="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
-    <div>
-      <p class="text-sm font-medium text-blue-900">Restoring backup...</p>
-      <p class="text-xs text-blue-700">Please wait while we restore your backup</p>
-    </div>
+      <svg class="animate-spin h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <div>
+        <p class="text-sm font-medium text-blue-900 dark:text-blue-200">Restoring backup...</p>
+        <p class="text-xs text-blue-700 dark:text-blue-300">This may take a few minutes depending on backup size</p>
+      </div>
     </div>
   </div>
 </div>
+
+<script>
+function deleteBackup(filename) {
+  if (!confirm(`Delete backup "${filename}"?\n\nThis action cannot be undone.`)) return;
+  
+  fetch('/{{ $.GameserverID }}/backups/delete?backup=' + encodeURIComponent(filename), {
+    method: 'DELETE'
+  })
+  .then(response => {
+    if (response.ok) {
+      showNotification('Backup deleted successfully', 'success');
+      // Refresh backup list
+      htmx.ajax('GET', '/{{ $.GameserverID }}/backups?list=true', {target: '#backup-list'});
+    } else {
+      response.text().then(text => showNotification('Failed to delete backup: ' + text, 'error'));
+    }
+  })
+  .catch(error => {
+    showNotification('Error deleting backup: ' + error.message, 'error');
+  });
+}
+</script>

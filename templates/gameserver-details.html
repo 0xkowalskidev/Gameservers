@@ -1,163 +1,114 @@
-<div class="max-w-4xl mx-auto">
-  <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-gray-900">{{.Gameserver.Name}}</h2>
-    <a href="/" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-md">← Back</a>
-  </div>
-  
-  <div class="grid md:grid-cols-2 gap-6">
-    <div class="bg-white shadow rounded-lg p-6">
-      <h3 class="text-lg font-semibold mb-4">Information</h3>
-      <dl class="space-y-2 text-sm">
-        <div class="flex justify-between"><dt class="font-medium">Status:</dt><dd class="{{if eq .Gameserver.Status "running"}}text-green-600{{else if eq .Gameserver.Status "stopped"}}text-red-600{{else}}text-yellow-600{{end}} font-medium">{{.Gameserver.Status}}</dd></div>
-        <div class="flex justify-between"><dt class="font-medium">Game Type:</dt><dd>{{.Gameserver.GameType}}</dd></div>
-        <div class="flex justify-between"><dt class="font-medium">Port:</dt><dd>{{.Gameserver.Port}}</dd></div>
-        <div class="flex justify-between"><dt class="font-medium">Memory Limit:</dt><dd>{{.Gameserver.MemoryGB}} GB</dd></div>
-        {{if gt .Gameserver.CPUCores 0.0}}<div class="flex justify-between"><dt class="font-medium">CPU Limit:</dt><dd>{{.Gameserver.CPUCores}} cores</dd></div>{{else}}<div class="flex justify-between"><dt class="font-medium">CPU Limit:</dt><dd>Unlimited</dd></div>{{end}}
-        {{if gt .Gameserver.MaxBackups 0}}<div class="flex justify-between"><dt class="font-medium">Max Backups:</dt><dd>{{.Gameserver.MaxBackups}}</dd></div>{{else}}<div class="flex justify-between"><dt class="font-medium">Max Backups:</dt><dd>Unlimited</dd></div>{{end}}
-        <div class="flex justify-between"><dt class="font-medium">Image:</dt><dd class="truncate">{{.Gameserver.Image}}</dd></div>
-        <div class="flex justify-between"><dt class="font-medium">Container:</dt><dd class="font-mono text-xs truncate">{{.Gameserver.ContainerID}}</dd></div>
-        {{if .Gameserver.VolumeInfo}}
-        <div class="flex justify-between"><dt class="font-medium">Volume:</dt><dd class="font-mono text-xs">{{.Gameserver.VolumeInfo.Name}}</dd></div>
-        <div class="flex justify-between"><dt class="font-medium">Host Path:</dt><dd class="font-mono text-xs truncate">{{.Gameserver.VolumeInfo.MountPoint}}</dd></div>
+<!-- Overview content -->
+<div class="space-y-6">
+  <div class="grid gap-6 lg:grid-cols-3">
+    
+    <!-- Server info -->
+    <div class="lg:col-span-2">
+      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Server Information</h3>
+        <dl class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Game Type</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{.Gameserver.GameType}}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Port</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{.Gameserver.Port}}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Memory Limit</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{.Gameserver.MemoryGB}} GB</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">CPU Limit</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+              {{if gt .Gameserver.CPUCores 0.0}}{{.Gameserver.CPUCores}} cores{{else}}Unlimited{{end}}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Max Backups</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+              {{if gt .Gameserver.MaxBackups 0}}{{.Gameserver.MaxBackups}}{{else}}Unlimited{{end}}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Image</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 font-mono break-all">{{.Gameserver.Image}}</dd>
+          </div>
+        </dl>
+        
+        {{if .Gameserver.Environment}}
+        <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Environment Variables</h4>
+          <div class="space-y-2">
+            {{range .Gameserver.Environment}}
+              <div class="bg-gray-50 dark:bg-gray-900 rounded px-3 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">{{.}}</div>
+            {{end}}
+          </div>
+        </div>
         {{end}}
-      </dl>
+      </div>
+    </div>
+    
+    <!-- Resource monitoring -->
+    <div class="space-y-6">
       {{if eq .Gameserver.Status "running"}}
-      <div class="mt-4 pt-4 border-t">
-        <h4 class="text-sm font-semibold mb-2">Resource Usage</h4>
-        <div class="space-y-2">
+      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Resource Usage</h3>
+        <div class="space-y-4">
           <div>
-            <div class="flex justify-between text-sm">
-              <span>CPU</span>
-              <span id="cpu-percent">0%</span>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600 dark:text-gray-400">CPU</span>
+              <span id="cpu-percent" class="font-medium text-gray-900 dark:text-gray-100">0%</span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-              <div id="cpu-bar" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div id="cpu-bar" class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
           </div>
           <div>
-            <div class="flex justify-between text-sm">
-              <span>Memory</span>
-              <span id="mem-usage">0.0 / 0.0 GB</span>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600 dark:text-gray-400">Memory</span>
+              <span id="mem-usage" class="font-medium text-gray-900 dark:text-gray-100">0.0 / 0.0 GB</span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-              <div id="mem-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div id="mem-bar" class="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
           </div>
         </div>
       </div>
       {{end}}
-    </div>
-    
-    <div class="bg-white shadow rounded-lg p-6">
-      <h3 class="text-lg font-semibold mb-4">Actions</h3>
-      <div class="space-y-2">
-        <a href="/{{.Gameserver.ID}}/edit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium text-center block">Edit</a>
-        <a href="/{{.Gameserver.ID}}/tasks" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md font-medium text-center block">Scheduled Tasks</a>
-        <a href="/{{.Gameserver.ID}}/files" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium text-center block">File Manager</a>
-        {{if eq .Gameserver.Status "running"}}
-          <button hx-post="/{{.Gameserver.ID}}/stop" hx-indicator="#loading" hx-swap="none" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium">Stop</button>
-          <button hx-post="/{{.Gameserver.ID}}/restart" hx-indicator="#loading" hx-swap="none" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-md font-medium">Restart</button>
-        {{else}}
-          <button hx-post="/{{.Gameserver.ID}}/start" hx-indicator="#loading" hx-swap="none" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">Start</button>
-        {{end}}
-        <button hx-delete="/{{.Gameserver.ID}}" hx-confirm="Delete gameserver?" hx-indicator="#loading" hx-swap="none" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium">Delete</button>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Backup Management Section -->
-  <div class="bg-white shadow rounded-lg p-6 mt-6">
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-semibold">Backup Management</h3>
-      <button id="create-backup-btn" 
-              hx-post="/{{.Gameserver.ID}}/backup" 
-              hx-indicator="#backup-loading" 
-              hx-target="#backup-list"
-              hx-trigger="click"
-              hx-swap="none"
-              hx-on::after-request="if(event.detail.successful) { htmx.ajax('GET', '/{{.Gameserver.ID}}/backups', {target: '#backup-list'}); showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
-              class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-        </svg>
-        <span class="backup-btn-text">Create Backup</span>
-      </button>
-    </div>
-    <div id="backup-list" hx-get="/{{.Gameserver.ID}}/backups" hx-trigger="load" hx-swap="innerHTML">
-      <div class="text-center text-gray-500 py-4">Loading backups...</div>
-    </div>
-    
-    <!-- Backup Loading Indicator -->
-    <div id="backup-loading" class="htmx-indicator overflow-hidden transition-all duration-300 ease-in-out max-h-0 opacity-0">
-      <div class="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-        <div class="flex items-center space-x-3">
-        <svg class="animate-spin h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <div>
-          <p class="text-sm font-medium text-emerald-900">Creating backup...</p>
-          <p class="text-xs text-emerald-700">Please wait while we create your backup</p>
-        </div>
+      
+      <!-- Quick actions card -->
+      <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
+        <div class="space-y-3">
+          <a href="/{{.Gameserver.ID}}/tasks" hx-get="/{{.Gameserver.ID}}/tasks" hx-target="#main-content" hx-push-url="true" class="w-full inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Manage Scheduled Tasks
+          </a>
+          <a href="/{{.Gameserver.ID}}/files" hx-get="/{{.Gameserver.ID}}/files" hx-target="#main-content" hx-push-url="true" class="w-full inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
+            </svg>
+            Open File Manager
+          </a>
+          <button hx-post="/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none" hx-on::after-request="if(event.detail.successful) { showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
+                  class="w-full inline-flex items-center justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            Create Backup
+          </button>
         </div>
       </div>
     </div>
-  </div>
-  
-  {{if .Gameserver.Environment}}
-  <div class="bg-white shadow rounded-lg p-6 mt-6">
-    <h3 class="text-lg font-semibold mb-4">Environment Variables</h3>
-    <div class="grid gap-2">
-      {{range .Gameserver.Environment}}
-        <div class="font-mono text-sm bg-gray-100 p-2 rounded">{{.}}</div>
-      {{end}}
-    </div>
-  </div>
-  {{end}}
-  
-  <div class="bg-white shadow rounded-lg p-6 mt-6">
-    <h3 class="text-lg font-semibold mb-4">Console</h3>
-    <div id="logs" class="bg-black text-green-400 font-mono text-sm p-4 rounded h-96 overflow-y-auto mb-4"></div>
-    {{if eq .Gameserver.Status "running"}}
-    <div class="space-y-3">
-      <div class="flex space-x-2">
-        <input type="text" 
-               id="command-input" 
-               placeholder="Enter server command..." 
-               class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-               onkeypress="if(event.key==='Enter') sendCommand()">
-        <button onclick="sendCommand()" 
-                id="send-command-btn"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed">
-          Send
-        </button>
-      </div>
-    </div>
-    {{end}}
   </div>
 </div>
 
-<div id="loading" class="htmx-indicator fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg">Loading...</div>
-
-<script>
-const logs = document.getElementById('logs');
-const eventSource = new EventSource('/{{.Gameserver.ID}}/logs');
-
-eventSource.addEventListener('log', function(e) {
-  const logLine = document.createElement('div');
-  logLine.textContent = e.data;
-  logs.appendChild(logLine);
-  logs.scrollTop = logs.scrollHeight;
-});
-
-eventSource.addEventListener('error', function(e) {
-  const errorLine = document.createElement('div');
-  errorLine.textContent = 'Error: ' + e.data;
-  errorLine.className = 'text-red-400';
-  logs.appendChild(errorLine);
-});
-
 {{if eq .Gameserver.Status "running"}}
+<script>
 // Stats monitoring
 const statsSource = new EventSource('/{{.Gameserver.ID}}/stats');
 
@@ -165,145 +116,25 @@ statsSource.addEventListener('stats', function(e) {
   const stats = JSON.parse(e.data);
   
   // Update CPU
-  document.getElementById('cpu-percent').textContent = stats.cpu.toFixed(1) + '%';
-  document.getElementById('cpu-bar').style.width = Math.min(stats.cpu, 100) + '%';
+  const cpuPercent = document.getElementById('cpu-percent');
+  const cpuBar = document.getElementById('cpu-bar');
+  if (cpuPercent && cpuBar) {
+    cpuPercent.textContent = stats.cpu.toFixed(1) + '%';
+    cpuBar.style.width = Math.min(stats.cpu, 100) + '%';
+  }
   
   // Update Memory
-  const memPercent = stats.memoryLimitGB > 0 ? (stats.memoryUsageGB / stats.memoryLimitGB) * 100 : 0;
-  document.getElementById('mem-usage').textContent = stats.memoryUsageGB.toFixed(1) + ' / ' + stats.memoryLimitGB.toFixed(1) + ' GB';
-  document.getElementById('mem-bar').style.width = Math.min(memPercent, 100) + '%';
+  const memUsage = document.getElementById('mem-usage');
+  const memBar = document.getElementById('mem-bar');
+  if (memUsage && memBar) {
+    const memPercent = stats.memoryLimitGB > 0 ? (stats.memoryUsageGB / stats.memoryLimitGB) * 100 : 0;
+    memUsage.textContent = stats.memoryUsageGB.toFixed(1) + ' / ' + stats.memoryLimitGB.toFixed(1) + ' GB';
+    memBar.style.width = Math.min(memPercent, 100) + '%';
+  }
 });
 
 statsSource.addEventListener('error', function(e) {
   console.error('Stats error:', e);
 });
-{{end}}
-
-// Custom CSS for animated indicators
-const style = document.createElement('style');
-style.textContent = `
-  .htmx-indicator {
-    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-  }
-  
-  .htmx-indicator.htmx-request {
-    max-height: 120px !important;
-    opacity: 1 !important;
-  }
-`;
-document.head.appendChild(style);
-
-// Console functions
-function sendCommand() {
-  const input = document.getElementById('command-input');
-  const button = document.getElementById('send-command-btn');
-  const command = input.value.trim();
-  
-  if (!command) return;
-  
-  // Disable UI during send
-  button.disabled = true;
-  button.textContent = 'Sending...';
-  
-  // Add command to logs immediately for visual feedback
-  const logs = document.getElementById('logs');
-  const commandLine = document.createElement('div');
-  commandLine.textContent = '> ' + command;
-  commandLine.className = 'text-yellow-400 font-bold';
-  logs.appendChild(commandLine);
-  logs.scrollTop = logs.scrollHeight;
-  
-  // Send command via fetch
-  fetch('/{{.Gameserver.ID}}/console', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'command=' + encodeURIComponent(command)
-  })
-  .then(response => {
-    if (response.ok) {
-      input.value = '';
-    } else {
-      response.text().then(text => {
-        const errorLine = document.createElement('div');
-        errorLine.textContent = 'Error: ' + text;
-        errorLine.className = 'text-red-400';
-        logs.appendChild(errorLine);
-        logs.scrollTop = logs.scrollHeight;
-      });
-    }
-  })
-  .catch(error => {
-    const errorLine = document.createElement('div');
-    errorLine.textContent = 'Error: ' + error.message;
-    errorLine.className = 'text-red-400';
-    logs.appendChild(errorLine);
-    logs.scrollTop = logs.scrollHeight;
-  })
-  .finally(() => {
-    // Re-enable UI
-    button.disabled = false;
-    button.textContent = 'Send';
-    input.focus();
-  });
-}
-
-// Backup functions
-function deleteBackup(filename) {
-  if (!confirm(`Delete backup "${filename}"? This action cannot be undone.`)) return;
-  
-  fetch('/{{.Gameserver.ID}}/backups/delete?backup=' + encodeURIComponent(filename), {
-    method: 'DELETE'
-  })
-  .then(response => {
-    if (response.ok) {
-      showNotification('Backup deleted successfully', 'success');
-      // Refresh backup list
-      htmx.ajax('GET', '/{{.Gameserver.ID}}/backups', {target: '#backup-list'});
-    } else {
-      response.text().then(text => showNotification('Failed to delete backup: ' + text, 'error'));
-    }
-  })
-  .catch(error => {
-    showNotification('Error deleting backup: ' + error.message, 'error');
-  });
-}
-
-function showNotification(message, type) {
-  const notification = document.createElement('div');
-  const isSuccess = type === 'success';
-  
-  notification.className = `fixed top-4 right-4 px-6 py-4 rounded-lg shadow-lg border z-50 transition-all duration-300 transform translate-x-full ${isSuccess ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`;
-  
-  notification.innerHTML = `
-    <div class="flex items-center">
-      <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-        ${isSuccess 
-          ? '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>'
-          : '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>'
-        }
-      </svg>
-      <span class="font-medium">${message}</span>
-    </div>
-  `;
-  
-  document.body.appendChild(notification);
-  
-  // Slide in
-  setTimeout(() => {
-    notification.classList.remove('translate-x-full');
-  }, 100);
-  
-  // Slide out and remove
-  setTimeout(() => {
-    notification.classList.add('translate-x-full');
-    setTimeout(() => {
-      notification.remove();
-    }, 300);
-  }, 4000);
-}
 </script>
+{{end}}

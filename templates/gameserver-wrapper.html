@@ -1,0 +1,131 @@
+<!-- Server header with status and actions -->
+<div class="lg:flex lg:items-center lg:justify-between mb-8">
+  <div class="min-w-0 flex-1">
+    <div class="flex items-center space-x-3">
+      <div class="flex-shrink-0 w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+        <svg class="w-7 h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{.Gameserver.Name}}</h1>
+        <div class="flex items-center space-x-3 mt-1">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium transition-smooth
+            {{if eq .Gameserver.Status "running"}}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+            {{else if eq .Gameserver.Status "stopped"}}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+            {{else if eq .Gameserver.Status "starting"}}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+            {{else}}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{{end}}">
+            <div class="w-2 h-2 rounded-full mr-2 
+              {{if eq .Gameserver.Status "running"}}bg-green-400
+              {{else if eq .Gameserver.Status "stopped"}}bg-red-400
+              {{else if eq .Gameserver.Status "starting"}}bg-yellow-400 animate-pulse
+              {{else}}bg-gray-400{{end}}"></div>
+            {{.Gameserver.Status}}
+          </span>
+          <span class="text-sm text-gray-500 dark:text-gray-400">{{.Gameserver.GameType}} • Port {{.Gameserver.Port}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Quick actions -->
+  <div class="mt-5 flex lg:mt-0 lg:ml-4 space-x-3">
+    <a href="/{{.Gameserver.ID}}/edit" hx-get="/{{.Gameserver.ID}}/edit" hx-target="#main-content" hx-push-url="true" class="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-smooth">
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+      </svg>
+      Edit
+    </a>
+    
+    {{if eq .Gameserver.Status "running"}}
+      <button hx-post="/{{.Gameserver.ID}}/stop" hx-indicator="#loading" hx-swap="none" hx-on::after-request="location.reload()"
+              class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-smooth">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+        </svg>
+        Stop
+      </button>
+      <button hx-post="/{{.Gameserver.ID}}/restart" hx-indicator="#loading" hx-swap="none" hx-on::after-request="location.reload()"
+              class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-smooth">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        Restart
+      </button>
+    {{else}}
+      <button hx-post="/{{.Gameserver.ID}}/start" hx-indicator="#loading" hx-swap="none" hx-on::after-request="location.reload()"
+              class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-smooth">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-5-9V3m0 0V1m0 2h-2m2 0h2"></path>
+        </svg>
+        Start
+      </button>
+    {{end}}
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+  <nav class="-mb-px flex space-x-8">
+    <a href="/{{.Gameserver.ID}}" hx-get="/{{.Gameserver.ID}}" hx-target="#main-content" hx-push-url="true" id="tab-overview" class="{{if eq .CurrentPage "overview"}}border-blue-500 text-blue-600 dark:text-blue-400{{else}}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600{{end}} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-smooth">
+      Overview
+    </a>
+    <a href="/{{.Gameserver.ID}}/tasks" hx-get="/{{.Gameserver.ID}}/tasks" hx-target="#main-content" hx-push-url="true" id="tab-tasks" class="{{if eq .CurrentPage "tasks"}}border-blue-500 text-blue-600 dark:text-blue-400{{else}}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600{{end}} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-smooth">
+      Tasks
+    </a>
+    <a href="/{{.Gameserver.ID}}/backups" hx-get="/{{.Gameserver.ID}}/backups" hx-target="#main-content" hx-push-url="true" id="tab-backups" class="{{if eq .CurrentPage "backups"}}border-blue-500 text-blue-600 dark:text-blue-400{{else}}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600{{end}} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-smooth">
+      Backups
+    </a>
+    <a href="/{{.Gameserver.ID}}/files" hx-get="/{{.Gameserver.ID}}/files" hx-target="#main-content" hx-push-url="true" id="tab-files" class="{{if eq .CurrentPage "files"}}border-blue-500 text-blue-600 dark:text-blue-400{{else}}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600{{end}} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-smooth">
+      Files
+    </a>
+    <a href="/{{.Gameserver.ID}}/console" hx-get="/{{.Gameserver.ID}}/console" hx-target="#main-content" hx-push-url="true" id="tab-console" class="{{if eq .CurrentPage "console"}}border-blue-500 text-blue-600 dark:text-blue-400{{else}}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600{{end}} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-smooth">
+      Console
+    </a>
+    <a href="/{{.Gameserver.ID}}/edit" hx-get="/{{.Gameserver.ID}}/edit" hx-target="#main-content" hx-push-url="true" id="tab-edit" class="{{if eq .CurrentPage "edit"}}border-blue-500 text-blue-600 dark:text-blue-400{{else}}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600{{end}} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-smooth">
+      Settings
+    </a>
+  </nav>
+</div>
+
+<!-- Main content area -->
+<div id="main-content">
+{{.Content}}
+</div>
+
+<script>
+// Tab management for HTMX navigation
+document.addEventListener('htmx:afterRequest', function(evt) {
+  // Determine which tab should be active based on the URL
+  const url = evt.detail.pathInfo.requestPath;
+  if (url.includes('/tasks')) {
+    setActiveTab('tab-tasks');
+  } else if (url.includes('/backups')) {
+    setActiveTab('tab-backups');
+  } else if (url.includes('/files')) {
+    setActiveTab('tab-files');
+  } else if (url.includes('/console')) {
+    setActiveTab('tab-console');
+  } else if (url.includes('/edit')) {
+    setActiveTab('tab-edit');
+  } else {
+    setActiveTab('tab-overview');
+  }
+});
+
+function setActiveTab(activeTabId) {
+  // Remove active state from all tabs
+  document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+    tab.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+    tab.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+  });
+  
+  // Activate selected tab
+  const activeTab = document.getElementById(activeTabId);
+  if (activeTab) {
+    activeTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+    activeTab.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+  }
+}
+</script>

@@ -1,33 +1,51 @@
+<!-- Tasks page -->
 <div class="max-w-4xl mx-auto">
-  <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-gray-900">{{.Gameserver.Name}} - Scheduled Tasks</h2>
-    <a href="/{{.Gameserver.ID}}" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-md">← Back</a>
-  </div>
-  
-  <div class="bg-white shadow rounded-lg">
-    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-      <h3 class="text-lg font-semibold">Tasks</h3>
-      <a href="/{{.Gameserver.ID}}/tasks/new" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md">Add Task</a>
+  <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
+    <!-- Header -->
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="flex-shrink-0 w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Scheduled Tasks</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Manage automated tasks for {{.Gameserver.Name}}</p>
+          </div>
+        </div>
+        <a href="/{{.Gameserver.ID}}/tasks/new" hx-get="/{{.Gameserver.ID}}/tasks/new" hx-target="#main-content" hx-push-url="true"
+           class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-smooth">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Add Task
+        </a>
+      </div>
     </div>
     
-    <div class="divide-y divide-gray-200">
+    <!-- Tasks list -->
+    <div class="divide-y divide-gray-200 dark:divide-gray-700">
       {{range .Tasks}}
-        <div class="px-6 py-4">
+        <div class="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-smooth">
           <div class="flex items-center justify-between">
             <div class="flex-1">
-              <div class="flex items-center space-x-4">
-                <h4 class="text-lg font-medium text-gray-900">{{.Name}}</h4>
+              <div class="flex items-center space-x-4 mb-2">
+                <h4 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{.Name}}</h4>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                  {{if eq .Type "restart"}}bg-blue-100 text-blue-800{{else}}bg-purple-100 text-purple-800{{end}}">
+                  {{if eq .Type "restart"}}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                  {{else}}bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200{{end}}">
                   {{.Type}}
                 </span>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                  {{if eq .Status "active"}}bg-green-100 text-green-800{{else}}bg-red-100 text-red-800{{end}}">
+                  {{if eq .Status "active"}}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                  {{else}}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{{end}}">
                   {{.Status}}
                 </span>
               </div>
               
-              <div class="mt-2 text-sm text-gray-600">
+              <div class="text-sm text-gray-600 dark:text-gray-400">
                 <div class="flex items-center space-x-6">
                   <span><strong>Schedule:</strong> <span class="schedule-display" data-cron="{{.CronSchedule}}">{{.CronSchedule}}</span></span>
                   {{if .LastRun}}
@@ -43,36 +61,58 @@
             </div>
             
             <div class="flex items-center space-x-2">
-              <a href="/{{$.Gameserver.ID}}/tasks/{{.ID}}/edit" 
-                 class="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</a>
+              <a href="/{{$.Gameserver.ID}}/tasks/{{.ID}}/edit" hx-get="/{{$.Gameserver.ID}}/tasks/{{.ID}}/edit" hx-target="#main-content" hx-push-url="true"
+                 class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                Edit
+              </a>
               <button hx-delete="/{{$.Gameserver.ID}}/tasks/{{.ID}}" 
                       hx-confirm="Delete this task?" 
                       hx-target="closest div" 
                       hx-swap="outerHTML"
-                      class="text-red-600 hover:text-red-800 text-sm font-medium">Delete</button>
+                      class="inline-flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-smooth">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+                Delete
+              </button>
             </div>
           </div>
         </div>
       {{else}}
-        <div class="px-6 py-8 text-center text-gray-500">
-          <svg class="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3h6l4-4V8M6 16l6 6h24l6-6M12 32h24M12 40h24"/>
-          </svg>
-          <p>No scheduled tasks</p>
-          <p class="text-sm mt-1">Create your first task to automate restarts and backups</p>
+        <div class="px-6 py-12 text-center">
+          <div class="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+            <svg class="w-8 h-8 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No scheduled tasks</h3>
+          <p class="text-gray-500 dark:text-gray-400 mb-6">Create your first task to automate restarts and backups</p>
+          <a href="/{{.Gameserver.ID}}/tasks/new" hx-get="/{{.Gameserver.ID}}/tasks/new" hx-target="#main-content" hx-push-url="true"
+             class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Create First Task
+          </a>
         </div>
       {{end}}
     </div>
   </div>
   
-  <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mt-6">
+  <!-- Info panel -->
+  <div class="mt-6 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
     <div class="flex">
-      <svg class="w-5 h-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-      </svg>
+      <div class="flex-shrink-0">
+        <svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+        </svg>
+      </div>
       <div class="ml-3">
-        <h3 class="text-sm font-medium text-blue-800">Automated Tasks</h3>
-        <p class="text-sm text-blue-700 mt-1">
+        <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Automated Tasks</h3>
+        <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
           Schedule automatic restarts and backups for your gameserver.<br>
           Tasks run in the background and can be enabled/disabled as needed.
         </p>
