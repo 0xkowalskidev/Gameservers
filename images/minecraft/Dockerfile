@@ -1,7 +1,7 @@
 FROM eclipse-temurin:21-jre
 
-# Create directory structure
-RUN mkdir -p /data/server /data/scripts
+# Create directory structure including backups directory
+RUN mkdir -p /data/server /data/backups /data/scripts
 WORKDIR /data/server
 
 # Download vanilla Minecraft server
