@@ -92,6 +92,65 @@
 
   <script>
     // Breadcrumb generation based on URL
+    // Configuration for display names of segments
+    const segmentDisplayNames = {
+      'tasks': 'Tasks',
+      'backups': 'Backups',
+      'files': 'Files',
+      'console': 'Console',
+      'edit': 'Edit',
+      'new': 'New'
+    };
+
+    // Function to get dashboard URL and label based on segments
+    function getDashboardInfo(segments) {
+      let dashboardUrl = '/';
+      let dashboardLabel = 'Dashboard';
+
+      if (segments.length > 0) {
+        dashboardUrl = '/' + segments[0];
+      }
+
+      return {dashboardUrl, dashboardLabel};
+    }
+
+    // Function to filter meaningful segments (excluding IDs)
+    function getMeaningfulSegments(segments) {
+      const meaningfulSegments = [];
+      let pathSoFar = '/' + (segments[0] || '');
+
+      for (let i = 1; i < segments.length; i++) {
+        const segment = segments[i];
+
+        if (segmentDisplayNames.hasOwnProperty(segment)) {
+          pathSoFar += '/' + segment;
+          meaningfulSegments.push({
+            segment: segment,
+            path: pathSoFar
+          });
+        } else {
+          pathSoFar += '/' + segment;
+        }
+      }
+
+      return meaningfulSegments;
+    }
+
+    // Function to generate breadcrumb HTML for a single item
+    function generateBreadcrumbItem({segment, path, isClickable, displayName}) {
+      if (isClickable) {
+        return `<a href="${path}" hx-get="${path}" hx-target="#main-content" hx-push-url="true" class="hover:text-gray-700 dark:hover:text-gray-200 transition-smooth">${displayName}</a>`;
+      } else {
+        return `<span class="text-gray-900 dark:text-gray-100 font-medium">${displayName}</span>`;
+      }
+    }
+
+    // Function to generate the separator SVG
+    function generateSeparator() {
+      return '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>';
+    }
+
+    // Main function to generate breadcrumbs
     function generateBreadcrumbs() {
       const breadcrumb = document.getElementById('breadcrumb');
       if (!breadcrumb) return;
@@ -100,99 +159,43 @@
       const segments = path.split('/').filter(segment => segment !== '');
 
       if (segments.length === 0) {
-        // Root path - no breadcrumbs needed
         breadcrumb.innerHTML = '';
         return;
       }
 
-      let breadcrumbHtml = '';
-      let currentPath = '';
+      const {dashboardUrl, dashboardLabel} = getDashboardInfo(segments);
+      const meaningfulSegments = getMeaningfulSegments(segments);
 
-      // Determine the dashboard URL (either / or /{serverid})
-      let dashboardUrl = '/';
-      let dashboardLabel = 'Dashboard';
+      // Start with the separator and dashboard item
+      let breadcrumbItems = [generateSeparator()];
 
-      if (segments.length > 0) {
-        // If we're in a server context, dashboard points to the server overview
-        dashboardUrl = '/' + segments[0];
-        dashboardLabel = 'Dashboard';
-      }
-
-      // Add separator and Dashboard root
-      breadcrumbHtml += '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>';
-
-      // Show Dashboard if we're in a server context
       if (segments.length >= 1) {
         if (segments.length === 1) {
-          // On the dashboard itself - show as current page (not clickable)
-          breadcrumbHtml += `<span class="text-gray-900 dark:text-gray-100 font-medium">${dashboardLabel}</span>`;
+          breadcrumbItems.push(`<span class="text-gray-900 dark:text-gray-100 font-medium">${dashboardLabel}</span>`);
         } else {
-          // Deeper than dashboard - show as clickable link
-          breadcrumbHtml += `<a href="${dashboardUrl}" hx-get="${dashboardUrl}" hx-target="#main-content" hx-push-url="true" class="hover:text-gray-700 dark:hover:text-gray-200 transition-smooth">${dashboardLabel}</a>`;
+          breadcrumbItems.push(`<a href="${dashboardUrl}" hx-get="${dashboardUrl}" hx-target="#main-content" hx-push-url="true" class="hover:text-gray-700 dark:hover:text-gray-200 transition-smooth">${dashboardLabel}</a>`);
         }
       }
 
-      // Filter segments to only include meaningful navigation parts (skip all IDs)
-      const meaningfulSegments = [];
-      let pathSoFar = '/' + segments[0]; // Keep server ID for URL building
-
-      for (let i = 1; i < segments.length; i++) {
-        const segment = segments[i];
-
-        // Only include known navigation segments (not IDs)
-        if (segment === 'tasks' || segment === 'backups' || segment === 'files' ||
-          segment === 'console' || segment === 'edit' || segment === 'new') {
-          meaningfulSegments.push({
-            segment: segment,
-            path: pathSoFar + '/' + segment
-          });
-        }
-
-        pathSoFar += '/' + segment;
-      }
-
-      // Add breadcrumbs for meaningful segments only
+      // Add meaningful segments
       for (let i = 0; i < meaningfulSegments.length; i++) {
         const {segment, path} = meaningfulSegments[i];
+        const displayName = segmentDisplayNames[segment] || segment;
+        const isClickable = i < meaningfulSegments.length - 1;
 
-        // Add separator
-        breadcrumbHtml += '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>';
-
-        // Determine display name and if it should be clickable
-        let displayName = segment;
-        let isClickable = i < meaningfulSegments.length - 1; // Last item is not clickable
-
-        // Display names
-        if (segment === 'new') {
-          displayName = 'New';
-        } else if (segment === 'edit') {
-          displayName = 'Edit';
-        } else if (segment === 'tasks') {
-          displayName = 'Tasks';
-        } else if (segment === 'backups') {
-          displayName = 'Backups';
-        } else if (segment === 'files') {
-          displayName = 'Files';
-        } else if (segment === 'console') {
-          displayName = 'Console';
-        }
-
-        if (isClickable) {
-          if (segments.length > 0) {
-            // In server context - use HTMX for navigation within gameserver wrapper
-            breadcrumbHtml += `<a href="${path}" hx-get="${path}" hx-target="#main-content" hx-push-url="true" class="hover:text-gray-700 dark:hover:text-gray-200 transition-smooth">${displayName}</a>`;
-          }
-        } else {
-          breadcrumbHtml += `<span class="text-gray-900 dark:text-gray-100 font-medium">${displayName}</span>`;
-        }
+        breadcrumbItems.push(generateSeparator());
+        breadcrumbItems.push(generateBreadcrumbItem({segment, path, isClickable, displayName}));
       }
 
-      breadcrumb.innerHTML = breadcrumbHtml;
+      // Update the breadcrumb HTML and process for htmx
+      breadcrumb.innerHTML = breadcrumbItems.join('');
+      htmx.process(breadcrumb); // Ensure htmx processes the new links
     }
 
-    // Generate breadcrumbs on page load and navigation
+    // Event listeners
     document.addEventListener('DOMContentLoaded', generateBreadcrumbs);
     document.addEventListener('htmx:afterSettle', generateBreadcrumbs);
+
 
     // Global notification system
     window.showNotification = function (message, type = 'info', duration = 4000) {
