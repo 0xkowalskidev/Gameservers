@@ -10,5 +10,7 @@ echo "eula=${EULA}" > eula.txt
 PIPE_PATH="/tmp/command-fifo"
 mkfifo "$PIPE_PATH"
 
-# Start server with configurable memory, using named pipe as input
-exec java -Xmx${MEMORY_MB}M -Xms${MEMORY_MB}M -jar server.jar nogui < "$PIPE_PATH"
+# Start server 
+while true; do
+  cat $PIPE_PATH
+done | java -Xmx${MEMORY_MB}M -Xms${MEMORY_MB}M -jar server.jar nogui
