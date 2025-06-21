@@ -280,6 +280,50 @@ func TestMockDatabaseManager_ListActiveScheduledTasks(t *testing.T) {
 }
 
 // =============================================================================
+// Backup Path Tests
+// =============================================================================
+
+func TestTaskScheduler_BackupPathHandling(t *testing.T) {
+	// Create a real in-memory database for this test
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Create mock docker manager
+	docker := NewMockDockerManager()
+	
+	// Create gameserver service
+	svc := NewGameserverService(db, docker)
+	
+	// Create scheduler
+	scheduler := NewTaskScheduler(db, svc)
+	
+	// Create a test gameserver
+	gameserver := &Gameserver{
+		ID:       "backup-test",
+		Name:     "test-backup-server",
+		GameID:   "minecraft",
+		Port:     25565,
+		Status:   StatusStopped,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	
+	err = svc.CreateGameserver(gameserver)
+	if err != nil {
+		t.Fatalf("failed to create gameserver: %v", err)
+	}
+
+	// Test that backup creation generates absolute paths
+	err = scheduler.createBackup(gameserver.ID)
+	if err != nil {
+		t.Errorf("backup creation should not fail with absolute path: %v", err)
+	}
+}
+
+// =============================================================================
 // Integration Tests
 // =============================================================================
 

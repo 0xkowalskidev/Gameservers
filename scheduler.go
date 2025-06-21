@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -132,7 +133,14 @@ func (ts *TaskScheduler) createBackup(gameserverID string) error {
 	// Create backup filename with timestamp
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	backupDir := "./backups"
-	backupPath := fmt.Sprintf("%s/%s_%s.tar.gz", backupDir, gameserver.Name, timestamp)
+	
+	// Convert to absolute path for Docker bind mount
+	absBackupDir, err := filepath.Abs(backupDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for backup directory: %w", err)
+	}
+	
+	backupPath := fmt.Sprintf("%s/%s_%s.tar.gz", absBackupDir, gameserver.Name, timestamp)
 	
 	// Create backups directory if it doesn't exist
 	if err := createDirIfNotExists(backupDir); err != nil {

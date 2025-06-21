@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -425,17 +427,30 @@ func (d *DockerManager) CreateBackup(gameserverID, backupPath string) error {
 	
 	log.Info().Str("volume", volumeName).Str("backup_path", backupPath).Msg("Creating backup")
 	
+	// Pull alpine image if needed
+	if err := d.pullImageIfNeeded(ctx, "alpine:latest"); err != nil {
+		return &DockerError{
+			Op:  "pull_alpine_for_backup",
+			Msg: fmt.Sprintf("failed to pull alpine image for backup of %s", gameserverID),
+			Err: err,
+		}
+	}
+	
+	// Extract directory and filename from backup path
+	backupDir := filepath.Dir(backupPath)
+	backupFile := filepath.Base(backupPath)
+	
 	// Create a temporary container to access the volume
 	config := &container.Config{
 		Image: "alpine:latest", // Use lightweight alpine for backup operations
-		Cmd:   []string{"tar", "-czf", "/backup.tar.gz", "-C", "/data", "."},
+		Cmd:   []string{"tar", "-czf", fmt.Sprintf("/backup/%s", backupFile), "-C", "/data", "."},
 		WorkingDir: "/",
 	}
 	
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			fmt.Sprintf("%s:/data", volumeName),
-			fmt.Sprintf("%s:/backup.tar.gz", backupPath),
+			fmt.Sprintf("%s:/backup", backupDir), // Mount the backup directory, not the file
 		},
 		AutoRemove: true,
 	}
@@ -449,6 +464,18 @@ func (d *DockerManager) CreateBackup(gameserverID, backupPath string) error {
 			Err: err,
 		}
 	}
+	
+	// Ensure cleanup of container (belt and suspenders approach with AutoRemove)
+	defer func() {
+		if err := d.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}); err != nil {
+			// Only log as debug if it's the expected "removal already in progress" error
+			if strings.Contains(err.Error(), "removal of container") && strings.Contains(err.Error(), "is already in progress") {
+				log.Debug().Str("container_id", resp.ID).Msg("Backup container already being removed by AutoRemove")
+			} else {
+				log.Warn().Err(err).Str("container_id", resp.ID).Msg("Failed to cleanup backup container")
+			}
+		}
+	}()
 	
 	// Start container and wait for completion
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
@@ -472,6 +499,20 @@ func (d *DockerManager) CreateBackup(gameserverID, backupPath string) error {
 		}
 	case status := <-statusCh:
 		if status.StatusCode != 0 {
+			// Get container logs for debugging
+			logMsg := "no logs available"
+			if logs, err := d.client.ContainerLogs(ctx, resp.ID, container.LogsOptions{
+				ShowStdout: true,
+				ShowStderr: true,
+			}); err == nil && logs != nil {
+				defer logs.Close()
+				if logBytes, err := io.ReadAll(logs); err == nil {
+					logMsg = string(logBytes)
+				}
+			}
+			
+			log.Error().Str("container_logs", logMsg).Int64("exit_code", status.StatusCode).Str("gameserver_id", gameserverID).Msg("Backup container failed")
+			
 			return &DockerError{
 				Op:  "backup_container_failed",
 				Msg: fmt.Sprintf("backup container exited with status %d for %s", status.StatusCode, gameserverID),
@@ -492,17 +533,30 @@ func (d *DockerManager) RestoreBackup(gameserverID, backupPath string) error {
 	
 	log.Info().Str("volume", volumeName).Str("backup_path", backupPath).Msg("Restoring backup")
 	
+	// Pull alpine image if needed
+	if err := d.pullImageIfNeeded(ctx, "alpine:latest"); err != nil {
+		return &DockerError{
+			Op:  "pull_alpine_for_restore",
+			Msg: fmt.Sprintf("failed to pull alpine image for restore of %s", gameserverID),
+			Err: err,
+		}
+	}
+	
+	// Extract directory and filename from backup path
+	backupDir := filepath.Dir(backupPath)
+	backupFile := filepath.Base(backupPath)
+	
 	// Create a temporary container to restore the volume
 	config := &container.Config{
 		Image: "alpine:latest",
-		Cmd:   []string{"sh", "-c", "cd /data && tar -xzf /backup.tar.gz"},
+		Cmd:   []string{"sh", "-c", fmt.Sprintf("cd /data && tar -xzf /backup/%s", backupFile)},
 		WorkingDir: "/",
 	}
 	
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			fmt.Sprintf("%s:/data", volumeName),
-			fmt.Sprintf("%s:/backup.tar.gz", backupPath),
+			fmt.Sprintf("%s:/backup", backupDir), // Mount the backup directory, not the file
 		},
 		AutoRemove: true,
 	}
@@ -516,6 +570,18 @@ func (d *DockerManager) RestoreBackup(gameserverID, backupPath string) error {
 			Err: err,
 		}
 	}
+	
+	// Ensure cleanup of container (belt and suspenders approach with AutoRemove)
+	defer func() {
+		if err := d.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}); err != nil {
+			// Only log as debug if it's the expected "removal already in progress" error
+			if strings.Contains(err.Error(), "removal of container") && strings.Contains(err.Error(), "is already in progress") {
+				log.Debug().Str("container_id", resp.ID).Msg("Restore container already being removed by AutoRemove")
+			} else {
+				log.Warn().Err(err).Str("container_id", resp.ID).Msg("Failed to cleanup restore container")
+			}
+		}
+	}()
 	
 	// Start container and wait for completion
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
@@ -539,6 +605,20 @@ func (d *DockerManager) RestoreBackup(gameserverID, backupPath string) error {
 		}
 	case status := <-statusCh:
 		if status.StatusCode != 0 {
+			// Get container logs for debugging
+			logMsg := "no logs available"
+			if logs, err := d.client.ContainerLogs(ctx, resp.ID, container.LogsOptions{
+				ShowStdout: true,
+				ShowStderr: true,
+			}); err == nil && logs != nil {
+				defer logs.Close()
+				if logBytes, err := io.ReadAll(logs); err == nil {
+					logMsg = string(logBytes)
+				}
+			}
+			
+			log.Error().Str("container_logs", logMsg).Int64("exit_code", status.StatusCode).Str("gameserver_id", gameserverID).Msg("Restore container failed")
+			
 			return &DockerError{
 				Op:  "restore_container_failed",
 				Msg: fmt.Sprintf("restore container exited with status %d for %s", status.StatusCode, gameserverID),
