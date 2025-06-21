@@ -30,7 +30,7 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 - [x] Docker container management (start/stop/restart)
 - [x] Real-time console output (via SSE log streaming)
 - [x] Resource monitoring via SSE (CPU, RAM)
-- [ ] Gameserver CRUD (missing Update/Edit functionality)
+- [x] Gameserver CRUD
 
 ### Phase 2: Enhanced Features
 - [ ] Advanced file manager with editor
@@ -40,7 +40,6 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 
 ## Current TODOs
 - [ ] Docker image pull policy - Currently Docker only pulls if image doesn't exist locally, even if remote image is updated. Need to decide on pull strategy (Always, IfNotPresent, Never, or user-configurable)
-- [ ] Gameserver update/edit functionality (only remaining Phase 1 CRUD operation)
 
 ## File Structure
 ```

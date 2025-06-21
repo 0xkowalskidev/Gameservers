@@ -45,27 +45,7 @@ func (m *MockDockerManager) StartContainer(containerID string) error {
 	return &DockerError{Op: "start", Msg: "container not found"}
 }
 
-func (m *MockDockerManager) StopContainer(containerID string) error {
-	if m.shouldFail["stop"] {
-		return &DockerError{Op: "stop", Msg: "mock stop error"}
-	}
-	if server, exists := m.containers[containerID]; exists {
-		server.Status = StatusStopped
-		return nil
-	}
-	return &DockerError{Op: "stop", Msg: "container not found"}
-}
 
-func (m *MockDockerManager) RestartContainer(containerID string) error {
-	if m.shouldFail["restart"] {
-		return &DockerError{Op: "restart", Msg: "mock restart error"}
-	}
-	if server, exists := m.containers[containerID]; exists {
-		server.Status = StatusRunning
-		return nil
-	}
-	return &DockerError{Op: "restart", Msg: "container not found"}
-}
 
 func (m *MockDockerManager) RemoveContainer(containerID string) error {
 	if m.shouldFail["remove"] {
@@ -230,54 +210,7 @@ func TestStartContainer(t *testing.T) {
 	}
 }
 
-func TestStopContainer(t *testing.T) {
-	mock := NewMockDockerManager()
-	server := &Gameserver{
-		ID:       "test-1",
-		Name:     "Test Server",
-		GameType: "minecraft",
-		Image:    "minecraft:latest",
-		Port:     25565,
-	}
 
-	// Create and start container
-	mock.CreateContainer(server)
-	mock.StartContainer(server.ContainerID)
-
-	err := mock.StopContainer(server.ContainerID)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	status, _ := mock.GetContainerStatus(server.ContainerID)
-	if status != StatusStopped {
-		t.Errorf("expected status to be %s, got %s", StatusStopped, status)
-	}
-}
-
-func TestRestartContainer(t *testing.T) {
-	mock := NewMockDockerManager()
-	server := &Gameserver{
-		ID:       "test-1",
-		Name:     "Test Server",
-		GameType: "minecraft",
-		Image:    "minecraft:latest",
-		Port:     25565,
-	}
-
-	// Create container
-	mock.CreateContainer(server)
-
-	err := mock.RestartContainer(server.ContainerID)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	status, _ := mock.GetContainerStatus(server.ContainerID)
-	if status != StatusRunning {
-		t.Errorf("expected status to be %s, got %s", StatusRunning, status)
-	}
-}
 
 // =============================================================================
 // Container Monitoring Tests (Stats/Logs/Status)

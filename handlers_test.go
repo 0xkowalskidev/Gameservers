@@ -25,6 +25,7 @@ func (m *mockGameserverService) GetGameserver(id string) (*Gameserver, error) {
 	}
 	return nil, &DatabaseError{Op: "get", Msg: "not found"}
 }
+func (m *mockGameserverService) UpdateGameserver(server *Gameserver) error { return nil }
 func (m *mockGameserverService) ListGameservers() ([]*Gameserver, error) { return m.gameservers, nil }
 func (m *mockGameserverService) StartGameserver(id string) error         { return nil }
 func (m *mockGameserverService) StopGameserver(id string) error          { return nil }

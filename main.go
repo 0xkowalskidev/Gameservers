@@ -99,6 +99,8 @@ func main() {
 	r.Post("/", handlers.CreateGameserver)
 	r.Get("/new", handlers.NewGameserver)
 	r.Get("/{id}", handlers.ShowGameserver)
+	r.Get("/{id}/edit", handlers.EditGameserver)
+	r.Put("/{id}", handlers.UpdateGameserver)
 	r.Post("/{id}/start", handlers.StartGameserver)
 	r.Post("/{id}/stop", handlers.StopGameserver)
 	r.Post("/{id}/restart", handlers.RestartGameserver)

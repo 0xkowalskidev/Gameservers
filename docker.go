@@ -169,41 +169,7 @@ func (d *DockerManager) StartContainer(containerID string) error {
 	return nil
 }
 
-func (d *DockerManager) StopContainer(containerID string) error {
-	ctx := context.Background()
 
-	timeout := 30 // seconds
-	err := d.client.ContainerStop(ctx, containerID, container.StopOptions{
-		Timeout: &timeout,
-	})
-	if err != nil {
-		return &DockerError{
-			Op: "stop",
-			Msg:   fmt.Sprintf("failed to stop container %s", containerID),
-			Err:       err,
-		}
-	}
-
-	return nil
-}
-
-func (d *DockerManager) RestartContainer(containerID string) error {
-	ctx := context.Background()
-
-	timeout := 30 // seconds
-	err := d.client.ContainerRestart(ctx, containerID, container.StopOptions{
-		Timeout: &timeout,
-	})
-	if err != nil {
-		return &DockerError{
-			Op: "restart",
-			Msg:   fmt.Sprintf("failed to restart container %s", containerID),
-			Err:       err,
-		}
-	}
-
-	return nil
-}
 
 func (d *DockerManager) RemoveContainer(containerID string) error {
 	ctx := context.Background()

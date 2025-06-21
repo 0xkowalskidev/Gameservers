@@ -19,6 +19,7 @@ import (
 type GameserverServiceInterface interface {
 	CreateGameserver(server *Gameserver) error
 	GetGameserver(id string) (*Gameserver, error)
+	UpdateGameserver(server *Gameserver) error
 	ListGameservers() ([]*Gameserver, error)
 	StartGameserver(id string) error
 	StopGameserver(id string) error
@@ -69,6 +70,26 @@ func (h *Handlers) NewGameserver(w http.ResponseWriter, r *http.Request) {
 	Render(w, r, h.tmpl, "new-gameserver.html", map[string]interface{}{"Games": games})
 }
 
+func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		http.Error(w, "Gameserver not found", http.StatusNotFound)
+		return
+	}
+	
+	games, err := h.service.ListGames()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	Render(w, r, h.tmpl, "edit-gameserver.html", map[string]interface{}{
+		"Gameserver": gameserver,
+		"Games":      games,
+	})
+}
+
 func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
@@ -87,9 +108,15 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	// CPU cores are optional (0 = unlimited)
 	
 	env := strings.Split(r.FormValue("environment"), "\n")
-	if len(env) == 1 && env[0] == "" {
-		env = []string{}
+	// Filter out empty lines and validate format
+	var validEnv []string
+	for _, line := range env {
+		line = strings.TrimSpace(line)
+		if line != "" && strings.Contains(line, "=") {
+			validEnv = append(validEnv, line)
+		}
 	}
+	env = validEnv
 
 	server := &Gameserver{
 		ID:          generateID(),
@@ -110,6 +137,57 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("HX-Redirect", "/")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	id := chi.URLParam(r, "id")
+
+	port, _ := strconv.Atoi(r.FormValue("port"))
+	memoryGB, _ := strconv.ParseFloat(r.FormValue("memory_gb"), 64)
+	cpuCores, _ := strconv.ParseFloat(r.FormValue("cpu_cores"), 64)
+	
+	// Convert GB to MB for storage
+	memoryMB := int(memoryGB * 1024)
+	
+	// Set default memory if not provided (1GB = 1024MB)
+	if memoryMB <= 0 {
+		memoryMB = 1024
+	}
+	
+	// CPU cores are optional (0 = unlimited)
+	
+	env := strings.Split(r.FormValue("environment"), "\n")
+	// Filter out empty lines and validate format
+	var validEnv []string
+	for _, line := range env {
+		line = strings.TrimSpace(line)
+		if line != "" && strings.Contains(line, "=") {
+			validEnv = append(validEnv, line)
+		}
+	}
+	env = validEnv
+
+	server := &Gameserver{
+		ID:          id,
+		Name:        r.FormValue("name"),
+		GameID:      r.FormValue("game_id"),
+		Port:        port,
+		MemoryMB:    memoryMB,
+		CPUCores:    cpuCores,
+		Environment: env,
+	}
+
+	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Int("memory_mb", memoryMB).Float64("cpu_cores", cpuCores).Msg("Updating gameserver")
+
+	if err := h.service.UpdateGameserver(server); err != nil {
+		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to update gameserver")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/"+id)
 	w.WriteHeader(http.StatusOK)
 }
 

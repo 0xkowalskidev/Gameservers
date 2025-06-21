@@ -48,8 +48,6 @@ type Gameserver struct {
 type DockerManagerInterface interface {
 	CreateContainer(server *Gameserver) error
 	StartContainer(containerID string) error
-	StopContainer(containerID string) error
-	RestartContainer(containerID string) error
 	RemoveContainer(containerID string) error
 	GetContainerStatus(containerID string) (GameserverStatus, error)
 	StreamContainerLogs(containerID string) (io.ReadCloser, error)

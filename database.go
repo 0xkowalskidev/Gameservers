@@ -296,19 +296,34 @@ func NewGameserverService(db *DatabaseManager, docker DockerManagerInterface) *G
 func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
 	now := time.Now()
 	server.CreatedAt, server.UpdatedAt, server.Status = now, now, StatusStopped
+	server.ContainerID = "" // No container created yet
 
 	// Populate derived fields from game
 	if err := gss.populateGameFields(server); err != nil {
 		return err
 	}
 
-	if err := gss.db.CreateGameserver(server); err != nil {
+	return gss.db.CreateGameserver(server)
+}
+
+func (gss *GameserverService) UpdateGameserver(server *Gameserver) error {
+	// Get existing server to preserve certain fields
+	existing, err := gss.db.GetGameserver(server.ID)
+	if err != nil {
 		return err
 	}
-	if err := gss.docker.CreateContainer(server); err != nil {
-		gss.db.DeleteGameserver(server.ID)
+	
+	// Preserve fields that shouldn't be updated via form
+	server.CreatedAt = existing.CreatedAt
+	server.ContainerID = existing.ContainerID
+	server.Status = existing.Status
+	server.UpdatedAt = time.Now()
+	
+	// Populate derived fields from game
+	if err := gss.populateGameFields(server); err != nil {
 		return err
 	}
+	
 	return gss.db.UpdateGameserver(server)
 }
 
@@ -323,28 +338,60 @@ func (gss *GameserverService) populateGameFields(server *Gameserver) error {
 	return nil
 }
 
-func (gss *GameserverService) execDockerOp(id string, op func(string) error, status GameserverStatus) error {
+
+func (gss *GameserverService) StartGameserver(id string) error {
 	server, err := gss.db.GetGameserver(id)
 	if err != nil {
 		return err
 	}
-	if err := op(server.ContainerID); err != nil {
+	
+	// Populate latest settings from database
+	if err := gss.populateGameFields(server); err != nil {
 		return err
 	}
-	server.Status, server.UpdatedAt = status, time.Now()
+	
+	// Create new container with latest settings
+	if err := gss.docker.CreateContainer(server); err != nil {
+		return err
+	}
+	
+	// Start the new container
+	if err := gss.docker.StartContainer(server.ContainerID); err != nil {
+		return err
+	}
+	
+	server.Status = StatusStarting
+	server.UpdatedAt = time.Now()
 	return gss.db.UpdateGameserver(server)
 }
 
-func (gss *GameserverService) StartGameserver(id string) error {
-	return gss.execDockerOp(id, gss.docker.StartContainer, StatusStarting)
-}
-
 func (gss *GameserverService) StopGameserver(id string) error {
-	return gss.execDockerOp(id, gss.docker.StopContainer, StatusStopping)
+	server, err := gss.db.GetGameserver(id)
+	if err != nil {
+		return err
+	}
+	
+	// Remove container entirely (this stops and removes)
+	if server.ContainerID != "" {
+		if err := gss.docker.RemoveContainer(server.ContainerID); err != nil {
+			return err
+		}
+		server.ContainerID = "" // Clear container ID since it's gone
+	}
+	
+	server.Status = StatusStopped
+	server.UpdatedAt = time.Now()
+	return gss.db.UpdateGameserver(server)
 }
 
 func (gss *GameserverService) RestartGameserver(id string) error {
-	return gss.execDockerOp(id, gss.docker.RestartContainer, StatusStarting)
+	// Stop first (removes container)
+	if err := gss.StopGameserver(id); err != nil {
+		return err
+	}
+	
+	// Then start (creates new container)
+	return gss.StartGameserver(id)
 }
 
 func (gss *GameserverService) DeleteGameserver(id string) error {
