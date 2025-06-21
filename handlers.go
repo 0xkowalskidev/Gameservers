@@ -546,8 +546,8 @@ func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Get root directory listing - always start at /data
-	files, err := h.service.ListFiles(gameserver.ContainerID, "/data")
+	// Get root directory listing - always start at /data/server
+	files, err := h.service.ListFiles(gameserver.ContainerID, "/data/server")
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to list files")
 	}
@@ -555,7 +555,7 @@ func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
 		"Gameserver": gameserver,
 		"Files":      files,
-		"CurrentPath": "/data",
+		"CurrentPath": "/data/server",
 	}
 	
 	Render(w, r, h.tmpl, "gameserver-files.html", data)
@@ -566,7 +566,7 @@ func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request)
 	path := r.URL.Query().Get("path")
 	
 	if path == "" {
-		path = "/data"
+		path = "/data/server"
 	}
 	
 	// Sanitize path
@@ -834,15 +834,15 @@ func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) 
 // Helper functions
 
 func sanitizePath(path string) string {
-	// Base directory for gameserver data
-	const baseDir = "/data"
+	// Server directory is the user root
+	const serverDir = "/data/server"
 	
 	// Clean the path
 	path = filepath.Clean(path)
 	
-	// If path is empty or just "/", use base directory
+	// If path is empty or just "/", use server directory
 	if path == "" || path == "/" {
-		return baseDir
+		return serverDir
 	}
 	
 	// Ensure path is absolute
@@ -850,22 +850,22 @@ func sanitizePath(path string) string {
 		path = "/" + path
 	}
 	
-	// If path doesn't start with /data, prepend it
-	if !strings.HasPrefix(path, baseDir) {
-		// If user is trying to access parent of /data, return /data
+	// If path doesn't start with /data/server, prepend it
+	if !strings.HasPrefix(path, serverDir) {
+		// If user is trying to access parent directories, return server root
 		if strings.HasPrefix(path, "/..") || path == ".." {
-			return baseDir
+			return serverDir
 		}
-		// Otherwise, append the path to /data
-		path = filepath.Join(baseDir, path)
+		// Otherwise, append the path to /data/server
+		path = filepath.Join(serverDir, path)
 	}
 	
 	// Clean again to resolve any .. sequences
 	path = filepath.Clean(path)
 	
-	// Final check - ensure we're still within /data
-	if !strings.HasPrefix(path, baseDir) {
-		return baseDir
+	// Final check - ensure we're still within /data/server
+	if !strings.HasPrefix(path, serverDir) {
+		return serverDir
 	}
 	
 	return path

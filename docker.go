@@ -445,7 +445,7 @@ func (d *DockerManager) CreateBackup(gameserverID, backupPath string) error {
 	// Create a temporary container to access the volume
 	config := &container.Config{
 		Image: "alpine:latest", // Use lightweight alpine for backup operations
-		Cmd:   []string{"tar", "-czf", fmt.Sprintf("/backup/%s", backupFile), "-C", "/data", "."},
+		Cmd:   []string{"tar", "-czf", fmt.Sprintf("/backup/%s", backupFile), "-C", "/data/server", "."},
 		WorkingDir: "/",
 	}
 	
@@ -551,7 +551,7 @@ func (d *DockerManager) RestoreBackup(gameserverID, backupPath string) error {
 	// Create a temporary container to restore the volume
 	config := &container.Config{
 		Image: "alpine:latest",
-		Cmd:   []string{"sh", "-c", fmt.Sprintf("cd /data && tar -xzf /backup/%s", backupFile)},
+		Cmd:   []string{"sh", "-c", fmt.Sprintf("cd /data/server && tar -xzf /backup/%s", backupFile)},
 		WorkingDir: "/",
 	}
 	
@@ -720,12 +720,12 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 }
 
 func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo, error) {
-	// Ensure path starts with /data
+	// Ensure path starts with /data/server (user root)
 	if path == "" || path == "/" {
-		path = "/data"
+		path = "/data/server"
 	}
-	if !strings.HasPrefix(path, "/data") {
-		path = "/data"
+	if !strings.HasPrefix(path, "/data/server") {
+		path = "/data/server"
 	}
 	
 	// Use simple ls -la command
@@ -741,11 +741,11 @@ func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo,
 }
 
 func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error) {
-	// Ensure path is within /data
-	if !strings.HasPrefix(path, "/data") {
+	// Ensure path is within /data/server
+	if !strings.HasPrefix(path, "/data/server") {
 		return nil, &DockerError{
 			Op:  "read_file",
-			Msg: "access denied: path must be within /data directory",
+			Msg: "access denied: path must be within /data/server directory",
 			Err: nil,
 		}
 	}
@@ -765,11 +765,11 @@ func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error
 }
 
 func (d *DockerManager) WriteFile(containerID string, path string, content []byte) error {
-	// Ensure path is within /data
-	if !strings.HasPrefix(path, "/data") {
+	// Ensure path is within /data/server
+	if !strings.HasPrefix(path, "/data/server") {
 		return &DockerError{
 			Op:  "write_file",
-			Msg: "access denied: path must be within /data directory",
+			Msg: "access denied: path must be within /data/server directory",
 			Err: nil,
 		}
 	}
@@ -800,11 +800,11 @@ func (d *DockerManager) WriteFile(containerID string, path string, content []byt
 }
 
 func (d *DockerManager) CreateDirectory(containerID string, path string) error {
-	// Ensure path is within /data
-	if !strings.HasPrefix(path, "/data") {
+	// Ensure path is within /data/server
+	if !strings.HasPrefix(path, "/data/server") {
 		return &DockerError{
 			Op:  "create_directory",
-			Msg: "access denied: path must be within /data directory",
+			Msg: "access denied: path must be within /data/server directory",
 			Err: nil,
 		}
 	}
@@ -815,20 +815,20 @@ func (d *DockerManager) CreateDirectory(containerID string, path string) error {
 }
 
 func (d *DockerManager) DeletePath(containerID string, path string) error {
-	// Ensure path is within /data
-	if !strings.HasPrefix(path, "/data") {
+	// Ensure path is within /data/server
+	if !strings.HasPrefix(path, "/data/server") {
 		return &DockerError{
 			Op:  "delete_path",
-			Msg: "access denied: path must be within /data directory",
+			Msg: "access denied: path must be within /data/server directory",
 			Err: nil,
 		}
 	}
 	
-	// Don't allow deleting /data itself
-	if path == "/data" {
+	// Don't allow deleting /data/server itself
+	if path == "/data/server" {
 		return &DockerError{
 			Op:  "delete_path",
-			Msg: "cannot delete /data directory",
+			Msg: "cannot delete server root directory",
 			Err: nil,
 		}
 	}
@@ -839,11 +839,11 @@ func (d *DockerManager) DeletePath(containerID string, path string) error {
 }
 
 func (d *DockerManager) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
-	// Ensure path is within /data
-	if !strings.HasPrefix(path, "/data") {
+	// Ensure path is within /data/server
+	if !strings.HasPrefix(path, "/data/server") {
 		return nil, &DockerError{
 			Op:  "download_file",
-			Msg: "access denied: path must be within /data directory",
+			Msg: "access denied: path must be within /data/server directory",
 			Err: nil,
 		}
 	}
@@ -863,11 +863,11 @@ func (d *DockerManager) DownloadFile(containerID string, path string) (io.ReadCl
 }
 
 func (d *DockerManager) UploadFile(containerID string, destPath string, reader io.Reader) error {
-	// Ensure path is within /data
-	if !strings.HasPrefix(destPath, "/data") {
+	// Ensure path is within /data/server
+	if !strings.HasPrefix(destPath, "/data/server") {
 		return &DockerError{
 			Op:  "upload_file",
-			Msg: "access denied: path must be within /data directory",
+			Msg: "access denied: path must be within /data/server directory",
 			Err: nil,
 		}
 	}
@@ -888,11 +888,11 @@ func (d *DockerManager) UploadFile(containerID string, destPath string, reader i
 }
 
 func (d *DockerManager) RenameFile(containerID string, oldPath string, newPath string) error {
-	// Ensure both paths are within /data
-	if !strings.HasPrefix(oldPath, "/data") || !strings.HasPrefix(newPath, "/data") {
+	// Ensure both paths are within /data/server
+	if !strings.HasPrefix(oldPath, "/data/server") || !strings.HasPrefix(newPath, "/data/server") {
 		return &DockerError{
 			Op:  "rename_file",
-			Msg: "access denied: paths must be within /data directory",
+			Msg: "access denied: paths must be within /data/server directory",
 			Err: nil,
 		}
 	}
@@ -989,10 +989,10 @@ func sortFiles(files []*FileInfo) []*FileInfo {
 		}
 	}
 	
-	// Sort files alphabetically by name
+	// Sort files by size (largest first)
 	for i := 0; i < len(regularFiles); i++ {
 		for j := i + 1; j < len(regularFiles); j++ {
-			if strings.ToLower(regularFiles[i].Name) > strings.ToLower(regularFiles[j].Name) {
+			if regularFiles[i].Size < regularFiles[j].Size {
 				regularFiles[i], regularFiles[j] = regularFiles[j], regularFiles[i]
 			}
 		}
