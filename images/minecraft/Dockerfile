@@ -1,6 +1,6 @@
 FROM eclipse-temurin:21-jre
 
-# Create directory structure including backups directory
+# Create directory structure
 RUN mkdir -p /data/server /data/backups /data/scripts
 WORKDIR /data/server
 
