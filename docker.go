@@ -797,12 +797,14 @@ func (d *DockerManager) DeletePath(containerID string, path string) error {
 
 func (d *DockerManager) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
 	// Validate path
-	_, err := d.validatePath(path, serverAndBackupsValidation)
+	validPath, err := d.validatePath(path, serverAndBackupsValidation)
 	if err != nil {
 		return nil, err
 	}
 	
-	return d.copyFromContainer(containerID, path)
+	log.Info().Str("original_path", path).Str("valid_path", validPath).Str("container_id", containerID).Msg("Validated path for download")
+	
+	return d.copyFromContainer(containerID, validPath)
 }
 
 // copyFromContainer handles the Docker API path conversion and copy operation
@@ -814,15 +816,19 @@ func (d *DockerManager) copyFromContainer(containerID string, path string) (io.R
 	// This is safer than assuming WORKDIR
 	dockerPath := path
 	
+	log.Info().Str("docker_path", dockerPath).Str("container_id", containerID).Msg("Attempting docker copy from container")
+	
 	reader, _, err := d.client.CopyFromContainer(ctx, containerID, dockerPath)
 	if err != nil {
+		log.Error().Err(err).Str("docker_path", dockerPath).Str("container_id", containerID).Msg("Docker copy from container failed")
 		return nil, &DockerError{
 			Op:  "copy_from_container",
-			Msg: fmt.Sprintf("failed to copy file from container %s", containerID),
+			Msg: fmt.Sprintf("failed to copy file from container %s: %s", containerID, err.Error()),
 			Err: err,
 		}
 	}
 	
+	log.Info().Str("docker_path", dockerPath).Str("container_id", containerID).Msg("Docker copy from container successful")
 	return reader, nil
 }
 

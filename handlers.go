@@ -1008,24 +1008,37 @@ func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 	
-	// Read file content directly
-	content, err := h.service.ReadFile(gameserver.ContainerID, path)
+	// Use DownloadFile which supports both server and backup paths
+	log.Info().Str("path", path).Str("container_id", gameserver.ContainerID).Msg("Attempting to download file")
+	reader, err := h.service.DownloadFile(gameserver.ContainerID, path)
 	if err != nil {
+		log.Error().Err(err).Str("path", path).Str("container_id", gameserver.ContainerID).Msg("Download file failed")
 		HandleError(w, InternalError(err, "Failed to download file"), "download_file")
 		return
 	}
+	defer reader.Close()
 	
 	// Extract filename from path
 	filename := filepath.Base(path)
 	
+	// The reader contains a tar archive, extract the file
+	tarReader := tar.NewReader(reader)
+	
+	// Read the first (and should be only) file from the tar
+	header, err := tarReader.Next()
+	if err != nil {
+		HandleError(w, InternalError(err, "Failed to read file from archive"), "download_file")
+		return
+	}
+	
 	// Set headers for download
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	w.Header().Set("Content-Length", strconv.FormatInt(header.Size, 10))
 	
-	// Write the file content
-	if _, err := w.Write(content); err != nil {
-		log.Error().Err(err).Str("path", path).Msg("Failed to write file content")
+	// Stream the actual file content (not the tar archive)
+	if _, err := io.Copy(w, tarReader); err != nil {
+		log.Error().Err(err).Str("path", path).Msg("Failed to stream file content")
 	}
 }
 
@@ -1192,15 +1205,12 @@ func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) 
 // Helper functions
 
 func sanitizePath(path string) string {
-	// Server directory is the user root
-	const serverDir = "/data/server"
-	
 	// Clean the path
 	path = filepath.Clean(path)
 	
 	// If path is empty or just "/", use server directory
 	if path == "" || path == "/" {
-		return serverDir
+		return "/data/server"
 	}
 	
 	// Ensure path is absolute
@@ -1208,15 +1218,26 @@ func sanitizePath(path string) string {
 		path = "/" + path
 	}
 	
-	// If path doesn't start with /data/server, prepend it
-	if !strings.HasPrefix(path, serverDir) {
-		// If user is trying to access parent directories, return server root
-		if strings.HasPrefix(path, "/..") || path == ".." {
-			return serverDir
-		}
-		// Otherwise, append the path to /data/server
-		path = filepath.Join(serverDir, path)
+	// Handle backup paths - they should remain as-is if they're already valid backup paths
+	if strings.HasPrefix(path, "/data/backups/") {
+		// For backup paths, just clean and return
+		return filepath.Clean(path)
 	}
+	
+	// Handle server paths
+	const serverDir = "/data/server"
+	if strings.HasPrefix(path, serverDir) {
+		// Already a valid server path, just clean and return
+		return filepath.Clean(path)
+	}
+	
+	// If user is trying to access parent directories, return server root
+	if strings.HasPrefix(path, "/..") || path == ".." {
+		return serverDir
+	}
+	
+	// Otherwise, treat as relative to server directory
+	path = filepath.Join(serverDir, path)
 	
 	// Clean again to resolve any .. sequences
 	path = filepath.Clean(path)
