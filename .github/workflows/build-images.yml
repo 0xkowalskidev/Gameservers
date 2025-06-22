@@ -13,6 +13,14 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get changed files
+        id: changes
+        run: |
+          echo "minecraft=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/minecraft/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "garrysmod=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/garrysmod/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -24,13 +32,14 @@ jobs:
           username: ${{github.actor}}
           password: ${{secrets.GITHUB_TOKEN}}
 
-      
       - name: Build and push minecraft
+        if: steps.changes.outputs.minecraft == 'true'
         run: |
           docker build images/minecraft --tag ghcr.io/0xkowalskidev/gameservers/minecraft:latest
           docker push ghcr.io/0xkowalskidev/gameservers/minecraft:latest
 
       - name: Build and push garrysmod
+        if: steps.changes.outputs.garrysmod == 'true'
         run: |
           docker build images/garrysmod --tag ghcr.io/0xkowalskidev/gameservers/garrysmod:latest
           docker push ghcr.io/0xkowalskidev/gameservers/garrysmod:latest
