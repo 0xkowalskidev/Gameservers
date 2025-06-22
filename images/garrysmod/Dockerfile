@@ -5,7 +5,7 @@ LABEL description="Garry's Mod Dedicated Server (Self-Contained)"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies for SteamCMD and the 32-bit Source Engine
+# Install dependencies for SteamCMD, 32-bit Source Engine, and rcon-cli
 RUN apt-get update && \
     dpkg --add-architecture i386 && \
     apt-get update && \
@@ -15,6 +15,11 @@ RUN apt-get update && \
     lib32gcc-s1 \
     libstdc++6:i386 \
     libsdl2-2.0-0:i386 \
+    && wget -O rcon-cli.tar.gz https://github.com/gorcon/rcon-cli/releases/download/v0.10.3/rcon-0.10.3-amd64_linux.tar.gz \
+    && tar -xzf rcon-cli.tar.gz \
+    && mv rcon-0.10.3-amd64_linux/rcon /usr/local/bin/rcon-cli \
+    && chmod +x /usr/local/bin/rcon-cli \
+    && rm -rf rcon-cli.tar.gz rcon-0.10.3-amd64_linux \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for security
@@ -42,9 +47,10 @@ RUN /data/steamcmd/steamcmd.sh \
 # Set the working directory
 WORKDIR /data/server
 
-# Copy the start script into the container and make it executable
+# Copy the start and send-command scripts into the container and make them executable
 COPY --chown=steam:steam start.sh /data/scripts/start.sh
-RUN chmod +x /data/scripts/start.sh
+COPY --chown=steam:steam send-command.sh /data/scripts/send-command.sh
+RUN chmod +x /data/scripts/start.sh /data/scripts/send-command.sh
 
 # Expose the default Garry's Mod server ports
 EXPOSE 27015/udp

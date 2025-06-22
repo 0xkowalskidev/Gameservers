@@ -2,37 +2,37 @@
 set -e
 
 # --- Environment Variable Defaults ---
-GMOD_HOSTNAME=${GMOD_HOSTNAME:-"T3 Chat GMod Server"}
-GMOD_PASSWORD=${GMOD_PASSWORD:-""}
-GMOD_RCON_PASSWORD=${GMOD_RCON_PASSWORD:-"changeme"}
-GMOD_MAXPLAYERS=${GMOD_MAXPLAYERS:-16}
-GMOD_MAP=${GMOD_MAP:-"gm_construct"}
-GMOD_GAMEMODE=${GMOD_GAMEMODE:-"sandbox"}
-GMOD_WORKSHOP_ID=${GMOD_WORKSHOP_ID:-""}
+NAME=${NAME:-"T3 Chat GMod Server"}
+PASSWORD=${PASSWORD:-""}
+RCON_PASSWORD=${RCON_PASSWORD}
+MAXPLAYERS=${MAXPLAYERS:-16}
+MAP=${MAP:-"gm_construct"}
+GAMEMODE=${GAMEMODE:-"sandbox"}
+WORKSHOP_ID=${WORKSHOP_ID:-""}
 STEAM_AUTHKEY=${STEAM_AUTHKEY:-""}
-GMOD_ARGS=${GMOD_ARGS:-""}
+ARGS=${ARGS:-""}
 
 # --- Construct Launch Command ---
 LAUNCH_COMMAND="./srcds_run -game garrysmod -console -usercon -nohltv -ip 0.0.0.0 -port 27015"
-LAUNCH_COMMAND+=" +hostname \"$GMOD_HOSTNAME\""
-LAUNCH_COMMAND+=" +maxplayers \"$GMOD_MAXPLAYERS\""
-LAUNCH_COMMAND+=" +gamemode \"$GMOD_GAMEMODE\""
-LAUNCH_COMMAND+=" +map \"$GMOD_MAP\""
+LAUNCH_COMMAND+=" +hostname \"$NAME\""
+LAUNCH_COMMAND+=" +maxplayers \"$MAXPLAYERS\""
+LAUNCH_COMMAND+=" +gamemode \"$GAMEMODE\""
+LAUNCH_COMMAND+=" +map \"$MAP\""
 
-if [[ -n "$GMOD_PASSWORD" ]]; then
-  LAUNCH_COMMAND+=" +sv_password \"$GMOD_PASSWORD\""
+if [[ -n "$PASSWORD" ]]; then
+  LAUNCH_COMMAND+=" +sv_password \"$PASSWORD\""
 fi
 
-if [[ -n "$GMOD_RCON_PASSWORD" ]]; then
-  LAUNCH_COMMAND+=" +rcon_password \"$GMOD_RCON_PASSWORD\""
+if [[ -n "$RCON_PASSWORD" ]]; then
+  LAUNCH_COMMAND+=" +rcon_password \"$RCON_PASSWORD\""
 fi
 
-if [[ -n "$GMOD_WORKSHOP_ID" && -n "$STEAM_AUTHKEY" ]]; then
-  LAUNCH_COMMAND+=" +host_workshop_collection $GMOD_WORKSHOP_ID -authkey $STEAM_AUTHKEY"
+if [[ -n "$WORKSHOP_ID" && -n "$STEAM_AUTHKEY" ]]; then
+  LAUNCH_COMMAND+=" +host_workshop_collection $WORKSHOP_ID -authkey $STEAM_AUTHKEY"
 fi
 
-if [[ -n "$GMOD_ARGS" ]]; then
-  LAUNCH_COMMAND+=" $GMOD_ARGS"
+if [[ -n "$ARGS" ]]; then
+  LAUNCH_COMMAND+=" $ARGS"
 fi
 
 # --- Launch Server ---
