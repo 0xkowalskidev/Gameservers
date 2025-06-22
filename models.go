@@ -30,7 +30,8 @@ type Gameserver struct {
 	GameID      string            `json:"game_id"`
 	ContainerID string            `json:"container_id,omitempty"`
 	Status      GameserverStatus  `json:"status"`
-	Port        int               `json:"port"`
+	Port        int               `json:"port"`         // Container port (from game default)
+	HostPort    int               `json:"host_port"`    // Dynamically allocated host port
 	MemoryMB    int               `json:"memory_mb"`    // Memory limit in MB
 	CPUCores    float64           `json:"cpu_cores"`    // CPU cores (0 = unlimited)
 	MaxBackups  int               `json:"max_backups"`  // Maximum number of backups to keep (0 = unlimited)

@@ -11,7 +11,7 @@
       {{.Status}}
     </span>
   </td>
-  <td class="px-6 py-4 text-gray-900">{{.Port}}</td>
+  <td class="px-6 py-4 text-gray-900">{{.HostPort}}</td>
   <td class="px-6 py-4 space-x-2">
     {{if eq .Status "running"}}
       <button hx-post="/{{.ID}}/stop" hx-target="#gameserver-{{.ID}}" hx-swap="outerHTML" 

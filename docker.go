@@ -105,7 +105,7 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 			exposedPort: []nat.PortBinding{
 				{
 					HostIP:   "0.0.0.0",
-					HostPort: strconv.Itoa(server.Port),
+					HostPort: strconv.Itoa(server.HostPort),
 				},
 			},
 		},
