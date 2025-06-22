@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Enable job control for signal handling
+set -m
+
 # --- Environment Variable Defaults ---
 NAME=${NAME:-"Garry's Mod Server"}
 PASSWORD=${PASSWORD:-""}
@@ -44,23 +47,30 @@ echo "-------------------------------------------------"
 
 # Handle shutdown
 stop_server() {
-    echo "Received SIGTERM, stopping server gracefully..."
+    echo "[$(date)] Received SIGTERM, stopping Garry's Mod server gracefully..." >&2
     if [[ -n "$RCON_PASSWORD" ]]; then
+        echo "[$(date)] Sending quit command via RCON..." >&2
         /data/scripts/send-command.sh "quit"
     else
-        # If no RCON password, just kill the process
+        echo "[$(date)] No RCON password set, sending TERM to process..." >&2
         kill -TERM $SERVER_PID 2>/dev/null || true
     fi
-    wait $SERVER_PID
+    # Wait for the server process to exit
+    while kill -0 $SERVER_PID 2>/dev/null; do
+        echo "[$(date)] Waiting for Garry's Mod server to stop..." >&2
+        sleep 1
+    done
+    echo "[$(date)] Garry's Mod server stopped gracefully" >&2
     exit 0
 }
 
-# Trap SIGTERM
-trap stop_server SIGTERM
+# Trap SIGTERM and SIGINT
+trap stop_server SIGTERM SIGINT
 
 # Start server in background
 $LAUNCH_COMMAND &
 SERVER_PID=$!
 
 # Wait for server process
+echo "[$(date)] Garry's Mod server started with PID $SERVER_PID" >&2
 wait $SERVER_PID

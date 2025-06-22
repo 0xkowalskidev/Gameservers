@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Enable job control for signal handling
+set -m
+
 # Change to server directory
 cd /data/server
 
@@ -33,14 +36,20 @@ mkfifo "$PIPE_PATH"
 
 # Handle shutdown
 stop_server() {
-    echo "Received SIGTERM, stopping server gracefully..."
+    echo "[$(date)] Received SIGTERM, stopping Minecraft server gracefully..." >&2
     echo "stop" > $PIPE_PATH
-    wait $SERVER_PID
+    echo "[$(date)] Stop command sent to Minecraft server" >&2
+    # Wait for the specific Java process to exit
+    while kill -0 $SERVER_PID 2>/dev/null; do
+        echo "[$(date)] Waiting for Minecraft server to stop..." >&2
+        sleep 1
+    done
+    echo "[$(date)] Minecraft server stopped gracefully" >&2
     exit 0
 }
 
-# Trap SIGTERM
-trap stop_server SIGTERM
+# Trap SIGTERM and SIGINT
+trap stop_server SIGTERM SIGINT
 
 # Start server in background and get PID
 while true; do
@@ -49,4 +58,5 @@ done | java -Xmx${MEMORY_MB}M -Xms${MEMORY_MB}M -jar server.jar nogui &
 SERVER_PID=$!
 
 # Wait for server process
+echo "[$(date)] Minecraft server started with PID $SERVER_PID" >&2
 wait $SERVER_PID
