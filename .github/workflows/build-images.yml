@@ -29,3 +29,8 @@ jobs:
         run: |
           docker build images/minecraft --tag ghcr.io/0xkowalskidev/gameservers/minecraft:latest
           docker push ghcr.io/0xkowalskidev/gameservers/minecraft:latest
+
+      - name: Build and push garrysmod
+        run: |
+          docker build images/garrysmod --tag ghcr.io/0xkowalskidev/gameservers/garrysmod:latest
+          docker push ghcr.io/0xkowalskidev/gameservers/garrysmod:latest
