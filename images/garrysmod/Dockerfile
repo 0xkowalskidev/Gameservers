@@ -50,8 +50,7 @@ WORKDIR /data/server
 # Copy the start and send-command scripts into the container and make them executable
 COPY --chown=steam:steam start.sh /data/scripts/start.sh
 COPY --chown=steam:steam send-command.sh /data/scripts/send-command.sh
-COPY --chown=steam:steam stop.sh /data/scripts/stop.sh
-RUN chmod +x /data/scripts/start.sh /data/scripts/send-command.sh /data/scripts/stop.sh
+RUN chmod +x /data/scripts/start.sh /data/scripts/send-command.sh
 
 # Expose the default Garry's Mod server ports
 EXPOSE 27015/udp

@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-# Trap SIGTERM and run stop script
-trap '/data/scripts/stop.sh' SIGTERM
-
 # --- Environment Variable Defaults ---
 NAME=${NAME:-"Garry's Mod Server"}
 PASSWORD=${PASSWORD:-""}
@@ -45,4 +42,25 @@ echo "-> Launching server with the following command:"
 echo "$LAUNCH_COMMAND"
 echo "-------------------------------------------------"
 
-exec $LAUNCH_COMMAND
+# Handle shutdown
+stop_server() {
+    echo "Received SIGTERM, stopping server gracefully..."
+    if [[ -n "$RCON_PASSWORD" ]]; then
+        /data/scripts/send-command.sh "quit"
+    else
+        # If no RCON password, just kill the process
+        kill -TERM $SERVER_PID 2>/dev/null || true
+    fi
+    wait $SERVER_PID
+    exit 0
+}
+
+# Trap SIGTERM
+trap stop_server SIGTERM
+
+# Start server in background
+$LAUNCH_COMMAND &
+SERVER_PID=$!
+
+# Wait for server process
+wait $SERVER_PID

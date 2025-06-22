@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Trap SIGTERM and run stop script
-trap '/data/scripts/stop.sh' SIGTERM
-
 # Change to server directory
 cd /data/server
 
@@ -34,7 +31,22 @@ sed -i "s/rcon.port=.*/rcon.port=25575/" server.properties
 PIPE_PATH="/tmp/command-fifo"
 mkfifo "$PIPE_PATH"
 
-# Start server 
+# Handle shutdown
+stop_server() {
+    echo "Received SIGTERM, stopping server gracefully..."
+    echo "stop" > $PIPE_PATH
+    wait $SERVER_PID
+    exit 0
+}
+
+# Trap SIGTERM
+trap stop_server SIGTERM
+
+# Start server in background and get PID
 while true; do
   cat $PIPE_PATH
-done | java -Xmx${MEMORY_MB}M -Xms${MEMORY_MB}M -jar server.jar nogui
+done | java -Xmx${MEMORY_MB}M -Xms${MEMORY_MB}M -jar server.jar nogui &
+SERVER_PID=$!
+
+# Wait for server process
+wait $SERVER_PID
