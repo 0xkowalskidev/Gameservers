@@ -297,14 +297,22 @@ func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get existing gameserver to preserve port mappings
+	existingServer, err := h.service.GetGameserver(id)
+	if err != nil {
+		HandleError(w, InternalError(err, "Failed to get existing gameserver"), "update_gameserver")
+		return
+	}
+
 	server := &Gameserver{
-		ID:          id,
-		Name:        formData.Name,
-		GameID:      formData.GameID,
-		MemoryMB:    formData.MemoryMB,
-		CPUCores:    formData.CPUCores,
-		MaxBackups:  formData.MaxBackups,
-		Environment: formData.Environment,
+		ID:           id,
+		Name:         formData.Name,
+		GameID:       formData.GameID,
+		MemoryMB:     formData.MemoryMB,
+		CPUCores:     formData.CPUCores,
+		MaxBackups:   formData.MaxBackups,
+		Environment:  formData.Environment,
+		PortMappings: existingServer.PortMappings, // Preserve existing port allocations
 	}
 
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Int("memory_mb", formData.MemoryMB).Float64("cpu_cores", formData.CPUCores).Msg("Updating gameserver")

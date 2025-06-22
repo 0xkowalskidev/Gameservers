@@ -765,48 +765,24 @@
   {{if $isEdit}}
   // Update and restart function
   function updateAndRestart() {
-    // First update the server
     const form = document.querySelector('form');
     if (!form) return;
 
-    // Manually trigger form submission preparation
-    handleFormSubmit.call(form, {preventDefault: () => { }});
+    // Submit the form and on success, restart
+    const formEvent = new Event('submit', { bubbles: true, cancelable: true });
+    handleFormSubmit.call(form, formEvent);
 
-    // Create FormData from the form
-    const formData = new FormData(form);
-
-    // Send update request
-    fetch(form.action || `/{{$gameserver.ID}}`, {
-      method: 'PUT',
-      body: formData
-    })
-      .then(response => {
-        if (response.ok) {
-          showNotification('Server updated successfully', 'success');
-
-          // Then restart the server
-          return fetch(`/{{$gameserver.ID}}/restart`, {
-            method: 'POST'
-          });
-        } else {
-          throw new Error('Failed to update server');
-        }
-      })
-      .then(response => {
-        if (response.ok) {
-          showNotification('Server restarted successfully', 'success');
-          // Redirect to server details page after restart
-          setTimeout(() => {
-            window.location.href = `/{{$gameserver.ID}}`;
-          }, 1000);
-        } else {
-          throw new Error('Failed to restart server');
-        }
-      })
-      .catch(error => {
-        showNotification('Failed to update and restart server', 'error');
-        console.error('Update and restart error:', error);
-      });
+    htmx.ajax('PUT', `/{{$gameserver.ID}}`, {
+      source: form,
+      swap: 'none'
+    }).then(() => {
+      // On successful update, restart the server
+      return htmx.ajax('POST', `/{{$gameserver.ID}}/restart`, { swap: 'none' });
+    }).then(() => {
+      showNotification('Server updated and restarted successfully', 'success');
+    }).catch(() => {
+      showNotification('Failed to update and restart server', 'error');
+    });
   }
   {{end}}
 </script>
