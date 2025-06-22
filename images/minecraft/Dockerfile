@@ -11,7 +11,8 @@ RUN wget -O server.jar https://piston-data.mojang.com/v1/objects/4707d00eb834b44
 COPY server.properties /data/server
 COPY start.sh /data/scripts/start.sh
 COPY send-command.sh /data/scripts/send-command.sh
-RUN chmod +x /data/scripts/start.sh /data/scripts/send-command.sh
+COPY stop.sh /data/scripts/stop.sh
+RUN chmod +x /data/scripts/start.sh /data/scripts/send-command.sh /data/scripts/stop.sh
 
 EXPOSE 25565
 

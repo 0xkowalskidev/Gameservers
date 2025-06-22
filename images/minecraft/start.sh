@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Trap SIGTERM and run stop script
+trap '/data/scripts/stop.sh' SIGTERM
+
 # Change to server directory
 cd /data/server
 

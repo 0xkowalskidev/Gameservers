@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Trap SIGTERM and run stop script
+trap '/data/scripts/stop.sh' SIGTERM
+
 # --- Environment Variable Defaults ---
 NAME=${NAME:-"Garry's Mod Server"}
 PASSWORD=${PASSWORD:-""}
