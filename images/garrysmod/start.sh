@@ -2,7 +2,7 @@
 set -e
 
 # --- Environment Variable Defaults ---
-NAME=${NAME:-"T3 Chat GMod Server"}
+NAME=${NAME:-"Garry's Mod Server"}
 PASSWORD=${PASSWORD:-""}
 RCON_PASSWORD=${RCON_PASSWORD}
 MAXPLAYERS=${MAXPLAYERS:-16}

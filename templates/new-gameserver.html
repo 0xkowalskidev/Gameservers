@@ -76,15 +76,23 @@
           </div>
         </div>
         
+        <!-- Game Configuration -->
+        <div class="space-y-4" id="config-section" style="display: none;">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Game Configuration</h3>
+          <div id="config-fields" class="space-y-4">
+            <!-- Dynamic config fields will be inserted here -->
+          </div>
+        </div>
+
         <!-- Environment Variables -->
         <div class="space-y-4">
           <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Environment Variables</h3>
           
           <div>
-            <label for="environment" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Variables (one per line)</label>
-            <textarea id="environment" name="environment" rows="4" placeholder="EULA=true&#10;MAX_PLAYERS=20&#10;DIFFICULTY=normal" 
+            <label for="environment" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Additional Variables (one per line)</label>
+            <textarea id="environment" name="environment" rows="3" placeholder="CUSTOM_VAR=value&#10;ANOTHER_VAR=test" 
                       class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth font-mono"></textarea>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Configure game-specific settings using KEY=VALUE format</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Optional custom environment variables using KEY=VALUE format</p>
           </div>
         </div>
         
@@ -124,4 +132,105 @@
     </form>
   </div>
 </div>
+
+<script>
+// Game configuration data
+const gameConfigs = {
+  {{range .Games}}
+  "{{.ID}}": {
+    configVars: [
+      {{range .ConfigVars}}
+      {
+        name: "{{.Name}}",
+        displayName: "{{.DisplayName}}",
+        required: {{.Required}},
+        default: "{{.Default}}",
+        description: "{{.Description}}"
+      },
+      {{end}}
+    ]
+  },
+  {{end}}
+};
+
+// Handle game selection change
+document.getElementById('game_id').addEventListener('change', function() {
+  const gameId = this.value;
+  const configSection = document.getElementById('config-section');
+  const configFields = document.getElementById('config-fields');
+  
+  if (!gameId || !gameConfigs[gameId]) {
+    configSection.style.display = 'none';
+    return;
+  }
+  
+  const game = gameConfigs[gameId];
+  configFields.innerHTML = '';
+  
+  if (game.configVars.length > 0) {
+    configSection.style.display = 'block';
+    
+    // Create a grid for the config fields
+    const grid = document.createElement('div');
+    grid.className = 'grid gap-4 sm:grid-cols-2';
+    
+    game.configVars.forEach(configVar => {
+      const fieldDiv = document.createElement('div');
+      
+      const label = document.createElement('label');
+      label.className = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2';
+      label.textContent = configVar.displayName;
+      if (configVar.required) {
+        const required = document.createElement('span');
+        required.className = 'text-red-500 ml-1';
+        required.textContent = '*';
+        label.appendChild(required);
+      }
+      
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.name = `config_${configVar.name}`;
+      input.id = `config_${configVar.name}`;
+      input.value = configVar.default;
+      if (configVar.required) {
+        input.required = true;
+      }
+      input.className = 'w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth';
+      
+      const help = document.createElement('p');
+      help.className = 'mt-1 text-xs text-gray-500 dark:text-gray-400';
+      help.textContent = configVar.description;
+      
+      fieldDiv.appendChild(label);
+      fieldDiv.appendChild(input);
+      fieldDiv.appendChild(help);
+      grid.appendChild(fieldDiv);
+    });
+    
+    configFields.appendChild(grid);
+  }
+});
+
+// Collect all form data including dynamic config fields
+document.querySelector('form').addEventListener('submit', function(e) {
+  const gameId = document.getElementById('game_id').value;
+  if (!gameId || !gameConfigs[gameId]) return;
+  
+  // Collect config values and add them to environment textarea
+  const envTextarea = document.getElementById('environment');
+  const currentEnv = envTextarea.value.trim();
+  
+  const configVars = [];
+  gameConfigs[gameId].configVars.forEach(configVar => {
+    const input = document.getElementById(`config_${configVar.name}`);
+    if (input && input.value.trim()) {
+      configVars.push(`${configVar.name}=${input.value.trim()}`);
+    }
+  });
+  
+  // Combine config vars with existing environment
+  const combinedEnv = [...configVars, currentEnv].filter(line => line.trim()).join('\n');
+  envTextarea.value = combinedEnv;
+});
+</script>
 

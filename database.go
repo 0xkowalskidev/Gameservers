@@ -70,7 +70,8 @@ func (dm *DatabaseManager) migrate() error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS games (
 		id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, image TEXT NOT NULL,
-		port_mappings TEXT NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL
+		port_mappings TEXT NOT NULL, config_vars TEXT NOT NULL DEFAULT '[]', 
+		created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL
 	);
 	CREATE TABLE IF NOT EXISTS gameservers (
 		id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, game_id TEXT NOT NULL,
@@ -130,25 +131,59 @@ func (dm *DatabaseManager) seedGames() error {
 		{ID: "minecraft", Name: "Minecraft", Image: "ghcr.io/0xkowalskidev/gameservers/minecraft:latest", 
 			PortMappings: []PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0},
+			},
+			ConfigVars: []ConfigVar{
+				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: false, Default: "A Minecraft Server", Description: "The name shown in server lists"},
+				{Name: "MOTD", DisplayName: "Message of the Day", Required: false, Default: "Welcome to our server!", Description: "Message shown to players when joining"},
+				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "normal", Description: "Game difficulty (peaceful, easy, normal, hard)"},
+				{Name: "GAMEMODE", DisplayName: "Game Mode", Required: false, Default: "survival", Description: "Default game mode (survival, creative, adventure, spectator)"},
 			}, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "cs2", Name: "Counter-Strike 2", Image: "ghcr.io/0xkowalskidev/gameservers/cs2:latest", 
 			PortMappings: []PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0}, 
 				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
+			},
+			ConfigVars: []ConfigVar{
+				{Name: "HOSTNAME", DisplayName: "Server Name", Required: false, Default: "CS2 Server", Description: "Server hostname shown in browser"},
+				{Name: "RCON_PASSWORD", DisplayName: "RCON Password", Required: true, Default: "", Description: "Password for remote console access (required)"},
+				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
+				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "10", Description: "Maximum number of players"},
 			}, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "valheim", Name: "Valheim", Image: "ghcr.io/0xkowalskidev/gameservers/valheim:latest", 
 			PortMappings: []PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 2456, HostPort: 0}, 
 				{Name: "query", Protocol: "udp", ContainerPort: 2457, HostPort: 0},
+			},
+			ConfigVars: []ConfigVar{
+				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: false, Default: "Valheim Server", Description: "Name shown in server browser"},
+				{Name: "WORLD_NAME", DisplayName: "World Name", Required: false, Default: "Dedicated", Description: "Name of the world save file"},
+				{Name: "SERVER_PASSWORD", DisplayName: "Password", Required: true, Default: "", Description: "Server password (required for Valheim)"},
+				{Name: "SERVER_PUBLIC", DisplayName: "Public Server", Required: false, Default: "1", Description: "Show in server browser (1=yes, 0=no)"},
 			}, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "terraria", Name: "Terraria", Image: "ghcr.io/0xkowalskidev/gameservers/terraria:latest", 
 			PortMappings: []PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 7777, HostPort: 0},
+			},
+			ConfigVars: []ConfigVar{
+				{Name: "WORLD", DisplayName: "World Name", Required: false, Default: "world", Description: "Name of the world file"},
+				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "1", Description: "World difficulty (0=Classic, 1=Expert, 2=Master)"},
+				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "8", Description: "Maximum number of players"},
+				{Name: "PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 			}, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "garrysmod", Name: "Garry's Mod", Image: "ghcr.io/0xkowalskidev/gameservers/garrysmod:latest", 
 			PortMappings: []PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0}, 
 				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
+			},
+			ConfigVars: []ConfigVar{
+				{Name: "NAME", DisplayName: "Server Name", Required: false, Default: "Garry's Mod Server", Description: "Server name shown in browser"},
+				{Name: "RCON_PASSWORD", DisplayName: "RCON Password", Required: true, Default: "", Description: "Password for remote console access (required)"},
+				{Name: "PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
+				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "16", Description: "Maximum number of players"},
+				{Name: "MAP", DisplayName: "Default Map", Required: false, Default: "gm_construct", Description: "Starting map"},
+				{Name: "GAMEMODE", DisplayName: "Game Mode", Required: false, Default: "sandbox", Description: "Default game mode"},
+				{Name: "WORKSHOP_ID", DisplayName: "Workshop Collection", Required: false, Default: "", Description: "Steam Workshop collection ID (optional)"},
+				{Name: "STEAM_AUTHKEY", DisplayName: "Steam Auth Key", Required: false, Default: "", Description: "Steam Web API key for Workshop content"},
 			}, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 	}
 
@@ -168,8 +203,13 @@ func (dm *DatabaseManager) CreateGame(game *Game) error {
 		return &DatabaseError{Op: "db", Msg: "failed to marshal port mappings", Err: err}
 	}
 
-	_, err = dm.db.Exec(`INSERT INTO games (id, name, image, port_mappings, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		game.ID, game.Name, game.Image, string(portMappingsJSON), game.CreatedAt, game.UpdatedAt)
+	configVarsJSON, err := json.Marshal(game.ConfigVars)
+	if err != nil {
+		return &DatabaseError{Op: "db", Msg: "failed to marshal config vars", Err: err}
+	}
+
+	_, err = dm.db.Exec(`INSERT INTO games (id, name, image, port_mappings, config_vars, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		game.ID, game.Name, game.Image, string(portMappingsJSON), string(configVarsJSON), game.CreatedAt, game.UpdatedAt)
 
 	if err != nil {
 		return &DatabaseError{Op: fmt.Sprintf("failed to insert game %s", game.Name), Err: err}
@@ -178,12 +218,12 @@ func (dm *DatabaseManager) CreateGame(game *Game) error {
 }
 
 func (dm *DatabaseManager) GetGame(id string) (*Game, error) {
-	row := dm.db.QueryRow(`SELECT id, name, image, port_mappings, created_at, updated_at FROM games WHERE id = ?`, id)
+	row := dm.db.QueryRow(`SELECT id, name, image, port_mappings, config_vars, created_at, updated_at FROM games WHERE id = ?`, id)
 	return dm.scanGame(row)
 }
 
 func (dm *DatabaseManager) ListGames() ([]*Game, error) {
-	rows, err := dm.db.Query(`SELECT id, name, image, port_mappings, created_at, updated_at FROM games ORDER BY name`)
+	rows, err := dm.db.Query(`SELECT id, name, image, port_mappings, config_vars, created_at, updated_at FROM games ORDER BY name`)
 	if err != nil {
 		return nil, &DatabaseError{Op: "db", Msg: "failed to query games", Err: err}
 	}
@@ -241,14 +281,18 @@ func (dm *DatabaseManager) CreateGameserver(server *Gameserver) error {
 
 func (dm *DatabaseManager) scanGame(row interface{ Scan(...interface{}) error }) (*Game, error) {
 	var game Game
-	var portMappingsJSON string
-	err := row.Scan(&game.ID, &game.Name, &game.Image, &portMappingsJSON, &game.CreatedAt, &game.UpdatedAt)
+	var portMappingsJSON, configVarsJSON string
+	err := row.Scan(&game.ID, &game.Name, &game.Image, &portMappingsJSON, &configVarsJSON, &game.CreatedAt, &game.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	
 	if err := json.Unmarshal([]byte(portMappingsJSON), &game.PortMappings); err != nil {
 		return nil, &DatabaseError{Op: "db", Msg: "failed to unmarshal port mappings", Err: err}
+	}
+
+	if err := json.Unmarshal([]byte(configVarsJSON), &game.ConfigVars); err != nil {
+		return nil, &DatabaseError{Op: "db", Msg: "failed to unmarshal config vars", Err: err}
 	}
 	
 	return &game, nil
@@ -365,13 +409,24 @@ func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
 		return err
 	}
 
+	// Get game info for port mappings and validation
+	game, err := gss.db.GetGame(server.GameID)
+	if err != nil {
+		return err
+	}
+
+	// Validate required configuration variables
+	missingConfigs := game.ValidateEnvironment(server.Environment)
+	if len(missingConfigs) > 0 {
+		return &DatabaseError{
+			Op:  "validate_config",
+			Msg: fmt.Sprintf("missing required configuration: %v", missingConfigs),
+			Err: nil,
+		}
+	}
+
 	// Initialize port mappings from game template if not already set
 	if len(server.PortMappings) == 0 {
-		// Copy port mappings from game template
-		game, err := gss.db.GetGame(server.GameID)
-		if err != nil {
-			return err
-		}
 		server.PortMappings = make([]PortMapping, len(game.PortMappings))
 		copy(server.PortMappings, game.PortMappings)
 	}
