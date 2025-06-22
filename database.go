@@ -648,6 +648,10 @@ func (gss *GameserverService) RenameFile(containerID string, oldPath string, new
 	return gss.docker.RenameFile(containerID, oldPath, newPath)
 }
 
+func (gss *GameserverService) UploadFile(containerID string, destPath string, reader io.Reader) error {
+	return gss.docker.UploadFile(containerID, destPath, reader)
+}
+
 func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*FileInfo, error) {
 	gameserver, err := gss.db.GetGameserver(gameserverID)
 	if err != nil {

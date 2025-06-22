@@ -86,6 +86,7 @@ func (db *testGameserverDB) CreateDirectory(containerID string, path string) err
 func (db *testGameserverDB) DeletePath(containerID string, path string) error     { return nil }
 func (db *testGameserverDB) DownloadFile(containerID string, path string) (io.ReadCloser, error) { return nil, nil }
 func (db *testGameserverDB) RenameFile(containerID string, oldPath string, newPath string) error { return nil }
+func (db *testGameserverDB) UploadFile(containerID string, destPath string, reader io.Reader) error { return nil }
 
 type testDockerManager struct {
 	containers map[string]bool

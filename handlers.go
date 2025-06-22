@@ -50,6 +50,7 @@ type GameserverServiceInterface interface {
 	DeletePath(containerID string, path string) error
 	DownloadFile(containerID string, path string) (io.ReadCloser, error)
 	RenameFile(containerID string, oldPath string, newPath string) error
+	UploadFile(containerID string, destPath string, reader io.Reader) error
 }
 
 type Handlers struct {
@@ -988,6 +989,77 @@ func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) 
 	
 	if err := h.service.RenameFile(gameserver.ContainerID, oldPath, newPath); err != nil {
 		HandleError(w, InternalError(err, "Failed to rename file"), "rename_file")
+		return
+	}
+	
+	// Return updated file listing
+	h.BrowseGameserverFiles(w, r)
+}
+
+func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	
+	// Parse multipart form with 10MB limit
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		HandleError(w, BadRequest("Invalid upload format"), "upload_file")
+		return
+	}
+	
+	// Get the destination path
+	destPath := r.FormValue("path")
+	if destPath == "" {
+		destPath = "/data/server"
+	}
+	destPath = sanitizePath(destPath)
+	
+	// Get the uploaded file
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		HandleError(w, BadRequest("No file provided"), "upload_file")
+		return
+	}
+	defer file.Close()
+	
+	// Validate file size (100MB limit)
+	if header.Size > 100<<20 {
+		HandleError(w, BadRequest("File too large (max 100MB)"), "upload_file")
+		return
+	}
+	
+	gameserver, ok := h.getGameserver(w, id)
+	if !ok {
+		return
+	}
+	
+	// Create a tar archive for the file
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+	
+	// Add file to tar archive
+	hdr := &tar.Header{
+		Name: header.Filename,
+		Mode: 0644,
+		Size: header.Size,
+	}
+	
+	if err := tw.WriteHeader(hdr); err != nil {
+		HandleError(w, InternalError(err, "Failed to create archive"), "upload_file")
+		return
+	}
+	
+	if _, err := io.Copy(tw, file); err != nil {
+		HandleError(w, InternalError(err, "Failed to write file"), "upload_file")
+		return
+	}
+	
+	if err := tw.Close(); err != nil {
+		HandleError(w, InternalError(err, "Failed to close archive"), "upload_file")
+		return
+	}
+	
+	// Upload file to container
+	if err := h.service.UploadFile(gameserver.ContainerID, destPath, bytes.NewReader(buf.Bytes())); err != nil {
+		HandleError(w, InternalError(err, "Failed to upload file"), "upload_file")
 		return
 	}
 	

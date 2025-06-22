@@ -98,6 +98,7 @@ func (m *mockGameserverService) CreateDirectory(containerID string, path string)
 func (m *mockGameserverService) DeletePath(containerID string, path string) error { return nil }
 func (m *mockGameserverService) DownloadFile(containerID string, path string) (io.ReadCloser, error) { return io.NopCloser(strings.NewReader("mock file")), nil }
 func (m *mockGameserverService) RenameFile(containerID string, oldPath string, newPath string) error { return nil }
+func (m *mockGameserverService) UploadFile(containerID string, destPath string, reader io.Reader) error { return nil }
 
 func TestHandlers_IndexGameservers(t *testing.T) {
 	tmpl := template.Must(template.New("index.html").Parse(`{{range .Gameservers}}{{.Name}}{{end}}`))

@@ -16,6 +16,12 @@
           </div>
         </div>
         <div class="flex items-center space-x-3">
+          <button onclick="showUploadDialog()" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v6"></path>
+            </svg>
+            Upload
+          </button>
           <button onclick="showCreateDialog()" class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -135,6 +141,49 @@
         </button>
         <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-600 text-white rounded-lg transition-smooth">
           Rename
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Upload file dialog -->
+<div id="upload-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-96 max-w-md mx-4 border border-gray-200 dark:border-gray-700">
+    <div class="flex items-center mb-4">
+      <svg class="w-6 h-6 text-blue-500 dark:text-blue-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v6"></path>
+      </svg>
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Upload File</h3>
+    </div>
+    <form id="upload-form" enctype="multipart/form-data">
+      <input type="hidden" name="path" id="upload-path" value="{{.CurrentPath}}">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select File</label>
+        <input type="file" name="file" id="file-input" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300 dark:hover:file:bg-gray-600 transition-smooth">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Max file size: 100MB</p>
+      </div>
+      <div id="upload-drop-zone" class="mb-4 p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center hover:border-blue-500 dark:hover:border-blue-400 transition-smooth cursor-pointer">
+        <svg class="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v6"></path>
+        </svg>
+        <p class="text-sm text-gray-600 dark:text-gray-300">Drop files here or click to browse</p>
+      </div>
+      <div id="upload-progress" class="hidden mb-4">
+        <div class="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300 mb-1">
+          <span id="upload-filename"></span>
+          <span id="upload-percent">0%</span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div id="upload-progress-bar" class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+      <div class="flex justify-end space-x-3">
+        <button type="button" onclick="hideUploadDialog()" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
+          Cancel
+        </button>
+        <button type="submit" id="upload-submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg transition-smooth">
+          Upload
         </button>
       </div>
     </form>
@@ -394,6 +443,116 @@ function showNotification(message, type) {
     window.showNotification(message, type);
   }
 }
+
+function showUploadDialog() {
+  document.getElementById('upload-dialog').classList.remove('hidden');
+  document.getElementById('upload-path').value = currentPath;
+  document.getElementById('upload-form').reset();
+  document.getElementById('upload-progress').classList.add('hidden');
+}
+
+function hideUploadDialog() {
+  document.getElementById('upload-dialog').classList.add('hidden');
+}
+
+// File upload handling
+document.getElementById('upload-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const fileInput = document.getElementById('file-input');
+  const file = fileInput.files[0];
+  
+  if (!file) {
+    showNotification('Please select a file', 'error');
+    return;
+  }
+  
+  uploadFile(file);
+});
+
+function uploadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('path', currentPath);
+  
+  const progressBar = document.getElementById('upload-progress-bar');
+  const progressPercent = document.getElementById('upload-percent');
+  const progressFilename = document.getElementById('upload-filename');
+  const uploadProgress = document.getElementById('upload-progress');
+  const uploadSubmit = document.getElementById('upload-submit');
+  
+  // Show progress
+  uploadProgress.classList.remove('hidden');
+  progressFilename.textContent = file.name;
+  uploadSubmit.disabled = true;
+  uploadSubmit.textContent = 'Uploading...';
+  
+  const xhr = new XMLHttpRequest();
+  
+  // Progress event
+  xhr.upload.addEventListener('progress', function(e) {
+    if (e.lengthComputable) {
+      const percentComplete = Math.round((e.loaded / e.total) * 100);
+      progressBar.style.width = percentComplete + '%';
+      progressPercent.textContent = percentComplete + '%';
+    }
+  });
+  
+  // Load event
+  xhr.addEventListener('load', function() {
+    if (xhr.status === 200) {
+      showNotification('File uploaded successfully', 'success');
+      hideUploadDialog();
+      refreshFiles();
+    } else {
+      showNotification('Upload failed', 'error');
+    }
+    uploadSubmit.disabled = false;
+    uploadSubmit.textContent = 'Upload';
+  });
+  
+  // Error event
+  xhr.addEventListener('error', function() {
+    showNotification('Upload error', 'error');
+    uploadSubmit.disabled = false;
+    uploadSubmit.textContent = 'Upload';
+  });
+  
+  xhr.open('POST', `/{{.Gameserver.ID}}/files/upload`);
+  xhr.send(formData);
+}
+
+// Drag and drop functionality
+const dropZone = document.getElementById('upload-drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', function() {
+  fileInput.click();
+});
+
+dropZone.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.add('border-blue-500', 'dark:border-blue-400', 'bg-blue-50', 'dark:bg-blue-900');
+});
+
+dropZone.addEventListener('dragleave', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove('border-blue-500', 'dark:border-blue-400', 'bg-blue-50', 'dark:bg-blue-900');
+});
+
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove('border-blue-500', 'dark:border-blue-400', 'bg-blue-50', 'dark:bg-blue-900');
+  
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    fileInput.files = files;
+    uploadFile(files[0]);
+  }
+});
 
 // Handle keyboard shortcuts
 document.addEventListener('keydown', function(e) {
