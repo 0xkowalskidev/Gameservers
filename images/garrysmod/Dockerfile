@@ -26,7 +26,7 @@ RUN apt-get update && \
 RUN useradd --create-home --shell /bin/bash steam
 
 # Create directories as requested
-RUN mkdir -p /data/steamcmd /data/server /data/scripts && \
+RUN mkdir -p /data/steamcmd /data/server /data/scripts /data/backups && \
     chown -R steam:steam /data
 
 # Switch to the steam user
