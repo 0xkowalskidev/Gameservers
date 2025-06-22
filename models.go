@@ -37,6 +37,8 @@ type Game struct {
 	Image        string         `json:"image"`
 	PortMappings []PortMapping  `json:"port_mappings"`
 	ConfigVars   []ConfigVar    `json:"config_vars"`   // Required and optional configs
+	MinMemoryMB  int            `json:"min_memory_mb"` // Minimum memory to run
+	RecMemoryMB  int            `json:"rec_memory_mb"` // Recommended memory
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }
