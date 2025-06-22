@@ -55,7 +55,7 @@
                     </svg>
                 </button>
                 <button onclick="event.stopPropagation();" 
-                        hx-delete="/{{ $gameserverID }}/files?path={{ .Path }}"
+                        hx-delete="/{{ $gameserverID }}/files/delete?path={{ .Path }}"
                         hx-confirm="Are you sure you want to delete {{ .Name }}?"
                         hx-on::after-request="if(event.detail.successful) { htmx.ajax('GET', '/{{ $gameserverID }}/files/browse?path={{ $currentPath }}', {target: '#file-browser'}); showNotification('{{ .Name }} deleted successfully', 'success'); } else { showNotification('Failed to delete {{ .Name }}', 'error'); }"
                         class="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900 transition-smooth" 

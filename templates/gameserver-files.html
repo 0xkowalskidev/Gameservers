@@ -260,7 +260,12 @@ function selectFile(path) {
   document.getElementById('file-editor').innerHTML = '<div class="p-4 text-center text-gray-500 dark:text-gray-400"><p>Loading...</p></div>';
   
   fetch(`/{{.Gameserver.ID}}/files/content?path=${encodeURIComponent(path)}`)
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to load file');
+      }
+      return response.json();
+    })
     .then(data => {
       if (!data.Supported) {
         showUnsupportedFile(path);
@@ -269,6 +274,7 @@ function selectFile(path) {
       }
     })
     .catch(error => {
+      console.error('Error loading file:', error);
       document.getElementById('file-editor').innerHTML = '<div class="p-4 text-center text-red-500 dark:text-red-400"><p>Error loading file</p></div>';
     });
 }

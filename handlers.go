@@ -793,7 +793,15 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 	id := chi.URLParam(r, "id")
 	path, err := requireQueryParam(r, "path")
 	if err != nil {
-		HandleError(w, err, "file_content")
+		data := map[string]interface{}{
+			"Path":      "",
+			"Content":   "",
+			"Supported": false,
+			"Error":     err.Error(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(data)
 		return
 	}
 	
@@ -822,7 +830,15 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 	// Only read file content if it's editable
 	content, err := h.service.ReadFile(gameserver.ContainerID, path)
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to read file"), "file_content")
+		log.Error().Err(err).Str("path", path).Msg("Failed to read file")
+		data := map[string]interface{}{
+			"Path":      path,
+			"Content":   "",
+			"Supported": false,
+			"Error":     "Failed to read file",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(data)
 		return
 	}
 	
@@ -878,33 +894,25 @@ func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 	
-	reader, err := h.service.DownloadFile(gameserver.ContainerID, path)
+	// Read file content directly
+	content, err := h.service.ReadFile(gameserver.ContainerID, path)
 	if err != nil {
 		HandleError(w, InternalError(err, "Failed to download file"), "download_file")
 		return
 	}
-	defer reader.Close()
 	
 	// Extract filename from path
 	filename := filepath.Base(path)
 	
-	// The reader contains a tar archive, we need to extract the file
-	tarReader := tar.NewReader(reader)
-	
-	// Read the first (and should be only) file from the tar
-	header, err := tarReader.Next()
-	if err != nil {
-		HandleError(w, InternalError(err, "Failed to read file from archive"), "download_file")
-		return
-	}
-	
 	// Set headers for download
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", strconv.FormatInt(header.Size, 10))
+	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
 	
-	// Stream the actual file content (not the tar archive)
-	io.Copy(w, tarReader)
+	// Write the file content
+	if _, err := w.Write(content); err != nil {
+		log.Error().Err(err).Str("path", path).Msg("Failed to write file content")
+	}
 }
 
 func (h *Handlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) {
