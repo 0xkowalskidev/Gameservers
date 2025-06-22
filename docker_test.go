@@ -254,23 +254,23 @@ func TestCreateContainer(t *testing.T) {
 		{
 			name: "successful creation",
 			server: &Gameserver{
-				ID:       "test-1",
-				Name:     "Test Minecraft Server",
-				GameType: "minecraft",
-				Image:    "ghcr.io/0xkowalskidev/gameservers/minecraft:1.20.4",
-				Port:     25565,
+				ID:           "test-1",
+				Name:         "Test Minecraft Server",
+				GameType:     "minecraft",
+				Image:        "ghcr.io/0xkowalskidev/gameservers/minecraft:1.20.4",
+				PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 			},
 			shouldErr: false,
 		},
 		{
 			name: "creation with environment variables",
 			server: &Gameserver{
-				ID:          "test-2",
-				Name:        "Test CS2 Server",
-				GameType:    "cs2",
-				Image:       "ghcr.io/0xkowalskidev/gameservers/cs2:latest",
-				Port:        27015,
-				Environment: []string{"GSLT_TOKEN=abc123", "MAP=de_dust2"},
+				ID:           "test-2",
+				Name:         "Test CS2 Server",
+				GameType:     "cs2",
+				Image:        "ghcr.io/0xkowalskidev/gameservers/cs2:latest",
+				PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 27015, HostPort: 0}},
+				Environment:  []string{"GSLT_TOKEN=abc123", "MAP=de_dust2"},
 			},
 			shouldErr: false,
 		},
@@ -310,11 +310,11 @@ func TestCreateContainer(t *testing.T) {
 func TestStartContainer(t *testing.T) {
 	mock := NewMockDockerManager()
 	server := &Gameserver{
-		ID:       "test-1",
-		Name:     "Test Server",
-		GameType: "minecraft",
-		Image:    "minecraft:latest",
-		Port:     25565,
+		ID:           "test-1",
+		Name:         "Test Server",
+		GameType:     "minecraft",
+		Image:        "minecraft:latest",
+		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 	}
 
 	// Create container first
@@ -376,8 +376,8 @@ func TestListContainers(t *testing.T) {
 
 	// Create a few containers
 	servers := []*Gameserver{
-		{ID: "test-1", Name: "Server 1", GameType: "minecraft", Image: "minecraft:latest", Port: 25565},
-		{ID: "test-2", Name: "Server 2", GameType: "cs2", Image: "cs2:latest", Port: 27015},
+		{ID: "test-1", Name: "Server 1", GameType: "minecraft", Image: "minecraft:latest", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}},
+		{ID: "test-2", Name: "Server 2", GameType: "cs2", Image: "cs2:latest", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 27015, HostPort: 0}}},
 	}
 
 	for _, server := range servers {
@@ -403,11 +403,11 @@ func TestDockerError(t *testing.T) {
 	mock.shouldFail["create"] = true
 
 	server := &Gameserver{
-		ID:       "test-1",
-		Name:     "Test Server",
-		GameType: "minecraft",
-		Image:    "minecraft:latest",
-		Port:     25565,
+		ID:           "test-1",
+		Name:         "Test Server",
+		GameType:     "minecraft",
+		Image:        "minecraft:latest",
+		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 	}
 
 	err := mock.CreateContainer(server)

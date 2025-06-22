@@ -73,9 +73,6 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 		log.Warn().Err(err).Str("image", server.Image).Msg("Failed to pull Docker image, proceeding anyway")
 	}
 
-	// Convert port to nat.Port
-	exposedPort := nat.Port(fmt.Sprintf("%d/tcp", server.Port))
-	
 	// Prepare environment variables with automatic resource settings
 	env := make([]string, len(server.Environment))
 	copy(env, server.Environment)
@@ -85,13 +82,18 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 		env = append(env, fmt.Sprintf("MEMORY_MB=%d", server.MemoryMB))
 	}
 	
+	// Set up port mappings
+	exposedPorts := make(nat.PortSet)
+	for _, portMapping := range server.PortMappings {
+		port := nat.Port(fmt.Sprintf("%d/%s", portMapping.ContainerPort, portMapping.Protocol))
+		exposedPorts[port] = struct{}{}
+	}
+	
 	// Container configuration
 	config := &container.Config{
-		Image: server.Image,
-		Env:   env,
-		ExposedPorts: nat.PortSet{
-			exposedPort: struct{}{},
-		},
+		Image:        server.Image,
+		Env:          env,
+		ExposedPorts: exposedPorts,
 		Labels: map[string]string{
 			"gameserver.id":   server.ID,
 			"gameserver.name": server.Name,
@@ -99,16 +101,29 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 		},
 	}
 
+	// Set up port bindings using pre-assigned ports
+	portBindings := make(nat.PortMap)
+	for _, portMapping := range server.PortMappings {
+		port := nat.Port(fmt.Sprintf("%d/%s", portMapping.ContainerPort, portMapping.Protocol))
+		if portMapping.HostPort == 0 {
+			return &DockerError{
+				Op:  "create",
+				Msg: fmt.Sprintf("port mapping for %s:%d has no assigned host port", portMapping.Protocol, portMapping.ContainerPort),
+				Err: nil,
+			}
+		}
+		hostPort := strconv.Itoa(portMapping.HostPort)
+		portBindings[port] = []nat.PortBinding{
+			{
+				HostIP:   "0.0.0.0",
+				HostPort: hostPort,
+			},
+		}
+	}
+
 	// Host configuration with resource constraints
 	hostConfig := &container.HostConfig{
-		PortBindings: nat.PortMap{
-			exposedPort: []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: strconv.Itoa(server.HostPort),
-				},
-			},
-		},
+		PortBindings: portBindings,
 		RestartPolicy: container.RestartPolicy{
 			Name: "unless-stopped",
 		},
@@ -168,6 +183,12 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 	server.ContainerID = resp.ID
 	server.Status = StatusStopped
 	server.UpdatedAt = time.Now()
+
+	log.Info().
+		Str("gameserver_id", server.ID).
+		Str("container_id", server.ContainerID).
+		Interface("port_mappings", server.PortMappings).
+		Msg("Container created successfully with pre-assigned ports")
 
 	return nil
 }
@@ -1257,3 +1278,4 @@ func cleanDockerOutput(output string) string {
 	
 	return output
 }
+

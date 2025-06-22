@@ -49,6 +49,12 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 - None at the moment! 🎉
 - Smart pull strategy implemented - Docker now checks remote image digests and only pulls when there's a newer version available
 
+## Recent Improvements
+- **✅ Port Assignment System**: Implemented our own port allocator that reserves ports for gameservers before Docker container creation. This ensures consistent port assignments across server restarts and allows us to "reserve" ports even when containers are stopped/deleted. Ports are assigned during gameserver creation and persisted in the database.
+
+## Future Improvements
+- **Port Allocator Refactoring**: Consider moving the PortAllocator from models.go into its own dedicated file (e.g., `port_allocator.go`) with comprehensive unit tests. Currently it's embedded in models.go but could benefit from standalone testing and cleaner separation of concerns.
+
 ## File Structure
 ```
 /

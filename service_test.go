@@ -17,7 +17,7 @@ func newTestGameserverDB() *testGameserverDB {
 	return &testGameserverDB{
 		gameservers: make(map[string]*Gameserver),
 		games: map[string]*Game{
-			"minecraft": {ID: "minecraft", Name: "minecraft", Image: "minecraft:latest", DefaultPort: 25565},
+			"minecraft": {ID: "minecraft", Name: "minecraft", Image: "minecraft:latest", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}},
 		},
 		nextID: 1,
 	}

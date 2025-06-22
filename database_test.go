@@ -14,7 +14,8 @@ func TestDatabaseManager_CRUD(t *testing.T) {
 
 	server := &Gameserver{
 		ID: "test-1", Name: "Test Server", GameID: "minecraft",
-		Port: 25565, Environment: []string{"ENV=prod"}, Volumes: []string{"/data:/mc"},
+		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
+		Environment: []string{"ENV=prod"}, Volumes: []string{"/data:/mc"},
 		Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 
@@ -63,8 +64,8 @@ func TestDatabaseManager_DuplicateName(t *testing.T) {
 	db, _ := NewDatabaseManager(":memory:")
 	defer db.Close()
 
-	server1 := &Gameserver{ID: "1", Name: "dup", GameID: "minecraft", Port: 25565, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	server2 := &Gameserver{ID: "2", Name: "dup", GameID: "minecraft", Port: 25566, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	server1 := &Gameserver{ID: "1", Name: "dup", GameID: "minecraft", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	server2 := &Gameserver{ID: "2", Name: "dup", GameID: "minecraft", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25566, HostPort: 0}}, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 
 	db.CreateGameserver(server1)
 	if err := db.CreateGameserver(server2); err == nil {
@@ -86,8 +87,8 @@ func TestDatabaseManager_ScheduledTaskCRUD(t *testing.T) {
 	// Create a gameserver first
 	gameserver := &Gameserver{
 		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		Port: 25565, Status: StatusStopped, 
-		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
+		Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	if err := db.CreateGameserver(gameserver); err != nil {
 		t.Fatalf("Failed to create gameserver: %v", err)
@@ -183,7 +184,7 @@ func TestDatabaseManager_ScheduledTaskCascadeDelete(t *testing.T) {
 	// Create gameserver and task
 	gameserver := &Gameserver{
 		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		Port: 25565, Status: StatusStopped, 
+		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped, 
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	db.CreateGameserver(gameserver)
@@ -230,7 +231,7 @@ func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
 	// Create gameserver first
 	gameserver := &Gameserver{
 		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		Port: 25565, Status: StatusStopped,
+		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped,
 	}
 
 	err = svc.CreateGameserver(gameserver)
@@ -295,7 +296,7 @@ func TestGameserverService_BackupOperations(t *testing.T) {
 	// Create gameserver
 	gameserver := &Gameserver{
 		ID: "backup-test-gs", Name: "Backup Test Server", GameID: "minecraft", 
-		Port: 25565, Status: StatusStopped, MaxBackups: 5,
+		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped, MaxBackups: 5,
 	}
 
 	err = svc.CreateGameserver(gameserver)
@@ -345,7 +346,7 @@ func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
 	// Create gameserver
 	gameserver := &Gameserver{
 		ID: "auto-backup-test", Name: "Auto Backup Test", GameID: "minecraft", 
-		Port: 25565, Status: StatusStopped,
+		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped,
 	}
 
 	err = svc.CreateGameserver(gameserver)

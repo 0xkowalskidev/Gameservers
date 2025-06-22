@@ -12,8 +12,25 @@
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{.Gameserver.GameType}}</dd>
           </div>
           <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Port Mapping</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{.Gameserver.HostPort}} → {{.Gameserver.Port}}</dd>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Connection Port</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+              {{$gamePort := .Gameserver.GetGamePort}}
+              {{if $gamePort}}
+                <span class="font-semibold text-blue-600 dark:text-blue-400">{{$gamePort.HostPort}}</span>
+                <span class="text-gray-500">{{if eq $gamePort.Protocol "tcp"}}(TCP){{else}}(UDP){{end}}</span>
+              {{else}}
+                <span class="text-gray-500">Not configured</span>
+              {{end}}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">All Port Mappings</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+              {{range $i, $port := .Gameserver.PortMappings}}
+                {{if $i}}<br>{{end}}
+                <span class="font-mono">{{$port.Name}}</span>: {{$port.Protocol | printf "%.3s"}}: {{$port.HostPort}} → {{$port.ContainerPort}}
+              {{end}}
+            </dd>
           </div>
           <div>
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Memory Limit</dt>

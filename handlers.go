@@ -87,7 +87,6 @@ func (h *Handlers) jsonResponse(w http.ResponseWriter, data interface{}) {
 type GameserverFormData struct {
 	Name        string
 	GameID      string
-	Port        int
 	MemoryMB    int
 	CPUCores    float64
 	MaxBackups  int
@@ -99,7 +98,6 @@ func parseGameserverForm(r *http.Request) (*GameserverFormData, error) {
 		return nil, err
 	}
 
-	port, _ := strconv.Atoi(r.FormValue("port"))
 	memoryGB, _ := strconv.ParseFloat(r.FormValue("memory_gb"), 64)
 	cpuCores, _ := strconv.ParseFloat(r.FormValue("cpu_cores"), 64)
 	maxBackups, _ := strconv.Atoi(r.FormValue("max_backups"))
@@ -126,7 +124,6 @@ func parseGameserverForm(r *http.Request) (*GameserverFormData, error) {
 	return &GameserverFormData{
 		Name:        r.FormValue("name"),
 		GameID:      r.FormValue("game_id"),
-		Port:        port,
 		MemoryMB:    memoryMB,
 		CPUCores:    cpuCores,
 		MaxBackups:  maxBackups,
@@ -276,7 +273,6 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 		ID:          generateID(),
 		Name:        formData.Name,
 		GameID:      formData.GameID,
-		Port:        formData.Port,
 		MemoryMB:    formData.MemoryMB,
 		CPUCores:    formData.CPUCores,
 		MaxBackups:  formData.MaxBackups,
@@ -305,7 +301,6 @@ func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 		ID:          id,
 		Name:        formData.Name,
 		GameID:      formData.GameID,
-		Port:        formData.Port,
 		MemoryMB:    formData.MemoryMB,
 		CPUCores:    formData.CPUCores,
 		MaxBackups:  formData.MaxBackups,

@@ -37,21 +37,14 @@
             
             <div>
               <label for="game_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Game Type</label>
-              <select id="game_id" name="game_id" required onchange="updatePort(this)"
+              <select id="game_id" name="game_id" required
                       class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
                 <option value="">Select a game</option>
                 {{range .Games}}
-                  <option value="{{.ID}}" data-port="{{.DefaultPort}}">{{.Name}}</option>
+                  <option value="{{.ID}}">{{.Name}}</option>
                 {{end}}
               </select>
             </div>
-          </div>
-          
-          <div>
-            <label for="port" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Port</label>
-            <input type="number" id="port" name="port" required min="1024" max="65535" value="25565" 
-                   class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">External port for connecting to the server (1024-65535)</p>
           </div>
         </div>
         
@@ -132,13 +125,3 @@
   </div>
 </div>
 
-<script>
-function updatePort(select) {
-  const portInput = document.getElementById('port');
-  const selectedOption = select.options[select.selectedIndex];
-  const defaultPort = selectedOption.getAttribute('data-port');
-  if (defaultPort) {
-    portInput.value = defaultPort;
-  }
-}
-</script>

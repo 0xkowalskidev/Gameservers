@@ -54,26 +54,20 @@ func (s *Service) CreateGameserver(ctx context.Context, req CreateGameserverRequ
 		return nil, NotFound("game")
 	}
 
-	// Determine port
-	port := req.Port
-	if port == 0 {
-		port = game.DefaultPort
-		if port == 0 {
-			port = 25565 // Fallback
-		}
-	}
-
-	// Create database record
+	// Create database record with port mappings from game template
 	gs := &Gameserver{
-		Name:      req.Name,
-		GameID:    req.GameID,
-		Port:      port,
-		MemoryMB:  req.MemoryMB,
-		CPUCores:  req.CPUCores,
-		Status:    StatusStopped,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Name:         req.Name,
+		GameID:       req.GameID,
+		PortMappings: make([]PortMapping, len(game.PortMappings)),
+		MemoryMB:     req.MemoryMB,
+		CPUCores:     req.CPUCores,
+		Status:       StatusStopped,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
+	
+	// Copy port mappings from game template
+	copy(gs.PortMappings, game.PortMappings)
 
 	if req.MemoryMB <= 0 {
 		gs.MemoryMB = 1024 // Default 1GB
@@ -193,9 +187,6 @@ func (s *Service) UpdateGameserver(ctx context.Context, id string, req UpdateGam
 	// Update fields
 	if req.Name != "" {
 		gs.Name = req.Name
-	}
-	if req.Port > 0 {
-		gs.Port = req.Port
 	}
 	if req.MemoryMB > 0 {
 		gs.MemoryMB = req.MemoryMB
