@@ -790,92 +790,206 @@ func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request) {
+	// Set content type early to ensure consistent responses
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Get gameserver ID
 	id := chi.URLParam(r, "id")
-	path, err := requireQueryParam(r, "path")
-	if err != nil {
-		data := map[string]interface{}{
-			"Path":      "",
-			"Content":   "",
+	if id == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{
 			"Supported": false,
-			"Error":     err.Error(),
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(data)
+			"Error":     "Missing gameserver ID",
+		})
+		return
+	}
+	
+	// Get file path
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"Supported": false,
+			"Error":     "Missing file path",
+		})
 		return
 	}
 	
 	// Sanitize path
 	path = sanitizePath(path)
 	
-	// Check if file is editable based on extension FIRST
-	isEditable := isEditableFile(path)
-	if !isEditable {
-		// Don't read the file content if it's not editable
-		data := map[string]interface{}{
+	// Check if file is editable
+	if !isEditableFile(path) {
+		json.NewEncoder(w).Encode(map[string]interface{}{
 			"Path":      path,
 			"Content":   "",
 			"Supported": false,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(data)
+		})
 		return
 	}
 	
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
-		return
-	}
-	
-	// Only read file content if it's editable
-	content, err := h.service.ReadFile(gameserver.ContainerID, path)
+	// Get gameserver
+	gameserver, err := h.service.GetGameserver(id)
 	if err != nil {
-		log.Error().Err(err).Str("path", path).Msg("Failed to read file")
-		data := map[string]interface{}{
+		log.Error().Err(err).Str("id", id).Msg("Failed to get gameserver")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"Supported": false,
+			"Error":     "Gameserver not found",
+		})
+		return
+	}
+	
+	// Use a safer approach to read the file
+	// Instead of using ExecCommand with cat, use docker cp to copy the file out
+	reader, err := h.service.DownloadFile(gameserver.ContainerID, path)
+	if err != nil {
+		log.Error().Err(err).Str("path", path).Msg("Failed to download file for reading")
+		json.NewEncoder(w).Encode(map[string]interface{}{
 			"Path":      path,
 			"Content":   "",
 			"Supported": false,
 			"Error":     "Failed to read file",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(data)
+		})
+		return
+	}
+	defer reader.Close()
+	
+	// Extract file from tar archive
+	tarReader := tar.NewReader(reader)
+	header, err := tarReader.Next()
+	if err != nil {
+		log.Error().Err(err).Str("path", path).Msg("Failed to read tar header")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"Path":      path,
+			"Content":   "",
+			"Supported": false,
+			"Error":     "Failed to read file archive",
+		})
 		return
 	}
 	
-	data := map[string]interface{}{
+	// Read file content with size limit (10MB)
+	const maxSize = 10 * 1024 * 1024
+	if header.Size > maxSize {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"Path":      path,
+			"Content":   "",
+			"Supported": false,
+			"Error":     "File too large to edit (max 10MB)",
+		})
+		return
+	}
+	
+	// Read content
+	content := make([]byte, header.Size)
+	_, err = io.ReadFull(tarReader, content)
+	if err != nil {
+		log.Error().Err(err).Str("path", path).Msg("Failed to read file content")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"Path":      path,
+			"Content":   "",
+			"Supported": false,
+			"Error":     "Failed to read file content",
+		})
+		return
+	}
+	
+	// Success response
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"Path":      path,
 		"Content":   string(content),
 		"Supported": true,
-	}
-	
-	// Return JSON for editor
-	h.jsonResponse(w, data)
+	})
 }
 
 func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
+	// Set content type early
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Get gameserver ID
 	id := chi.URLParam(r, "id")
-	if err := validateFormFields(r, "path"); err != nil {
-		HandleError(w, err, "save_file")
+	if id == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "error",
+			"error":  "Missing gameserver ID",
+		})
 		return
 	}
 	
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "error",
+			"error":  "Invalid form data",
+		})
+		return
+	}
+	
+	// Get path and content
 	path := r.FormValue("path")
+	if path == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "error",
+			"error":  "Missing file path",
+		})
+		return
+	}
+	
 	content := r.FormValue("content")
 	
 	// Sanitize path
 	path = sanitizePath(path)
 	
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	// Verify it's an editable file
+	if !isEditableFile(path) {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "error",
+			"error":  "File type not editable",
+		})
 		return
 	}
 	
-	if err := h.service.WriteFile(gameserver.ContainerID, path, []byte(content)); err != nil {
-		HandleError(w, InternalError(err, "Failed to write file"), "save_file")
+	// Get gameserver
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		log.Error().Err(err).Str("id", id).Msg("Failed to get gameserver")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "error",
+			"error":  "Gameserver not found",
+		})
 		return
 	}
 	
-	h.jsonResponse(w, map[string]string{"status": "saved"})
+	// Size limit check (10MB)
+	contentBytes := []byte(content)
+	const maxSize = 10 * 1024 * 1024
+	if len(contentBytes) > maxSize {
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "error",
+			"error":  "File content too large (max 10MB)",
+		})
+		return
+	}
+	
+	// Write file
+	if err := h.service.WriteFile(gameserver.ContainerID, path, contentBytes); err != nil {
+		log.Error().Err(err).Str("path", path).Msg("Failed to write file")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "error",
+			"error":  "Failed to save file",
+		})
+		return
+	}
+	
+	// Success response
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "saved",
+	})
 }
 
 func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request) {

@@ -685,14 +685,47 @@ func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error
 		return nil, err
 	}
 	
-	// Use cat to read file contents
-	output, err := d.ExecCommand(containerID, []string{"cat", path})
+	// Use docker cp to safely read the file
+	reader, err := d.copyFromContainer(containerID, path)
 	if err != nil {
 		return nil, err
 	}
+	defer reader.Close()
 	
-	// Clean the output to remove any Docker control characters
-	return []byte(cleanDockerOutput(output)), nil
+	// Extract file from tar archive
+	tarReader := tar.NewReader(reader)
+	header, err := tarReader.Next()
+	if err != nil {
+		return nil, &DockerError{
+			Op:  "read_tar_header",
+			Msg: fmt.Sprintf("failed to read tar header for file %s", path),
+			Err: err,
+		}
+	}
+	
+	// Enforce size limit (10MB)
+	const maxSize = 10 * 1024 * 1024
+	if header.Size > maxSize {
+		return nil, &DockerError{
+			Op:  "read_file",
+			Msg: fmt.Sprintf("file %s is too large (%d bytes, max %d bytes)", path, header.Size, maxSize),
+			Err: fmt.Errorf("file too large"),
+		}
+	}
+	
+	// Read file content
+	content := make([]byte, header.Size)
+	n, err := io.ReadFull(tarReader, content)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return nil, &DockerError{
+			Op:  "read_file_content",
+			Msg: fmt.Sprintf("failed to read file content for %s", path),
+			Err: err,
+		}
+	}
+	
+	// Return only the bytes that were actually read
+	return content[:n], nil
 }
 
 func (d *DockerManager) WriteFile(containerID string, path string, content []byte) error {
@@ -777,19 +810,9 @@ func (d *DockerManager) copyFromContainer(containerID string, path string) (io.R
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	
-	// Convert absolute paths to relative paths for Docker API
-	// Docker CopyFromContainer uses paths relative to WORKDIR (/data/server)
+	// Use absolute path directly - Docker API can handle absolute paths
+	// This is safer than assuming WORKDIR
 	dockerPath := path
-	if strings.HasPrefix(path, "/data/backups/") {
-		// Convert /data/backups/file.tar.gz to ../backups/file.tar.gz
-		dockerPath = "../backups/" + strings.TrimPrefix(path, "/data/backups/")
-	} else if strings.HasPrefix(path, "/data/server/") {
-		// Convert /data/server/file.txt to file.txt
-		dockerPath = strings.TrimPrefix(path, "/data/server/")
-		if dockerPath == "" {
-			dockerPath = "."
-		}
-	}
 	
 	reader, _, err := d.client.CopyFromContainer(ctx, containerID, dockerPath)
 	if err != nil {
