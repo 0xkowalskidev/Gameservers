@@ -232,6 +232,7 @@ func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
 	gameserver := &Gameserver{
 		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
 		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped,
+		Environment: []string{"EULA=true"},
 	}
 
 	err = svc.CreateGameserver(gameserver)
@@ -297,6 +298,7 @@ func TestGameserverService_BackupOperations(t *testing.T) {
 	gameserver := &Gameserver{
 		ID: "backup-test-gs", Name: "Backup Test Server", GameID: "minecraft", 
 		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped, MaxBackups: 5,
+		Environment: []string{"EULA=true"},
 	}
 
 	err = svc.CreateGameserver(gameserver)
@@ -347,6 +349,7 @@ func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
 	gameserver := &Gameserver{
 		ID: "auto-backup-test", Name: "Auto Backup Test", GameID: "minecraft", 
 		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped,
+		Environment: []string{"EULA=true"},
 	}
 
 	err = svc.CreateGameserver(gameserver)

@@ -521,6 +521,7 @@ func TestTaskScheduler_BackupPathHandling(t *testing.T) {
 		GameID:   "minecraft",
 		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 		Status:   StatusStopped,
+		Environment: []string{"EULA=true"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -562,6 +563,7 @@ func TestTaskScheduler_IntegrationBasic(t *testing.T) {
 		GameID:   "minecraft",
 		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 		Status:   StatusStopped,
+		Environment: []string{"EULA=true"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -631,6 +633,7 @@ func TestTaskScheduler_NextRunRecalculation(t *testing.T) {
 		GameID:   "minecraft",
 		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 		Status:   StatusRunning,
+		Environment: []string{"EULA=true"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -723,11 +726,12 @@ func TestTaskScheduler_TaskExecution_RestartOnlyWhenRunning(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a test gameserver with specific status
 			gameserver := &Gameserver{
-				ID:       "test-gs-" + tt.name,
+				ID:       "test-gs-" + strings.ReplaceAll(tt.name, " ", "-"),
 				Name:     "Test Server " + tt.name,
 				GameID:   "minecraft",
 				PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 				Status:   tt.gameserverStatus,
+				Environment: []string{"EULA=true"},
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}
@@ -800,11 +804,12 @@ func TestTaskScheduler_TaskExecution_BackupRegardlessOfStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a test gameserver with specific status
 			gameserver := &Gameserver{
-				ID:       "test-gs-" + tt.name,
+				ID:       "test-gs-" + strings.ReplaceAll(tt.name, " ", "-"),
 				Name:     "Test Server " + tt.name,
 				GameID:   "minecraft",
 				PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 				Status:   tt.gameserverStatus,
+				Environment: []string{"EULA=true"},
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}
@@ -883,6 +888,7 @@ func TestTaskScheduler_LastRunAndNextRunUpdates(t *testing.T) {
 		GameID:   "minecraft",
 		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 		Status:   StatusRunning,
+		Environment: []string{"EULA=true"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
