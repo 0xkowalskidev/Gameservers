@@ -2,6 +2,7 @@ package docker
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog/log"
@@ -25,14 +26,27 @@ func (e *DockerError) Error() string {
 
 // DockerManager manages Docker operations for gameservers
 type DockerManager struct {
-	client *client.Client
+	client           *client.Client
+	namespace        string
+	stopTimeout      time.Duration
 }
 
 // NewDockerManager creates a new Docker manager instance
-func NewDockerManager() (*DockerManager, error) {
+func NewDockerManager(dockerSocket, namespace string, stopTimeout time.Duration) (*DockerManager, error) {
 	log.Info().Msg("Connecting to Docker daemon")
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	opts := []client.Opt{
+		client.FromEnv,
+		client.WithAPIVersionNegotiation(),
+	}
+
+	// Use custom docker socket if provided
+	if dockerSocket != "" {
+		opts = append(opts, client.WithHost(dockerSocket))
+		log.Info().Str("socket", dockerSocket).Msg("Using custom Docker socket")
+	}
+
+	cli, err := client.NewClientWithOpts(opts...)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create Docker client")
 		return nil, &DockerError{
@@ -42,8 +56,12 @@ func NewDockerManager() (*DockerManager, error) {
 		}
 	}
 
-	log.Info().Msg("Docker client connected successfully")
-	return &DockerManager{client: cli}, nil
+	log.Info().Str("namespace", namespace).Dur("stop_timeout", stopTimeout).Msg("Docker client connected successfully")
+	return &DockerManager{
+		client:      cli,
+		namespace:   namespace,
+		stopTimeout: stopTimeout,
+	}, nil
 }
 
 // Ensure DockerManager implements the interface

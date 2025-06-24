@@ -2,12 +2,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,7 +31,31 @@ var templateFiles embed.FS
 //go:embed static/*
 var staticFiles embed.FS
 
+// Config holds all configuration for the application
+type Config struct {
+	// Server Configuration
+	Host            string
+	Port            int
+	ShutdownTimeout time.Duration
+
+	// Database Configuration
+	DatabasePath string
+
+	// Docker Configuration
+	DockerSocket         string
+	ContainerNamespace   string
+	ContainerStopTimeout time.Duration
+
+	// File System Limits
+	MaxFileEditSize int64
+	MaxUploadSize   int64
+}
+
 func main() {
+	// Load configuration
+	config := loadConfig()
+	log.Info().Interface("config", config).Msg("Configuration loaded")
+
 	// Setup logging
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out:        os.Stderr,
@@ -40,7 +68,7 @@ func main() {
 	log.Info().Msg("Logger initialized")
 
 	// Initialize database
-	db, err := database.NewDatabaseManager("gameservers.db")
+	db, err := database.NewDatabaseManager(config.DatabasePath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize database")
 	}
@@ -48,7 +76,7 @@ func main() {
 	log.Info().Msg("Database initialized successfully")
 
 	// Initialize Docker manager
-	dockerManager, err := docker.NewDockerManager()
+	dockerManager, err := docker.NewDockerManager(config.DockerSocket, config.ContainerNamespace, config.ContainerStopTimeout)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize Docker manager")
 	}
@@ -121,7 +149,7 @@ func main() {
 	handlers.Render = Render
 
 	// Initialize handlers (using database service which implements models.GameserverServiceInterface)
-	handlerInstance := handlers.New(dbGameserverService, tmpl)
+	handlerInstance := handlers.New(dbGameserverService, tmpl, config.MaxFileEditSize, config.MaxUploadSize)
 
 	// Chi HTTP Server
 	r := chi.NewRouter()
@@ -188,11 +216,35 @@ func main() {
 	r.Post("/{id}/files/rename", handlerInstance.RenameGameserverFile)
 	r.Post("/{id}/files/upload", handlerInstance.UploadGameserverFile)
 
-	// Start Chi HTTP server
-	log.Info().Str("port", "3000").Msg("Starting HTTP server")
-	if err := http.ListenAndServe(":3000", r); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start HTTP server")
+	// Setup HTTP server with graceful shutdown
+	srv := &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", config.Host, config.Port),
+		Handler: r,
 	}
+
+	// Start server in a goroutine
+	go func() {
+		log.Info().Str("addr", srv.Addr).Msg("Starting HTTP server")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("Failed to start HTTP server")
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Info().Msg("Shutting down server...")
+
+	// Create context with timeout for shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+	defer cancel()
+
+	// Shutdown server
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal().Err(err).Msg("Server forced to shutdown")
+	}
+	log.Info().Msg("Server exited")
 }
 
 type LayoutData struct {
@@ -262,4 +314,69 @@ func formatFileSize(size int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+// loadConfig loads configuration from environment variables with sensible defaults
+func loadConfig() Config {
+	config := Config{
+		// Server defaults
+		Host:            getenv("GAMESERVER_HOST", "localhost"),
+		Port:            getenvInt("GAMESERVER_PORT", 3000),
+		ShutdownTimeout: getenvDuration("GAMESERVER_SHUTDOWN_TIMEOUT", 30*time.Second),
+
+		// Database defaults
+		DatabasePath: getenv("GAMESERVER_DATABASE_PATH", "gameservers.db"),
+
+		// Docker defaults
+		DockerSocket:         getenv("GAMESERVER_DOCKER_SOCKET", ""),
+		ContainerNamespace:   getenv("GAMESERVER_CONTAINER_NAMESPACE", "gameservers"),
+		ContainerStopTimeout: getenvDuration("GAMESERVER_CONTAINER_STOP_TIMEOUT", 30*time.Second),
+
+		// File system defaults (10MB edit, 100MB upload)
+		MaxFileEditSize: getenvInt64("GAMESERVER_MAX_FILE_EDIT_SIZE", 10*1024*1024),
+		MaxUploadSize:   getenvInt64("GAMESERVER_MAX_UPLOAD_SIZE", 100*1024*1024),
+	}
+
+	return config
+}
+
+// getenv gets environment variable with default value
+func getenv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getenvInt gets environment variable as int with default value
+func getenvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if i, err := strconv.Atoi(value); err == nil {
+			return i
+		}
+		log.Warn().Str("key", key).Str("value", value).Msg("Invalid integer value, using default")
+	}
+	return defaultValue
+}
+
+// getenvInt64 gets environment variable as int64 with default value
+func getenvInt64(key string, defaultValue int64) int64 {
+	if value := os.Getenv(key); value != "" {
+		if i, err := strconv.ParseInt(value, 10, 64); err == nil {
+			return i
+		}
+		log.Warn().Str("key", key).Str("value", value).Msg("Invalid int64 value, using default")
+	}
+	return defaultValue
+}
+
+// getenvDuration gets environment variable as duration with default value
+func getenvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			return d
+		}
+		log.Warn().Str("key", key).Str("value", value).Msg("Invalid duration value, using default")
+	}
+	return defaultValue
 }

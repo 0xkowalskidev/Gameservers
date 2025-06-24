@@ -138,14 +138,13 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Read file content with size limit (10MB)
-	const maxSize = 10 * 1024 * 1024
-	if header.Size > maxSize {
+	// Read file content with size limit
+	if header.Size > h.maxFileEditSize {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"Path":      path,
 			"Content":   "",
 			"Supported": false,
-			"Error":     "File too large to edit (max 10MB)",
+			"Error":     fmt.Sprintf("File too large to edit (max %s)", formatFileSize(h.maxFileEditSize)),
 		})
 		return
 	}
@@ -236,14 +235,13 @@ func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Size limit check (10MB)
+	// Size limit check
 	contentBytes := []byte(content)
-	const maxSize = 10 * 1024 * 1024
-	if len(contentBytes) > maxSize {
+	if int64(len(contentBytes)) > h.maxFileEditSize {
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		json.NewEncoder(w).Encode(map[string]string{
 			"status": "error",
-			"error":  "File content too large (max 10MB)",
+			"error":  fmt.Sprintf("File content too large (max %s)", formatFileSize(h.maxFileEditSize)),
 		})
 		return
 	}
@@ -412,8 +410,8 @@ func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) 
 func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	// Parse multipart form with 10MB limit
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
+	// Parse multipart form with configurable limit
+	if err := r.ParseMultipartForm(h.maxUploadSize); err != nil {
 		HandleError(w, BadRequest("Invalid upload format"), "upload_file")
 		return
 	}
@@ -433,9 +431,9 @@ func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) 
 	}
 	defer file.Close()
 
-	// Validate file size (100MB limit)
-	if header.Size > 100<<20 {
-		HandleError(w, BadRequest("File too large (max 100MB)"), "upload_file")
+	// Validate file size
+	if header.Size > h.maxUploadSize {
+		HandleError(w, BadRequest("File too large (max %s)", formatFileSize(h.maxUploadSize)), "upload_file")
 		return
 	}
 

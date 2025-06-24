@@ -31,13 +31,20 @@ var (
 
 // BaseHandler provides common functionality for all handlers
 type BaseHandler struct {
-	service models.GameserverServiceInterface
-	tmpl    *template.Template
+	service         models.GameserverServiceInterface
+	tmpl            *template.Template
+	maxFileEditSize int64
+	maxUploadSize   int64
 }
 
 // NewBaseHandler creates a new base handler
-func NewBaseHandler(service models.GameserverServiceInterface, tmpl *template.Template) *BaseHandler {
-	return &BaseHandler{service: service, tmpl: tmpl}
+func NewBaseHandler(service models.GameserverServiceInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64) *BaseHandler {
+	return &BaseHandler{
+		service:         service,
+		tmpl:            tmpl,
+		maxFileEditSize: maxFileEditSize,
+		maxUploadSize:   maxUploadSize,
+	}
 }
 
 // Handlers embeds BaseHandler for backward compatibility
@@ -45,8 +52,8 @@ type Handlers struct {
 	*BaseHandler
 }
 
-func New(service models.GameserverServiceInterface, tmpl *template.Template) *Handlers {
-	return &Handlers{BaseHandler: NewBaseHandler(service, tmpl)}
+func New(service models.GameserverServiceInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64) *Handlers {
+	return &Handlers{BaseHandler: NewBaseHandler(service, tmpl, maxFileEditSize, maxUploadSize)}
 }
 
 // Helper function to get gameserver with error handling

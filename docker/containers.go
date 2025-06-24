@@ -113,8 +113,7 @@ func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
 	networkConfig := &network.NetworkingConfig{}
 
 	// Create container
-	// TODO: Make namespace configurable via config file/env var
-	containerName := fmt.Sprintf("gameservers-%s", server.Name)
+	containerName := fmt.Sprintf("%s-%s", d.namespace, server.Name)
 	resp, err := d.client.ContainerCreate(
 		ctx,
 		config,
@@ -165,7 +164,7 @@ func (d *DockerManager) StartContainer(containerID string) error {
 func (d *DockerManager) StopContainer(containerID string) error {
 	ctx := context.Background()
 
-	timeout := 30 // 30 seconds timeout
+	timeout := int(d.stopTimeout.Seconds())
 	err := d.client.ContainerStop(ctx, containerID, container.StopOptions{
 		Timeout: &timeout,
 	})
