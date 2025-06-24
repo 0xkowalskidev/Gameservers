@@ -1,6 +1,7 @@
-package main
+package services
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -46,7 +47,9 @@ func TestCronMatches(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CronMatches(tt.cronExpr, tt.time); got != tt.want {
+			parts := strings.Fields(tt.cronExpr)
+			got := len(parts) == 5 && cronMatches(parts, tt.time)
+			if got != tt.want {
 				t.Errorf("CronMatches() = %v, want %v", got, tt.want)
 			}
 		})
@@ -64,7 +67,7 @@ func TestCalculateNextRun(t *testing.T) {
 			name:     "next minute",
 			cronExpr: "* * * * *",
 			from:     time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-			want:     time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+			want:     time.Date(2024, 1, 1, 12, 1, 0, 0, time.UTC),
 		},
 		{
 			name:     "next hour",

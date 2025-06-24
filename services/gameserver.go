@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"context"
@@ -12,28 +12,16 @@ import (
 	"0xkowalskidev/gameservers/models"
 )
 
-// ServiceInterface defines the business logic layer for gameserver operations
-type ServiceInterface interface {
-	CreateGameserver(ctx context.Context, req CreateGameserverRequest) (*models.Gameserver, error)
-	GetGameserver(ctx context.Context, id string) (*models.Gameserver, error)
-	UpdateGameserver(ctx context.Context, id string, req UpdateGameserverRequest) error
-	DeleteGameserver(ctx context.Context, id string) error
-	StartGameserver(ctx context.Context, id string) error
-	StopGameserver(ctx context.Context, id string) error
-	RestartGameserver(ctx context.Context, id string) error
-	ExecuteScheduledTask(ctx context.Context, task *models.ScheduledTask) error
-}
-
-// Service handles business logic for gameserver operations
-type Service struct {
+// GameserverService handles business logic for gameserver operations
+type GameserverService struct {
 	db       models.GameserverServiceInterface
 	docker   models.DockerManagerInterface
 	basePath string
 }
 
-// NewService creates a new service instance
-func NewService(db models.GameserverServiceInterface, docker models.DockerManagerInterface, basePath string) *Service {
-	return &Service{
+// NewGameserverService creates a new service instance
+func NewGameserverService(db models.GameserverServiceInterface, docker models.DockerManagerInterface, basePath string) *GameserverService {
+	return &GameserverService{
 		db:       db,
 		docker:   docker,
 		basePath: basePath,
@@ -41,7 +29,7 @@ func NewService(db models.GameserverServiceInterface, docker models.DockerManage
 }
 
 // CreateGameserver creates a new gameserver with Docker container
-func (s *Service) CreateGameserver(ctx context.Context, req CreateGameserverRequest) (*models.Gameserver, error) {
+func (s *GameserverService) CreateGameserver(ctx context.Context, req CreateGameserverRequest) (*models.Gameserver, error) {
 	// Validate input
 	if req.Name == "" {
 		return nil, BadRequest("Name is required")
@@ -94,7 +82,7 @@ func (s *Service) CreateGameserver(ctx context.Context, req CreateGameserverRequ
 }
 
 // GetGameserver retrieves a gameserver by ID
-func (s *Service) GetGameserver(ctx context.Context, id string) (*models.Gameserver, error) {
+func (s *GameserverService) GetGameserver(ctx context.Context, id string) (*models.Gameserver, error) {
 	gs, err := s.db.GetGameserver(id)
 	if err != nil {
 		return nil, NotFound("gameserver")
@@ -103,7 +91,7 @@ func (s *Service) GetGameserver(ctx context.Context, id string) (*models.Gameser
 }
 
 // StartGameserver starts a gameserver container
-func (s *Service) StartGameserver(ctx context.Context, id string) error {
+func (s *GameserverService) StartGameserver(ctx context.Context, id string) error {
 	gs, err := s.db.GetGameserver(id)
 	if err != nil {
 		return NotFound("gameserver")
@@ -124,7 +112,7 @@ func (s *Service) StartGameserver(ctx context.Context, id string) error {
 }
 
 // StopGameserver stops a gameserver container
-func (s *Service) StopGameserver(ctx context.Context, id string) error {
+func (s *GameserverService) StopGameserver(ctx context.Context, id string) error {
 	gs, err := s.db.GetGameserver(id)
 	if err != nil {
 		return NotFound("gameserver")
@@ -145,7 +133,7 @@ func (s *Service) StopGameserver(ctx context.Context, id string) error {
 }
 
 // RestartGameserver restarts a gameserver container
-func (s *Service) RestartGameserver(ctx context.Context, id string) error {
+func (s *GameserverService) RestartGameserver(ctx context.Context, id string) error {
 	if err := s.StopGameserver(ctx, id); err != nil {
 		return err
 	}
@@ -154,7 +142,7 @@ func (s *Service) RestartGameserver(ctx context.Context, id string) error {
 }
 
 // DeleteGameserver deletes a gameserver and its container
-func (s *Service) DeleteGameserver(ctx context.Context, id string) error {
+func (s *GameserverService) DeleteGameserver(ctx context.Context, id string) error {
 	gs, err := s.db.GetGameserver(id)
 	if err != nil {
 		return NotFound("gameserver")
@@ -180,7 +168,7 @@ func (s *Service) DeleteGameserver(ctx context.Context, id string) error {
 }
 
 // UpdateGameserver updates gameserver configuration
-func (s *Service) UpdateGameserver(ctx context.Context, id string, req UpdateGameserverRequest) error {
+func (s *GameserverService) UpdateGameserver(ctx context.Context, id string, req UpdateGameserverRequest) error {
 	gs, err := s.db.GetGameserver(id)
 	if err != nil {
 		return NotFound("gameserver")
@@ -204,21 +192,42 @@ func (s *Service) UpdateGameserver(ctx context.Context, id string, req UpdateGam
 }
 
 // ExecuteScheduledTask executes a scheduled task
-func (s *Service) ExecuteScheduledTask(ctx context.Context, task *models.ScheduledTask) error {
-	log.Info().Str("id", task.ID).Str("type", string(task.Type)).Msg("Executing scheduled task")
+func (s *GameserverService) ExecuteScheduledTask(ctx context.Context, task *models.ScheduledTask) error {
+	log.Info().Str("task_id", task.ID).Str("task_name", task.Name).Str("type", string(task.Type)).Msg("Executing scheduled task")
+
+	gameserver, err := s.db.GetGameserver(task.GameserverID)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", task.GameserverID).Msg("Gameserver not found, skipping task")
+		return err
+	}
 
 	switch task.Type {
 	case models.TaskTypeRestart:
+		// Only restart if the server is currently running
+		if gameserver.Status != models.StatusRunning {
+			log.Info().
+				Str("gameserver_id", task.GameserverID).
+				Str("status", string(gameserver.Status)).
+				Msg("Skipping restart - gameserver not running")
+			return nil
+		}
 		return s.RestartGameserver(ctx, task.GameserverID)
+		
 	case models.TaskTypeBackup:
+		// Backups can happen regardless of server status
+		log.Info().
+			Str("gameserver_id", task.GameserverID).
+			Str("status", string(gameserver.Status)).
+			Msg("Executing scheduled backup")
 		return s.CreateBackup(ctx, task.GameserverID, "")
+		
 	default:
 		return BadRequest("Unknown task type: %s", string(task.Type))
 	}
 }
 
 // CreateBackup creates a backup of gameserver files
-func (s *Service) CreateBackup(ctx context.Context, gameserverID string, name string) error {
+func (s *GameserverService) CreateBackup(ctx context.Context, gameserverID string, name string) error {
 	_, err := s.db.GetGameserver(gameserverID)
 	if err != nil {
 		return NotFound("gameserver")
@@ -241,7 +250,7 @@ func (s *Service) CreateBackup(ctx context.Context, gameserverID string, name st
 }
 
 // FileOperation handles file operations with path validation
-func (s *Service) FileOperation(ctx context.Context, gameserverID string, path string, op func(string, string) error) error {
+func (s *GameserverService) FileOperation(ctx context.Context, gameserverID string, path string, op func(string, string) error) error {
 	gs, err := s.db.GetGameserver(gameserverID)
 	if err != nil {
 		return NotFound("gameserver")
@@ -259,19 +268,4 @@ func (s *Service) FileOperation(ctx context.Context, gameserverID string, path s
 	}
 
 	return nil
-}
-
-// Request types
-type CreateGameserverRequest struct {
-	Name     string
-	GameID   string
-	Port     int
-	MemoryMB int
-	CPUCores float64
-}
-
-type UpdateGameserverRequest struct {
-	Name     string
-	Port     int
-	MemoryMB int
 }

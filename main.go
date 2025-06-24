@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/handlers"
+	"0xkowalskidev/gameservers/services"
 )
 
 //go:embed templates/*.html
@@ -51,12 +52,16 @@ func main() {
 	}
 	log.Info().Msg("Docker manager initialized successfully")
 
-	// Initialize Gameserver service
-	gameServerService := NewGameserverService(db, docker)
-	log.Info().Msg("Gameserver service initialized")
+	// Initialize database-level Gameserver service (implements models.GameserverServiceInterface)
+	dbGameserverService := NewGameserverService(db, docker)
+	log.Info().Msg("Database gameserver service initialized")
+
+	// Initialize business logic service from services package (using dbGameserverService which implements the interface)
+	businessService := services.NewGameserverService(dbGameserverService, docker, "/data")
+	log.Info().Msg("Business logic service initialized")
 
 	// Initialize and start task scheduler
-	taskScheduler := NewTaskScheduler(db, gameServerService)
+	taskScheduler := services.NewTaskScheduler(db, businessService)
 	taskScheduler.Start()
 	log.Info().Msg("Task scheduler started")
 
@@ -113,8 +118,8 @@ func main() {
 	handlers.LogAndRespond = LogAndRespond
 	handlers.Render = Render
 
-	// Initialize handlers
-	handlerInstance := handlers.New(gameServerService, tmpl)
+	// Initialize handlers (using database service which implements models.GameserverServiceInterface)
+	handlerInstance := handlers.New(dbGameserverService, tmpl)
 
 	// Chi HTTP Server
 	r := chi.NewRouter()

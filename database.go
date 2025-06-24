@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/models"
+	"0xkowalskidev/gameservers/services"
 )
 
 // DatabaseError is now in models package
@@ -697,7 +698,7 @@ func (gss *GameserverService) CreateScheduledTask(task *models.ScheduledTask) er
 	task.ID = models.GenerateID()
 	
 	// Calculate initial next run time
-	nextRun := CalculateNextRun(task.CronSchedule, now)
+	nextRun := services.CalculateNextRun(task.CronSchedule, now)
 	if !nextRun.IsZero() {
 		task.NextRun = &nextRun
 	}
