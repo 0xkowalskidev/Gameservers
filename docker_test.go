@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"0xkowalskidev/gameservers/docker"
 	"0xkowalskidev/gameservers/models"
 )
 
@@ -29,7 +30,7 @@ func NewMockDockerManager() *MockDockerManager {
 
 func (m *MockDockerManager) CreateContainer(server *models.Gameserver) error {
 	if m.shouldFail["create"] {
-		return &DockerError{Op: "create", Msg: "mock create error"}
+		return &docker.DockerError{Op: "create", Msg: "mock create error"}
 	}
 	server.ContainerID = "mock-container-" + server.ID
 	server.Status = models.StatusStopped
@@ -39,30 +40,30 @@ func (m *MockDockerManager) CreateContainer(server *models.Gameserver) error {
 
 func (m *MockDockerManager) StartContainer(containerID string) error {
 	if m.shouldFail["start"] {
-		return &DockerError{Op: "start", Msg: "mock start error"}
+		return &docker.DockerError{Op: "start", Msg: "mock start error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		server.Status = models.StatusRunning
 		return nil
 	}
-	return &DockerError{Op: "start", Msg: "container not found"}
+	return &docker.DockerError{Op: "start", Msg: "container not found"}
 }
 
 func (m *MockDockerManager) StopContainer(containerID string) error {
 	if m.shouldFail["stop"] {
-		return &DockerError{Op: "stop", Msg: "mock stop error"}
+		return &docker.DockerError{Op: "stop", Msg: "mock stop error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		server.Status = models.StatusStopped
 		return nil
 	}
-	return &DockerError{Op: "stop", Msg: "container not found"}
+	return &docker.DockerError{Op: "stop", Msg: "container not found"}
 }
 
 
 func (m *MockDockerManager) RemoveContainer(containerID string) error {
 	if m.shouldFail["remove"] {
-		return &DockerError{Op: "remove", Msg: "mock remove error"}
+		return &docker.DockerError{Op: "remove", Msg: "mock remove error"}
 	}
 	delete(m.containers, containerID)
 	return nil
@@ -70,32 +71,32 @@ func (m *MockDockerManager) RemoveContainer(containerID string) error {
 
 func (m *MockDockerManager) GetContainerStatus(containerID string) (models.GameserverStatus, error) {
 	if m.shouldFail["status"] {
-		return models.StatusError, &DockerError{Op: "status", Msg: "mock status error"}
+		return models.StatusError, &docker.DockerError{Op: "status", Msg: "mock status error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		return server.Status, nil
 	}
-	return models.StatusError, &DockerError{Op: "status", Msg: "container not found"}
+	return models.StatusError, &docker.DockerError{Op: "status", Msg: "container not found"}
 }
 
 
 func (m *MockDockerManager) StreamContainerLogs(containerID string) (io.ReadCloser, error) {
 	if m.shouldFail["stream_logs"] {
-		return nil, &DockerError{Op: "stream_logs", Msg: "mock stream logs error"}
+		return nil, &docker.DockerError{Op: "stream_logs", Msg: "mock stream logs error"}
 	}
 	return io.NopCloser(strings.NewReader("Mock log stream")), nil
 }
 
 func (m *MockDockerManager) StreamContainerStats(containerID string) (io.ReadCloser, error) {
 	if m.shouldFail["stream_stats"] {
-		return nil, &DockerError{Op: "stream_stats", Msg: "mock stream stats error"}
+		return nil, &docker.DockerError{Op: "stream_stats", Msg: "mock stream stats error"}
 	}
 	return io.NopCloser(strings.NewReader(`{"cpu_stats":{"cpu_usage":{"total_usage":100},"system_cpu_usage":200},"precpu_stats":{"cpu_usage":{"total_usage":50},"system_cpu_usage":100},"memory_stats":{"usage":536870912,"limit":1073741824}}`)), nil
 }
 
 func (m *MockDockerManager) ListContainers() ([]string, error) {
 	if m.shouldFail["list"] {
-		return nil, &DockerError{Op: "list", Msg: "mock list error"}
+		return nil, &docker.DockerError{Op: "list", Msg: "mock list error"}
 	}
 	containers := make([]string, 0, len(m.containers))
 	for id := range m.containers {
@@ -106,21 +107,21 @@ func (m *MockDockerManager) ListContainers() ([]string, error) {
 
 func (m *MockDockerManager) CreateVolume(volumeName string) error {
 	if m.shouldFail["create_volume"] {
-		return &DockerError{Op: "create_volume", Msg: "mock create volume error"}
+		return &docker.DockerError{Op: "create_volume", Msg: "mock create volume error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) RemoveVolume(volumeName string) error {
 	if m.shouldFail["remove_volume"] {
-		return &DockerError{Op: "remove_volume", Msg: "mock remove volume error"}
+		return &docker.DockerError{Op: "remove_volume", Msg: "mock remove volume error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) GetVolumeInfo(volumeName string) (*models.VolumeInfo, error) {
 	if m.shouldFail["get_volume_info"] {
-		return nil, &DockerError{Op: "get_volume_info", Msg: "mock get volume info error"}
+		return nil, &docker.DockerError{Op: "get_volume_info", Msg: "mock get volume info error"}
 	}
 	return &models.VolumeInfo{
 		Name:       volumeName,
@@ -133,14 +134,14 @@ func (m *MockDockerManager) GetVolumeInfo(volumeName string) (*models.VolumeInfo
 
 func (m *MockDockerManager) CreateBackup(containerID, gameserverName string) error {
 	if m.shouldFail["create_backup"] {
-		return &DockerError{Op: "create_backup", Msg: "mock create backup error"}
+		return &docker.DockerError{Op: "create_backup", Msg: "mock create backup error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) RestoreBackup(containerID, backupFilename string) error {
 	if m.shouldFail["restore_backup"] {
-		return &DockerError{Op: "restore_backup", Msg: "mock restore backup error"}
+		return &docker.DockerError{Op: "restore_backup", Msg: "mock restore backup error"}
 	}
 	return nil
 }
@@ -148,7 +149,7 @@ func (m *MockDockerManager) RestoreBackup(containerID, backupFilename string) er
 // File manager methods
 func (m *MockDockerManager) ListFiles(containerID string, path string) ([]*models.FileInfo, error) {
 	if m.shouldFail["list_files"] {
-		return nil, &DockerError{Op: "list_files", Msg: "mock list files error"}
+		return nil, &docker.DockerError{Op: "list_files", Msg: "mock list files error"}
 	}
 	modTime, _ := time.Parse(time.RFC3339, "2025-06-21T00:00:00Z")
 	return []*models.FileInfo{
@@ -159,70 +160,70 @@ func (m *MockDockerManager) ListFiles(containerID string, path string) ([]*model
 
 func (m *MockDockerManager) ReadFile(containerID string, path string) ([]byte, error) {
 	if m.shouldFail["read_file"] {
-		return nil, &DockerError{Op: "read_file", Msg: "mock read file error"}
+		return nil, &docker.DockerError{Op: "read_file", Msg: "mock read file error"}
 	}
 	return []byte("mock file content"), nil
 }
 
 func (m *MockDockerManager) WriteFile(containerID string, path string, content []byte) error {
 	if m.shouldFail["write_file"] {
-		return &DockerError{Op: "write_file", Msg: "mock write file error"}
+		return &docker.DockerError{Op: "write_file", Msg: "mock write file error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) CreateDirectory(containerID string, path string) error {
 	if m.shouldFail["create_directory"] {
-		return &DockerError{Op: "create_directory", Msg: "mock create directory error"}
+		return &docker.DockerError{Op: "create_directory", Msg: "mock create directory error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) DeletePath(containerID string, path string) error {
 	if m.shouldFail["delete_path"] {
-		return &DockerError{Op: "delete_path", Msg: "mock delete path error"}
+		return &docker.DockerError{Op: "delete_path", Msg: "mock delete path error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
 	if m.shouldFail["download_file"] {
-		return nil, &DockerError{Op: "download_file", Msg: "mock download file error"}
+		return nil, &docker.DockerError{Op: "download_file", Msg: "mock download file error"}
 	}
 	return io.NopCloser(strings.NewReader("mock file content")), nil
 }
 
 func (m *MockDockerManager) RenameFile(containerID string, oldPath string, newPath string) error {
 	if m.shouldFail["rename_file"] {
-		return &DockerError{Op: "rename_file", Msg: "mock rename file error"}
+		return &docker.DockerError{Op: "rename_file", Msg: "mock rename file error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) SendCommand(containerID string, command string) error {
 	if m.shouldFail["send_command"] {
-		return &DockerError{Op: "send_command", Msg: "mock send command error"}
+		return &docker.DockerError{Op: "send_command", Msg: "mock send command error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) ExecCommand(containerID string, cmd []string) ([]byte, error) {
 	if m.shouldFail["exec_command"] {
-		return nil, &DockerError{Op: "exec_command", Msg: "mock exec command error"}
+		return nil, &docker.DockerError{Op: "exec_command", Msg: "mock exec command error"}
 	}
 	return []byte("mock command output"), nil
 }
 
 func (m *MockDockerManager) UploadFile(containerID string, destPath string, reader io.Reader) error {
 	if m.shouldFail["upload_file"] {
-		return &DockerError{Op: "upload_file", Msg: "mock upload file error"}
+		return &docker.DockerError{Op: "upload_file", Msg: "mock upload file error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) CleanupOldBackups(containerID string, maxBackups int) error {
 	if m.shouldFail["cleanup_backups"] {
-		return &DockerError{Op: "cleanup_backups", Msg: "mock cleanup backups error"}
+		return &docker.DockerError{Op: "cleanup_backups", Msg: "mock cleanup backups error"}
 	}
 	return nil
 }
@@ -230,14 +231,14 @@ func (m *MockDockerManager) CleanupOldBackups(containerID string, maxBackups int
 // Smart pull methods for testing
 func (m *MockDockerManager) pullImageIfNeeded(imageName string) error {
 	if m.shouldFail["pull_image"] {
-		return &DockerError{Op: "pull_image", Msg: "mock pull image error"}
+		return &docker.DockerError{Op: "pull_image", Msg: "mock pull image error"}
 	}
 	return nil
 }
 
 func (m *MockDockerManager) shouldPullImage(imageName string) (bool, error) {
 	if m.shouldFail["check_image"] {
-		return false, &DockerError{Op: "check_image", Msg: "mock check image error"}
+		return false, &docker.DockerError{Op: "check_image", Msg: "mock check image error"}
 	}
 	// Default behavior: only pull if image name contains "latest" or "new"
 	return strings.Contains(imageName, "latest") || strings.Contains(imageName, "new"), nil
@@ -417,12 +418,12 @@ func TestDockerError(t *testing.T) {
 		t.Errorf("expected error but got none")
 	}
 
-	if dockerErr, ok := err.(*DockerError); ok {
+	if dockerErr, ok := err.(*docker.DockerError); ok {
 		if dockerErr.Op != "create" {
 			t.Errorf("expected operation to be 'create', got %s", dockerErr.Op)
 		}
 	} else {
-		t.Errorf("expected DockerError type")
+		t.Errorf("expected docker.DockerError type")
 	}
 }
 

@@ -15,6 +15,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"0xkowalskidev/gameservers/database"
+	"0xkowalskidev/gameservers/docker"
 	"0xkowalskidev/gameservers/handlers"
 	"0xkowalskidev/gameservers/services"
 )
@@ -38,7 +40,7 @@ func main() {
 	log.Info().Msg("Logger initialized")
 
 	// Initialize database
-	db, err := NewDatabaseManager("gameservers.db")
+	db, err := database.NewDatabaseManager("gameservers.db")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize database")
 	}
@@ -46,18 +48,18 @@ func main() {
 	log.Info().Msg("Database initialized successfully")
 
 	// Initialize Docker manager
-	docker, err := NewDockerManager()
+	dockerManager, err := docker.NewDockerManager()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize Docker manager")
 	}
 	log.Info().Msg("Docker manager initialized successfully")
 
 	// Initialize database-level Gameserver service (implements models.GameserverServiceInterface)
-	dbGameserverService := NewGameserverService(db, docker)
+	dbGameserverService := database.NewGameserverService(db, dockerManager)
 	log.Info().Msg("Database gameserver service initialized")
 
 	// Initialize business logic service from services package (using dbGameserverService which implements the interface)
-	businessService := services.NewGameserverService(dbGameserverService, docker, "/data")
+	businessService := services.NewGameserverService(dbGameserverService, dockerManager, "/data")
 	log.Info().Msg("Business logic service initialized")
 
 	// Initialize and start task scheduler

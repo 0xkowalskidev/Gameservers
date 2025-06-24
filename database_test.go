@@ -4,11 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"0xkowalskidev/gameservers/database"
 	"0xkowalskidev/gameservers/models"
 )
 
 func TestDatabaseManager_CRUD(t *testing.T) {
-	db, err := NewDatabaseManager(":memory:")
+	db, err := database.NewDatabaseManager(":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
@@ -63,7 +64,7 @@ func TestDatabaseManager_CRUD(t *testing.T) {
 }
 
 func TestDatabaseManager_DuplicateName(t *testing.T) {
-	db, _ := NewDatabaseManager(":memory:")
+	db, _ := database.NewDatabaseManager(":memory:")
 	defer db.Close()
 
 	server1 := &models.Gameserver{ID: "1", Name: "dup", GameID: "minecraft", PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
@@ -80,7 +81,7 @@ func TestDatabaseManager_DuplicateName(t *testing.T) {
 // =============================================================================
 
 func TestDatabaseManager_ScheduledTaskCRUD(t *testing.T) {
-	db, err := NewDatabaseManager(":memory:")
+	db, err := database.NewDatabaseManager(":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
@@ -177,7 +178,7 @@ func TestDatabaseManager_ScheduledTaskCRUD(t *testing.T) {
 }
 
 func TestDatabaseManager_ScheduledTaskCascadeDelete(t *testing.T) {
-	db, err := NewDatabaseManager(":memory:")
+	db, err := database.NewDatabaseManager(":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
@@ -219,7 +220,7 @@ func TestDatabaseManager_ScheduledTaskCascadeDelete(t *testing.T) {
 // =============================================================================
 
 func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
-	db, err := NewDatabaseManager(":memory:")
+	db, err := database.NewDatabaseManager(":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
@@ -228,7 +229,7 @@ func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
 	// Mock docker manager
 	mockDocker := NewMockDockerManager()
 
-	svc := NewGameserverService(db, mockDocker)
+	svc := database.NewGameserverService(db, mockDocker)
 
 	// Create gameserver first
 	gameserver := &models.Gameserver{
@@ -285,7 +286,7 @@ func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
 }
 
 func TestGameserverService_BackupOperations(t *testing.T) {
-	db, err := NewDatabaseManager(":memory:")
+	db, err := database.NewDatabaseManager(":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
@@ -294,7 +295,7 @@ func TestGameserverService_BackupOperations(t *testing.T) {
 	// Mock docker manager
 	mockDocker := NewMockDockerManager()
 
-	svc := NewGameserverService(db, mockDocker)
+	svc := database.NewGameserverService(db, mockDocker)
 
 	// Create gameserver
 	gameserver := &models.Gameserver{
@@ -336,7 +337,7 @@ func TestGameserverService_BackupOperations(t *testing.T) {
 }
 
 func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
-	db, err := NewDatabaseManager(":memory:")
+	db, err := database.NewDatabaseManager(":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
@@ -345,7 +346,7 @@ func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
 	// Mock docker manager
 	mockDocker := NewMockDockerManager()
 
-	svc := NewGameserverService(db, mockDocker)
+	svc := database.NewGameserverService(db, mockDocker)
 
 	// Create gameserver
 	gameserver := &models.Gameserver{
