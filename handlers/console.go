@@ -19,36 +19,24 @@ func (h *Handlers) GameserverConsole(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	
-	data := map[string]interface{}{"Gameserver": gameserver}
-	// If HTMX request, render just the template content
-	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "gameserver-console.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render console template"), "console")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "console", "gameserver-console.html", data)
-	}
+	h.renderGameserverPageOrPartial(w, r, gameserver, "console", "gameserver-console.html", nil)
 }
 
 // SendGameserverCommand sends a command to the gameserver console
 func (h *Handlers) SendGameserverCommand(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := validateFormFields(r, "command"); err != nil {
+	if err := h.validateFormFields(r, "command"); err != nil {
 		HandleError(w, err, "send_command")
 		return
 	}
 	
 	command := r.FormValue("command")
-	
 	log.Info().Str("gameserver_id", id).Str("command", command).Msg("Sending console command")
 	
 	if err := h.service.SendGameserverCommand(id, command); err != nil {
 		HandleError(w, InternalError(err, "Failed to send console command"), "send_command")
 		return
 	}
-	
 	w.WriteHeader(http.StatusOK)
 }
 

@@ -22,20 +22,8 @@ func (h *Handlers) ListGameserverTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
-		"Gameserver": gameserver,
-		"Tasks":      tasks,
-	}
-
-	// If HTMX request, render just the template content
-	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "gameserver-tasks.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render tasks template"), "list_tasks")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "tasks", "gameserver-tasks.html", data)
-	}
+	data := map[string]interface{}{"Tasks": tasks}
+	h.renderGameserverPageOrPartial(w, r, gameserver, "tasks", "gameserver-tasks.html", data)
 }
 
 // NewGameserverTask shows the create task form
@@ -45,23 +33,13 @@ func (h *Handlers) NewGameserverTask(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-
-	data := map[string]interface{}{"Gameserver": gameserver}
-	// If HTMX request, render just the template content
-	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "new-task.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render new task template"), "new_task")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "tasks", "new-task.html", data)
-	}
+	h.renderGameserverPageOrPartial(w, r, gameserver, "tasks", "new-task.html", nil)
 }
 
 // CreateGameserverTask creates a new scheduled task
 func (h *Handlers) CreateGameserverTask(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	task, err := parseScheduledTaskForm(r, id)
+	task, err := h.parseScheduledTaskForm(r, id)
 	if err != nil {
 		HandleError(w, err, "create_task_form")
 		return
@@ -73,7 +51,6 @@ func (h *Handlers) CreateGameserverTask(w http.ResponseWriter, r *http.Request) 
 		HandleError(w, InternalError(err, "Failed to create scheduled task"), "create_task")
 		return
 	}
-
 	h.htmxRedirect(w, fmt.Sprintf("/%s/tasks", id))
 }
 
@@ -93,20 +70,8 @@ func (h *Handlers) EditGameserverTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
-		"Gameserver": gameserver,
-		"Task":       task,
-	}
-
-	// If HTMX request, render just the template content
-	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "edit-task.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render edit task template"), "edit_task")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "tasks", "edit-task.html", data)
-	}
+	data := map[string]interface{}{"Task": task}
+	h.renderGameserverPageOrPartial(w, r, gameserver, "tasks", "edit-task.html", data)
 }
 
 // UpdateGameserverTask updates an existing scheduled task
@@ -120,7 +85,7 @@ func (h *Handlers) UpdateGameserverTask(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := updateTaskFromForm(task, r); err != nil {
+	if err := h.updateTaskFromForm(task, r); err != nil {
 		HandleError(w, err, "update_task_form")
 		return
 	}

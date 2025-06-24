@@ -11,7 +11,7 @@ import (
 // RestoreGameserverBackup restores a gameserver from a backup
 func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	backupFilename, err := requireQueryParam(r, "backup")
+	backupFilename, err := h.requireQueryParam(r, "backup")
 	if err != nil {
 		HandleError(w, err, "restore_backup")
 		return
@@ -89,7 +89,7 @@ func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request)
 // DeleteGameserverBackup deletes a backup file
 func (h *Handlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	backupFilename, err := requireQueryParam(r, "backup")
+	backupFilename, err := h.requireQueryParam(r, "backup")
 	if err != nil {
 		HandleError(w, err, "delete_backup")
 		return

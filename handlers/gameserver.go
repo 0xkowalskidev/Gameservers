@@ -26,17 +26,7 @@ func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	
-	data := map[string]interface{}{"Gameserver": gameserver}
-	// If HTMX request, render just the template content
-	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "gameserver-details.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render gameserver details template"), "show_gameserver")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "overview", "gameserver-details.html", data)
-	}
+	h.renderGameserverPageOrPartial(w, r, gameserver, "overview", "gameserver-details.html", nil)
 }
 
 // NewGameserver shows the create gameserver form
@@ -81,7 +71,7 @@ func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
 
 // CreateGameserver creates a new gameserver
 func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
-	formData, err := parseGameserverForm(r)
+	formData, err := h.parseGameserverForm(r)
 	if err != nil {
 		HandleError(w, err, "create_gameserver_form")
 		return
@@ -110,7 +100,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 // UpdateGameserver updates an existing gameserver
 func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	formData, err := parseGameserverForm(r)
+	formData, err := h.parseGameserverForm(r)
 	if err != nil {
 		HandleError(w, err, "update_gameserver_form")
 		return

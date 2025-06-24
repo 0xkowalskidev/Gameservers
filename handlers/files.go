@@ -23,40 +23,23 @@ func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Get root directory listing - always start at /data/server
+	// Get root directory listing
 	files, err := h.service.ListFiles(gameserver.ContainerID, "/data/server")
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to list files")
-		// Continue with empty files list on error
 	}
 	
-	data := map[string]interface{}{
-		"Gameserver":  gameserver,
-		"Files":       files,
-		"CurrentPath": "/data/server",
-	}
-	
-	// If HTMX request, render just the template content
-	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "gameserver-files.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render files template"), "list_files")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "files", "gameserver-files.html", data)
-	}
+	data := map[string]interface{}{"Files": files, "CurrentPath": "/data/server"}
+	h.renderGameserverPageOrPartial(w, r, gameserver, "files", "gameserver-files.html", data)
 }
 
 // BrowseGameserverFiles returns file listing for a specific path (HTMX)
 func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	path := r.URL.Query().Get("path")
-	
 	if path == "" {
 		path = "/data/server"
 	}
-	
-	// Sanitize path
 	path = sanitizePath(path)
 	
 	gameserver, ok := h.getGameserver(w, id)
@@ -70,13 +53,8 @@ func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	
-	data := map[string]interface{}{
-		"Gameserver": gameserver,
-		"Files":      files,
-		"CurrentPath": path,
-	}
-	
-	// Return partial for HTMX
+	data := map[string]interface{}{"Files": files, "CurrentPath": path}
+	data["Gameserver"] = gameserver
 	if err := h.tmpl.ExecuteTemplate(w, "file-browser.html", data); err != nil {
 		HandleError(w, InternalError(err, "Failed to render file browser"), "browse_files")
 	}
@@ -290,7 +268,7 @@ func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
 // DownloadGameserverFile downloads a file
 func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	path, err := requireQueryParam(r, "path")
+	path, err := h.requireQueryParam(r, "path")
 	if err != nil {
 		HandleError(w, err, "download_file")
 		return
@@ -341,7 +319,7 @@ func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request
 // CreateGameserverFile creates a new file or directory
 func (h *Handlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := validateFormFields(r, "path", "name"); err != nil {
+	if err := h.validateFormFields(r, "path", "name"); err != nil {
 		HandleError(w, err, "create_file")
 		return
 	}
@@ -379,7 +357,7 @@ func (h *Handlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) 
 // DeleteGameserverFile deletes a file or directory
 func (h *Handlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	path, err := requireQueryParam(r, "path")
+	path, err := h.requireQueryParam(r, "path")
 	if err != nil {
 		HandleError(w, err, "delete_file")
 		return
@@ -404,7 +382,7 @@ func (h *Handlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) 
 // RenameGameserverFile renames a file or directory
 func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := validateFormFields(r, "old_path", "new_name"); err != nil {
+	if err := h.validateFormFields(r, "old_path", "new_name"); err != nil {
 		HandleError(w, err, "rename_file")
 		return
 	}
