@@ -140,7 +140,7 @@ func (h *Handlers) DeleteGameserverTask(w http.ResponseWriter, r *http.Request) 
 	taskID := chi.URLParam(r, "taskId")
 
 	if err := h.service.DeleteScheduledTask(taskID); err != nil {
-		HandleError(w, InternalError(err, "Failed to delete scheduled task"), "delete_task")
+		HandleError(w, err, "delete_task")
 		return
 	}
 

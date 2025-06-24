@@ -70,6 +70,17 @@ func parseGameserverForm(r *http.Request) (*GameserverFormData, error) {
 		return nil, err
 	}
 
+	// Validate required fields
+	name := strings.TrimSpace(r.FormValue("name"))
+	gameID := strings.TrimSpace(r.FormValue("game_id"))
+	
+	if name == "" {
+		return nil, BadRequest("name is required")
+	}
+	if gameID == "" {
+		return nil, BadRequest("game_id is required")
+	}
+
 	memoryGB, _ := strconv.ParseFloat(r.FormValue("memory_gb"), 64)
 	cpuCores, _ := strconv.ParseFloat(r.FormValue("cpu_cores"), 64)
 	maxBackups, _ := strconv.Atoi(r.FormValue("max_backups"))
@@ -94,8 +105,8 @@ func parseGameserverForm(r *http.Request) (*GameserverFormData, error) {
 	}
 
 	return &GameserverFormData{
-		Name:        r.FormValue("name"),
-		GameID:      r.FormValue("game_id"),
+		Name:        name,
+		GameID:      gameID,
 		MemoryMB:    memoryMB,
 		CPUCores:    cpuCores,
 		MaxBackups:  maxBackups,
@@ -109,12 +120,33 @@ func parseScheduledTaskForm(r *http.Request, gameserverID string) (*models.Sched
 		return nil, err
 	}
 
+	// Validate required fields
+	name := strings.TrimSpace(r.FormValue("name"))
+	taskType := strings.TrimSpace(r.FormValue("type"))
+	cronSchedule := strings.TrimSpace(r.FormValue("cron_schedule"))
+	
+	if name == "" {
+		return nil, BadRequest("name is required")
+	}
+	if taskType == "" {
+		return nil, BadRequest("type is required")
+	}
+	if cronSchedule == "" {
+		return nil, BadRequest("cron_schedule is required")
+	}
+
+	// Validate task type
+	parsedType := models.TaskType(taskType)
+	if parsedType != models.TaskTypeRestart && parsedType != models.TaskTypeBackup {
+		return nil, BadRequest("invalid task type: %s", taskType)
+	}
+
 	return &models.ScheduledTask{
 		GameserverID: gameserverID,
-		Name:         r.FormValue("name"),
-		Type:         models.TaskType(r.FormValue("type")),
+		Name:         name,
+		Type:         parsedType,
 		Status:       models.TaskStatusActive,
-		CronSchedule: r.FormValue("cron_schedule"),
+		CronSchedule: cronSchedule,
 	}, nil
 }
 
@@ -124,10 +156,38 @@ func updateTaskFromForm(task *models.ScheduledTask, r *http.Request) error {
 		return err
 	}
 
-	task.Name = r.FormValue("name")
-	task.Type = models.TaskType(r.FormValue("type"))
-	task.Status = models.TaskStatus(r.FormValue("status"))
-	task.CronSchedule = r.FormValue("cron_schedule")
+	// Get form values
+	name := strings.TrimSpace(r.FormValue("name"))
+	taskType := strings.TrimSpace(r.FormValue("type"))
+	status := strings.TrimSpace(r.FormValue("status"))
+	cronSchedule := strings.TrimSpace(r.FormValue("cron_schedule"))
+
+	// Validate task type if provided
+	if taskType != "" {
+		parsedType := models.TaskType(taskType)
+		if parsedType != models.TaskTypeRestart && parsedType != models.TaskTypeBackup {
+			return BadRequest("invalid task type: %s", taskType)
+		}
+		task.Type = parsedType
+	}
+
+	// Validate status if provided
+	if status != "" {
+		parsedStatus := models.TaskStatus(status)
+		if parsedStatus != models.TaskStatusActive && parsedStatus != models.TaskStatusDisabled {
+			return BadRequest("invalid task status: %s", status)
+		}
+		task.Status = parsedStatus
+	}
+
+	// Update fields (only if they're not empty)
+	if name != "" {
+		task.Name = name
+	}
+	if cronSchedule != "" {
+		task.CronSchedule = cronSchedule
+	}
+	
 	return nil
 }
 
