@@ -20,6 +20,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/rs/zerolog/log"
+
+	"0xkowalskidev/gameservers/models"
 )
 
 // =============================================================================
@@ -64,7 +66,7 @@ func NewDockerManager() (*DockerManager, error) {
 	return &DockerManager{client: cli}, nil
 }
 
-func (d *DockerManager) CreateContainer(server *Gameserver) error {
+func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
 	ctx := context.Background()
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Str("image", server.Image).Msg("Creating Docker container")
 
@@ -181,7 +183,7 @@ func (d *DockerManager) CreateContainer(server *Gameserver) error {
 	}
 
 	server.ContainerID = resp.ID
-	server.Status = StatusStopped
+	server.Status = models.StatusStopped
 	server.UpdatedAt = time.Now()
 
 	log.Info().
@@ -243,12 +245,12 @@ func (d *DockerManager) RemoveContainer(containerID string) error {
 	return nil
 }
 
-func (d *DockerManager) GetContainerStatus(containerID string) (GameserverStatus, error) {
+func (d *DockerManager) GetContainerStatus(containerID string) (models.GameserverStatus, error) {
 	ctx := context.Background()
 
 	inspect, err := d.client.ContainerInspect(ctx, containerID)
 	if err != nil {
-		return StatusError, &DockerError{
+		return models.StatusError, &DockerError{
 			Op: "status",
 			Msg:   fmt.Sprintf("failed to inspect container %s", containerID),
 			Err:       err,
@@ -258,17 +260,17 @@ func (d *DockerManager) GetContainerStatus(containerID string) (GameserverStatus
 	// Map Docker states to our GameserverStatus
 	switch inspect.State.Status {
 	case "running":
-		return StatusRunning, nil
+		return models.StatusRunning, nil
 	case "exited", "dead":
-		return StatusStopped, nil
+		return models.StatusStopped, nil
 	case "created":
-		return StatusStopped, nil
+		return models.StatusStopped, nil
 	case "restarting":
-		return StatusStarting, nil
+		return models.StatusStarting, nil
 	case "paused":
-		return StatusStopped, nil
+		return models.StatusStopped, nil
 	default:
-		return StatusError, nil
+		return models.StatusError, nil
 	}
 }
 
@@ -390,11 +392,11 @@ func (d *DockerManager) RemoveVolume(volumeName string) error {
 	return nil
 }
 
-func (d *DockerManager) getVolumeNameForServer(server *Gameserver) string {
+func (d *DockerManager) getVolumeNameForServer(server *models.Gameserver) string {
 	return fmt.Sprintf("gameservers-%s-data", server.Name)
 }
 
-func (d *DockerManager) GetVolumeInfo(volumeName string) (*VolumeInfo, error) {
+func (d *DockerManager) GetVolumeInfo(volumeName string) (*models.VolumeInfo, error) {
 	ctx := context.Background()
 	
 	vol, err := d.client.VolumeInspect(ctx, volumeName)
@@ -406,7 +408,7 @@ func (d *DockerManager) GetVolumeInfo(volumeName string) (*VolumeInfo, error) {
 		}
 	}
 	
-	return &VolumeInfo{
+	return &models.VolumeInfo{
 		Name:       vol.Name,
 		MountPoint: vol.Mountpoint,
 		Driver:     vol.Driver,
@@ -521,16 +523,7 @@ func (d *DockerManager) RestoreBackup(containerID, backupFilename string) error 
 // File Operations
 // =============================================================================
 
-type FileInfo struct {
-	Name     string    `json:"name"`
-	Path     string    `json:"path"`
-	IsDir    bool      `json:"isDir"`
-	Size     int64     `json:"size"`
-	Mode     string    `json:"mode"`
-	Modified time.Time `json:"modified"`
-	Owner    string    `json:"owner"`
-	Group    string    `json:"group"`
-}
+// FileInfo is now defined in models package
 
 func (d *DockerManager) SendCommand(containerID string, command string) error {
 	return d.execCommandSimple(containerID, []string{"/data/scripts/send-command.sh", command}, "send_command")
@@ -682,7 +675,7 @@ func (d *DockerManager) execCommandSimple(containerID string, cmd []string, oper
 	return nil
 }
 
-func (d *DockerManager) ListFiles(containerID string, path string) ([]*FileInfo, error) {
+func (d *DockerManager) ListFiles(containerID string, path string) ([]*models.FileInfo, error) {
 	// Validate and normalize path
 	validPath, _ := d.validatePath(path, serverAndBackupsValidation)
 	
@@ -894,8 +887,8 @@ func (d *DockerManager) RenameFile(containerID string, oldPath string, newPath s
 // Helper Functions for File Operations
 // =============================================================================
 
-func parseLsOutput(output string, basePath string) []*FileInfo {
-	var files []*FileInfo
+func parseLsOutput(output string, basePath string) []*models.FileInfo {
+	var files []*models.FileInfo
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	
 	for _, line := range lines {
@@ -943,15 +936,12 @@ func parseLsOutput(output string, basePath string) []*FileInfo {
 			modTime = parseFileTimestamp(fields[5], fields[6], fields[7])
 		}
 		
-		file := &FileInfo{
+		file := &models.FileInfo{
 			Name:     cleanName,
 			Path:     filepath.Join(basePath, cleanName),
 			IsDir:    isDir,
 			Size:     size,
-			Mode:     perms[1:], // Skip file type indicator
-			Owner:    fields[2],
-			Group:    fields[3],
-			Modified: modTime,
+			Modified: modTime.Format("2006-01-02 15:04:05"),
 		}
 		
 		files = append(files, file)
@@ -1039,14 +1029,14 @@ func parseFileTimestamp(month, day, timeOrYear string) time.Time {
 	}
 }
 
-func sortFiles(files []*FileInfo, isBackupsPath bool) []*FileInfo {
+func sortFiles(files []*models.FileInfo, isBackupsPath bool) []*models.FileInfo {
 	if len(files) == 0 {
 		return files
 	}
 	
 	// Separate directories and files
-	var dirs []*FileInfo
-	var regularFiles []*FileInfo
+	var dirs []*models.FileInfo
+	var regularFiles []*models.FileInfo
 	
 	for _, file := range files {
 		if file.IsDir {
@@ -1070,7 +1060,8 @@ func sortFiles(files []*FileInfo, isBackupsPath bool) []*FileInfo {
 		// Sort backups by modification time (newest first)
 		for i := 0; i < len(regularFiles); i++ {
 			for j := i + 1; j < len(regularFiles); j++ {
-				if regularFiles[i].Modified.Before(regularFiles[j].Modified) {
+				// Compare modification time strings (YYYY-MM-DD HH:MM:SS format sorts correctly)
+				if regularFiles[i].Modified < regularFiles[j].Modified {
 					regularFiles[i], regularFiles[j] = regularFiles[j], regularFiles[i]
 				}
 			}
@@ -1087,7 +1078,7 @@ func sortFiles(files []*FileInfo, isBackupsPath bool) []*FileInfo {
 	}
 	
 	// Combine: directories first, then files
-	result := make([]*FileInfo, 0, len(files))
+	result := make([]*models.FileInfo, 0, len(files))
 	result = append(result, dirs...)
 	result = append(result, regularFiles...)
 	

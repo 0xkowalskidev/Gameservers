@@ -10,20 +10,11 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
+
+	"0xkowalskidev/gameservers/models"
 )
 
-type DatabaseError struct {
-	Op  string
-	Msg string
-	Err error
-}
-
-func (e *DatabaseError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("db %s: %s: %v", e.Op, e.Msg, e.Err)
-	}
-	return fmt.Sprintf("db %s: %s", e.Op, e.Msg)
-}
+// DatabaseError is now in models package
 
 type DatabaseManager struct {
 	db *sql.DB
@@ -35,18 +26,18 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Error().Err(err).Str("db_path", dbPath).Msg("Failed to open database")
-		return nil, &DatabaseError{Op: "db", Msg: "failed to open database", Err: err}
+		return nil, &models.DatabaseError{Op: "db", Msg: "failed to open database", Err: err}
 	}
 
 	if err := db.Ping(); err != nil {
 		log.Error().Err(err).Msg("Failed to ping database")
-		return nil, &DatabaseError{Op: "db", Msg: "failed to ping database", Err: err}
+		return nil, &models.DatabaseError{Op: "db", Msg: "failed to ping database", Err: err}
 	}
 
 	// Enable foreign key constraints
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		log.Error().Err(err).Msg("Failed to enable foreign key constraints")
-		return nil, &DatabaseError{Op: "db", Msg: "failed to enable foreign key constraints", Err: err}
+		return nil, &models.DatabaseError{Op: "db", Msg: "failed to enable foreign key constraints", Err: err}
 	}
 
 	dm := &DatabaseManager{db: db}
@@ -96,7 +87,7 @@ func (dm *DatabaseManager) migrate() error {
 
 	_, err := dm.db.Exec(schema)
 	if err != nil {
-		return &DatabaseError{Op: "db", Msg: "failed to create schema", Err: err}
+		return &models.DatabaseError{Op: "db", Msg: "failed to create schema", Err: err}
 	}
 
 	// Add new columns if they don't exist (for existing databases)
@@ -128,62 +119,62 @@ func (dm *DatabaseManager) seedGames() error {
 		return nil // Games already seeded
 	}
 
-	games := []*Game{
+	games := []*models.Game{
 		{ID: "minecraft", Name: "Minecraft", Image: "ghcr.io/0xkowalskidev/gameservers/minecraft:latest", 
-			PortMappings: []PortMapping{
+			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0},
 			},
-			ConfigVars: []ConfigVar{
+			ConfigVars: []models.ConfigVar{
 				{Name: "EULA", DisplayName: "Accept Minecraft EULA", Required: true, Default: "true", Description: "You must accept the Minecraft End User License Agreement to run a server"},
 				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: false, Default: "A Minecraft Server", Description: "The name shown in server lists"},
 				{Name: "MOTD", DisplayName: "Message of the Day", Required: false, Default: "Welcome to our server!", Description: "Message shown to players when joining"},
-				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "normal", Description: "Game difficulty (peaceful, easy, normal, hard)"},
-				{Name: "GAMEMODE", DisplayName: "Game Mode", Required: false, Default: "survival", Description: "Default game mode (survival, creative, adventure, spectator)"},
+				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "normal", Description: "models.Game difficulty (peaceful, easy, normal, hard)"},
+				{Name: "GAMEMODE", DisplayName: "models.Game Mode", Required: false, Default: "survival", Description: "Default game mode (survival, creative, adventure, spectator)"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 3072, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "cs2", Name: "Counter-Strike 2", Image: "ghcr.io/0xkowalskidev/gameservers/cs2:latest", 
-			PortMappings: []PortMapping{
+			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0}, 
 				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
 			},
-			ConfigVars: []ConfigVar{
+			ConfigVars: []models.ConfigVar{
 				{Name: "HOSTNAME", DisplayName: "Server Name", Required: false, Default: "CS2 Server", Description: "Server hostname shown in browser"},
 				{Name: "RCON_PASSWORD", DisplayName: "RCON Password", Required: true, Default: "", Description: "Password for remote console access (required)"},
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "10", Description: "Maximum number of players"},
 			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "valheim", Name: "Valheim", Image: "ghcr.io/0xkowalskidev/gameservers/valheim:latest", 
-			PortMappings: []PortMapping{
+			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 2456, HostPort: 0}, 
 				{Name: "query", Protocol: "udp", ContainerPort: 2457, HostPort: 0},
 			},
-			ConfigVars: []ConfigVar{
+			ConfigVars: []models.ConfigVar{
 				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: false, Default: "Valheim Server", Description: "Name shown in server browser"},
 				{Name: "WORLD_NAME", DisplayName: "World Name", Required: false, Default: "Dedicated", Description: "Name of the world save file"},
 				{Name: "SERVER_PASSWORD", DisplayName: "Password", Required: true, Default: "", Description: "Server password (required for Valheim)"},
 				{Name: "SERVER_PUBLIC", DisplayName: "Public Server", Required: false, Default: "1", Description: "Show in server browser (1=yes, 0=no)"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 2048, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "terraria", Name: "Terraria", Image: "ghcr.io/0xkowalskidev/gameservers/terraria:latest", 
-			PortMappings: []PortMapping{
+			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 7777, HostPort: 0},
 			},
-			ConfigVars: []ConfigVar{
+			ConfigVars: []models.ConfigVar{
 				{Name: "WORLD", DisplayName: "World Name", Required: false, Default: "world", Description: "Name of the world file"},
 				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "1", Description: "World difficulty (0=Classic, 1=Expert, 2=Master)"},
 				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "8", Description: "Maximum number of players"},
 				{Name: "PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 			}, MinMemoryMB: 512, RecMemoryMB: 1024, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "garrysmod", Name: "Garry's Mod", Image: "ghcr.io/0xkowalskidev/gameservers/garrysmod:latest", 
-			PortMappings: []PortMapping{
+			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0}, 
 				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
 			},
-			ConfigVars: []ConfigVar{
+			ConfigVars: []models.ConfigVar{
 				{Name: "NAME", DisplayName: "Server Name", Required: false, Default: "Garry's Mod Server", Description: "Server name shown in browser"},
 				{Name: "RCON_PASSWORD", DisplayName: "RCON Password", Required: true, Default: "", Description: "Password for remote console access (required)"},
 				{Name: "PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "16", Description: "Maximum number of players"},
 				{Name: "MAP", DisplayName: "Default Map", Required: false, Default: "gm_construct", Description: "Starting map"},
-				{Name: "GAMEMODE", DisplayName: "Game Mode", Required: false, Default: "sandbox", Description: "Default game mode"},
+				{Name: "GAMEMODE", DisplayName: "models.Game Mode", Required: false, Default: "sandbox", Description: "Default game mode"},
 				{Name: "WORKSHOP_ID", DisplayName: "Workshop Collection", Required: false, Default: "", Description: "Steam Workshop collection ID (optional)"},
 				{Name: "STEAM_AUTHKEY", DisplayName: "Steam Auth Key", Required: false, Default: "", Description: "Steam Web API key for Workshop content"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 2048, CreatedAt: time.Now(), UpdatedAt: time.Now()},
@@ -199,60 +190,60 @@ func (dm *DatabaseManager) seedGames() error {
 	return nil
 }
 
-func (dm *DatabaseManager) CreateGame(game *Game) error {
+func (dm *DatabaseManager) CreateGame(game *models.Game) error {
 	portMappingsJSON, err := json.Marshal(game.PortMappings)
 	if err != nil {
-		return &DatabaseError{Op: "db", Msg: "failed to marshal port mappings", Err: err}
+		return &models.DatabaseError{Op: "db", Msg: "failed to marshal port mappings", Err: err}
 	}
 
 	configVarsJSON, err := json.Marshal(game.ConfigVars)
 	if err != nil {
-		return &DatabaseError{Op: "db", Msg: "failed to marshal config vars", Err: err}
+		return &models.DatabaseError{Op: "db", Msg: "failed to marshal config vars", Err: err}
 	}
 
 	_, err = dm.db.Exec(`INSERT INTO games (id, name, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		game.ID, game.Name, game.Image, string(portMappingsJSON), string(configVarsJSON), game.MinMemoryMB, game.RecMemoryMB, game.CreatedAt, game.UpdatedAt)
 
 	if err != nil {
-		return &DatabaseError{Op: fmt.Sprintf("failed to insert game %s", game.Name), Err: err}
+		return &models.DatabaseError{Op: fmt.Sprintf("failed to insert game %s", game.Name), Err: err}
 	}
 	return nil
 }
 
-func (dm *DatabaseManager) GetGame(id string) (*Game, error) {
+func (dm *DatabaseManager) GetGame(id string) (*models.Game, error) {
 	row := dm.db.QueryRow(`SELECT id, name, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at FROM games WHERE id = ?`, id)
 	return dm.scanGame(row)
 }
 
-func (dm *DatabaseManager) ListGames() ([]*Game, error) {
+func (dm *DatabaseManager) ListGames() ([]*models.Game, error) {
 	rows, err := dm.db.Query(`SELECT id, name, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at FROM games ORDER BY name`)
 	if err != nil {
-		return nil, &DatabaseError{Op: "db", Msg: "failed to query games", Err: err}
+		return nil, &models.DatabaseError{Op: "db", Msg: "failed to query games", Err: err}
 	}
 	defer rows.Close()
 
-	var games []*Game
+	var games []*models.Game
 	for rows.Next() {
 		game, err := dm.scanGame(rows)
 		if err != nil {
-			return nil, &DatabaseError{Op: "db", Msg: "failed to scan game", Err: err}
+			return nil, &models.DatabaseError{Op: "db", Msg: "failed to scan game", Err: err}
 		}
 		games = append(games, game)
 	}
 	return games, nil
 }
 
-func (dm *DatabaseManager) UpdateGame(game *Game) error {
+func (dm *DatabaseManager) UpdateGame(game *models.Game) error {
 	portMappingsJSON, err := json.Marshal(game.PortMappings)
 	if err != nil {
-		return &DatabaseError{Op: "db", Msg: "failed to marshal port mappings", Err: err}
+		return &models.DatabaseError{Op: "db", Msg: "failed to marshal port mappings", Err: err}
 	}
 
 	_, err = dm.db.Exec(`UPDATE games SET name = ?, image = ?, port_mappings = ?, updated_at = ? WHERE id = ?`,
 		game.Name, game.Image, string(portMappingsJSON), game.UpdatedAt, game.ID)
 
 	if err != nil {
-		return &DatabaseError{Op: fmt.Sprintf("failed to update game %s", game.ID), Err: err}
+		return &models.DatabaseError{Op: fmt.Sprintf("failed to update game %s", game.ID), Err: err}
 	}
 	return nil
 }
@@ -260,12 +251,12 @@ func (dm *DatabaseManager) UpdateGame(game *Game) error {
 func (dm *DatabaseManager) DeleteGame(id string) error {
 	_, err := dm.db.Exec(`DELETE FROM games WHERE id = ?`, id)
 	if err != nil {
-		return &DatabaseError{Op: fmt.Sprintf("failed to delete game %s", id),Err: err}
+		return &models.DatabaseError{Op: fmt.Sprintf("failed to delete game %s", id),Err: err}
 	}
 	return nil
 }
 
-func (dm *DatabaseManager) CreateGameserver(server *Gameserver) error {
+func (dm *DatabaseManager) CreateGameserver(server *models.Gameserver) error {
 	envJSON, _ := json.Marshal(server.Environment)
 	volumesJSON, _ := json.Marshal(server.Volumes)
 	portMappingsJSON, _ := json.Marshal(server.PortMappings)
@@ -275,14 +266,14 @@ func (dm *DatabaseManager) CreateGameserver(server *Gameserver) error {
 
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create gameserver in database")
-		return &DatabaseError{Op: fmt.Sprintf("failed to insert gameserver %s", server.Name), Err: err}
+		return &models.DatabaseError{Op: fmt.Sprintf("failed to insert gameserver %s", server.Name), Err: err}
 	}
 
 	return nil
 }
 
-func (dm *DatabaseManager) scanGame(row interface{ Scan(...interface{}) error }) (*Game, error) {
-	var game Game
+func (dm *DatabaseManager) scanGame(row interface{ Scan(...interface{}) error }) (*models.Game, error) {
+	var game models.Game
 	var portMappingsJSON, configVarsJSON string
 	err := row.Scan(&game.ID, &game.Name, &game.Image, &portMappingsJSON, &configVarsJSON, &game.MinMemoryMB, &game.RecMemoryMB, &game.CreatedAt, &game.UpdatedAt)
 	if err != nil {
@@ -290,18 +281,18 @@ func (dm *DatabaseManager) scanGame(row interface{ Scan(...interface{}) error })
 	}
 	
 	if err := json.Unmarshal([]byte(portMappingsJSON), &game.PortMappings); err != nil {
-		return nil, &DatabaseError{Op: "db", Msg: "failed to unmarshal port mappings", Err: err}
+		return nil, &models.DatabaseError{Op: "db", Msg: "failed to unmarshal port mappings", Err: err}
 	}
 
 	if err := json.Unmarshal([]byte(configVarsJSON), &game.ConfigVars); err != nil {
-		return nil, &DatabaseError{Op: "db", Msg: "failed to unmarshal config vars", Err: err}
+		return nil, &models.DatabaseError{Op: "db", Msg: "failed to unmarshal config vars", Err: err}
 	}
 	
 	return &game, nil
 }
 
-func (dm *DatabaseManager) scanGameserver(row interface{ Scan(...interface{}) error }) (*Gameserver, error) {
-	var server Gameserver
+func (dm *DatabaseManager) scanGameserver(row interface{ Scan(...interface{}) error }) (*models.Gameserver, error) {
+	var server models.Gameserver
 	var envJSON, volumesJSON, portMappingsJSON string
 
 	err := row.Scan(&server.ID, &server.Name, &server.GameID, &server.ContainerID, &server.Status, &portMappingsJSON, &server.MemoryMB, &server.CPUCores, &server.MaxBackups, &envJSON, &volumesJSON, &server.CreatedAt, &server.UpdatedAt)
@@ -315,19 +306,19 @@ func (dm *DatabaseManager) scanGameserver(row interface{ Scan(...interface{}) er
 	return &server, nil
 }
 
-func (dm *DatabaseManager) GetGameserver(id string) (*Gameserver, error) {
+func (dm *DatabaseManager) GetGameserver(id string) (*models.Gameserver, error) {
 	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port_mappings, memory_mb, cpu_cores, max_backups, environment, volumes, created_at, updated_at FROM gameservers WHERE id = ?`, id)
 	server, err := dm.scanGameserver(row)
 	if err == sql.ErrNoRows {
-		return nil, &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", id), Err: nil}
+		return nil, &models.DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", id), Err: nil}
 	}
 	if err != nil {
-		return nil, &DatabaseError{Op: fmt.Sprintf("failed to query gameserver %s", id),Err: err}
+		return nil, &models.DatabaseError{Op: fmt.Sprintf("failed to query gameserver %s", id),Err: err}
 	}
 	return server, nil
 }
 
-func (dm *DatabaseManager) UpdateGameserver(server *Gameserver) error {
+func (dm *DatabaseManager) UpdateGameserver(server *models.Gameserver) error {
 	envJSON, _ := json.Marshal(server.Environment)
 	volumesJSON, _ := json.Marshal(server.Volumes)
 	portMappingsJSON, _ := json.Marshal(server.PortMappings)
@@ -337,11 +328,11 @@ func (dm *DatabaseManager) UpdateGameserver(server *Gameserver) error {
 		server.Name, server.GameID, server.ContainerID, server.Status, string(portMappingsJSON), server.MemoryMB, server.CPUCores, server.MaxBackups, string(envJSON), string(volumesJSON), server.UpdatedAt, server.ID)
 
 	if err != nil {
-		return &DatabaseError{Op: fmt.Sprintf("failed to update gameserver %s", server.ID),Err: err}
+		return &models.DatabaseError{Op: fmt.Sprintf("failed to update gameserver %s", server.ID),Err: err}
 	}
 
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		return &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", server.ID), Err: nil}
+		return &models.DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", server.ID), Err: nil}
 	}
 	return nil
 }
@@ -349,61 +340,61 @@ func (dm *DatabaseManager) UpdateGameserver(server *Gameserver) error {
 func (dm *DatabaseManager) DeleteGameserver(id string) error {
 	result, err := dm.db.Exec(`DELETE FROM gameservers WHERE id = ?`, id)
 	if err != nil {
-		return &DatabaseError{Op: fmt.Sprintf("failed to delete gameserver %s", id),Err: err}
+		return &models.DatabaseError{Op: fmt.Sprintf("failed to delete gameserver %s", id),Err: err}
 	}
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		return &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", id), Err: nil}
+		return &models.DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver %s not found", id), Err: nil}
 	}
 	return nil
 }
 
-func (dm *DatabaseManager) ListGameservers() ([]*Gameserver, error) {
+func (dm *DatabaseManager) ListGameservers() ([]*models.Gameserver, error) {
 	rows, err := dm.db.Query(`SELECT id, name, game_id, container_id, status, port_mappings, memory_mb, cpu_cores, max_backups, environment, volumes, created_at, updated_at FROM gameservers ORDER BY created_at DESC`)
 	if err != nil {
-		return nil, &DatabaseError{Op: "db", Msg: "failed to query gameservers", Err: err}
+		return nil, &models.DatabaseError{Op: "db", Msg: "failed to query gameservers", Err: err}
 	}
 	defer rows.Close()
 
-	var servers []*Gameserver
+	var servers []*models.Gameserver
 	for rows.Next() {
 		server, err := dm.scanGameserver(rows)
 		if err != nil {
-			return nil, &DatabaseError{Op: "db", Msg: "failed to scan gameserver row", Err: err}
+			return nil, &models.DatabaseError{Op: "db", Msg: "failed to scan gameserver row", Err: err}
 		}
 		servers = append(servers, server)
 	}
 	return servers, rows.Err()
 }
 
-func (dm *DatabaseManager) GetGameserverByContainerID(containerID string) (*Gameserver, error) {
+func (dm *DatabaseManager) GetGameserverByContainerID(containerID string) (*models.Gameserver, error) {
 	row := dm.db.QueryRow(`SELECT id, name, game_id, container_id, status, port, host_port, memory_mb, cpu_cores, max_backups, environment, volumes, created_at, updated_at FROM gameservers WHERE container_id = ?`, containerID)
 	server, err := dm.scanGameserver(row)
 	if err == sql.ErrNoRows {
-		return nil, &DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver with container %s not found", containerID), Err: nil}
+		return nil, &models.DatabaseError{Op: "error", Msg: fmt.Sprintf("gameserver with container %s not found", containerID), Err: nil}
 	}
 	if err != nil {
-		return nil, &DatabaseError{Op: fmt.Sprintf("failed to query gameserver by container %s", containerID),Err: err}
+		return nil, &models.DatabaseError{Op: fmt.Sprintf("failed to query gameserver by container %s", containerID),Err: err}
 	}
 	return server, nil
 }
 
 type GameserverService struct {
 	db           *DatabaseManager
-	docker       DockerManagerInterface
-	portAllocator *PortAllocator
+	docker       models.DockerManagerInterface
+	portAllocator *models.PortAllocator
 }
 
-func NewGameserverService(db *DatabaseManager, docker DockerManagerInterface) *GameserverService {
+func NewGameserverService(db *DatabaseManager, docker models.DockerManagerInterface) *GameserverService {
 	return &GameserverService{
 		db:            db,
 		docker:        docker,
-		portAllocator: NewPortAllocator(),
+		portAllocator: models.NewPortAllocator(),
 	}
 }
 
-func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
+func (gss *GameserverService) CreateGameserver(server *models.Gameserver) error {
 	now := time.Now()
-	server.CreatedAt, server.UpdatedAt, server.Status = now, now, StatusStopped
+	server.CreatedAt, server.UpdatedAt, server.Status = now, now, models.StatusStopped
 	server.ContainerID = "" // No container created yet
 
 	// Populate derived fields from game
@@ -420,7 +411,7 @@ func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
 	// Validate required configuration variables
 	missingConfigs := game.ValidateEnvironment(server.Environment)
 	if len(missingConfigs) > 0 {
-		return &DatabaseError{
+		return &models.DatabaseError{
 			Op:  "validate_config",
 			Msg: fmt.Sprintf("missing required configuration: %v", missingConfigs),
 			Err: nil,
@@ -429,7 +420,7 @@ func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
 
 	// Initialize port mappings from game template if not already set
 	if len(server.PortMappings) == 0 {
-		server.PortMappings = make([]PortMapping, len(game.PortMappings))
+		server.PortMappings = make([]models.PortMapping, len(game.PortMappings))
 		copy(server.PortMappings, game.PortMappings)
 	}
 
@@ -444,11 +435,11 @@ func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
 	}
 
 	// Create automatic daily backup task
-	backupTask := &ScheduledTask{
+	backupTask := &models.ScheduledTask{
 		GameserverID: server.ID,
 		Name:         "Daily Backup",
-		Type:         TaskTypeBackup,
-		Status:       TaskStatusActive,
+		Type:         models.TaskTypeBackup,
+		Status:       models.TaskStatusActive,
 		CronSchedule: "0 2 * * *", // Daily at 2 AM
 	}
 	
@@ -462,7 +453,7 @@ func (gss *GameserverService) CreateGameserver(server *Gameserver) error {
 	return nil
 }
 
-func (gss *GameserverService) UpdateGameserver(server *Gameserver) error {
+func (gss *GameserverService) UpdateGameserver(server *models.Gameserver) error {
 	// Get existing server to preserve certain fields
 	existing, err := gss.db.GetGameserver(server.ID)
 	if err != nil {
@@ -483,7 +474,7 @@ func (gss *GameserverService) UpdateGameserver(server *Gameserver) error {
 	return gss.db.UpdateGameserver(server)
 }
 
-func (gss *GameserverService) populateGameFields(server *Gameserver) error {
+func (gss *GameserverService) populateGameFields(server *models.Gameserver) error {
 	game, err := gss.db.GetGame(server.GameID)
 	if err != nil {
 		return err
@@ -502,7 +493,7 @@ func (gss *GameserverService) populateGameFields(server *Gameserver) error {
 }
 
 // allocatePortsForServer finds available ports for all unassigned port mappings
-func (gss *GameserverService) allocatePortsForServer(server *Gameserver) error {
+func (gss *GameserverService) allocatePortsForServer(server *models.Gameserver) error {
 	// Get all currently used ports from existing gameservers
 	servers, err := gss.db.ListGameservers()
 	if err != nil {
@@ -549,7 +540,7 @@ func (gss *GameserverService) StartGameserver(id string) error {
 		return err
 	}
 	
-	server.Status = StatusStarting
+	server.Status = models.StatusStarting
 	server.UpdatedAt = time.Now()
 	return gss.db.UpdateGameserver(server)
 }
@@ -568,7 +559,7 @@ func (gss *GameserverService) StopGameserver(id string) error {
 		server.ContainerID = "" // Clear container ID since it's gone
 	}
 	
-	server.Status = StatusStopped
+	server.Status = models.StatusStopped
 	server.UpdatedAt = time.Now()
 	return gss.db.UpdateGameserver(server)
 }
@@ -590,15 +581,15 @@ func (gss *GameserverService) SendGameserverCommand(id string, command string) e
 	}
 	
 	if server.ContainerID == "" {
-		return &DatabaseError{
+		return &models.DatabaseError{
 			Op:  "send_command",
 			Msg: "gameserver has no container",
 			Err: nil,
 		}
 	}
 	
-	if server.Status != StatusRunning {
-		return &DatabaseError{
+	if server.Status != models.StatusRunning {
+		return &models.DatabaseError{
 			Op:  "send_command", 
 			Msg: "gameserver is not running",
 			Err: nil,
@@ -628,7 +619,7 @@ func (gss *GameserverService) DeleteGameserver(id string) error {
 	return gss.db.DeleteGameserver(id)
 }
 
-func (gss *GameserverService) syncStatus(server *Gameserver) {
+func (gss *GameserverService) syncStatus(server *models.Gameserver) {
 	if server.ContainerID != "" {
 		if dockerStatus, err := gss.docker.GetContainerStatus(server.ContainerID); err == nil && server.Status != dockerStatus {
 			server.Status, server.UpdatedAt = dockerStatus, time.Now()
@@ -637,7 +628,7 @@ func (gss *GameserverService) syncStatus(server *Gameserver) {
 	}
 }
 
-func (gss *GameserverService) GetGameserver(id string) (*Gameserver, error) {
+func (gss *GameserverService) GetGameserver(id string) (*models.Gameserver, error) {
 	server, err := gss.db.GetGameserver(id)
 	if err != nil {
 		return nil, err
@@ -647,7 +638,7 @@ func (gss *GameserverService) GetGameserver(id string) (*Gameserver, error) {
 	return server, nil
 }
 
-func (gss *GameserverService) ListGameservers() ([]*Gameserver, error) {
+func (gss *GameserverService) ListGameservers() ([]*models.Gameserver, error) {
 	servers, err := gss.db.ListGameservers()
 	if err != nil {
 		return nil, err
@@ -666,7 +657,7 @@ func (gss *GameserverService) StreamGameserverLogs(id string) (io.ReadCloser, er
 		return nil, err
 	}
 	if server.ContainerID == "" {
-		return nil, &DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
+		return nil, &models.DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
 	}
 	return gss.docker.StreamContainerLogs(server.ContainerID)
 }
@@ -677,20 +668,20 @@ func (gss *GameserverService) StreamGameserverStats(id string) (io.ReadCloser, e
 		return nil, err
 	}
 	if server.ContainerID == "" {
-		return nil, &DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
+		return nil, &models.DatabaseError{Op: "error", Msg: "container not created yet", Err: nil}
 	}
 	return gss.docker.StreamContainerStats(server.ContainerID)
 }
 
-func (gss *GameserverService) ListGames() ([]*Game, error) {
+func (gss *GameserverService) ListGames() ([]*models.Game, error) {
 	return gss.db.ListGames()
 }
 
-func (gss *GameserverService) GetGame(id string) (*Game, error) {
+func (gss *GameserverService) GetGame(id string) (*models.Game, error) {
 	return gss.db.GetGame(id)
 }
 
-func (gss *GameserverService) CreateGame(game *Game) error {
+func (gss *GameserverService) CreateGame(game *models.Game) error {
 	now := time.Now()
 	game.CreatedAt, game.UpdatedAt = now, now
 	return gss.db.CreateGame(game)
@@ -700,10 +691,10 @@ func (gss *GameserverService) CreateGame(game *Game) error {
 // Scheduled Task Service Operations
 // =============================================================================
 
-func (gss *GameserverService) CreateScheduledTask(task *ScheduledTask) error {
+func (gss *GameserverService) CreateScheduledTask(task *models.ScheduledTask) error {
 	now := time.Now()
 	task.CreatedAt, task.UpdatedAt = now, now
-	task.ID = generateID()
+	task.ID = models.GenerateID()
 	
 	// Calculate initial next run time
 	nextRun := CalculateNextRun(task.CronSchedule, now)
@@ -714,11 +705,11 @@ func (gss *GameserverService) CreateScheduledTask(task *ScheduledTask) error {
 	return gss.db.CreateScheduledTask(task)
 }
 
-func (gss *GameserverService) GetScheduledTask(id string) (*ScheduledTask, error) {
+func (gss *GameserverService) GetScheduledTask(id string) (*models.ScheduledTask, error) {
 	return gss.db.GetScheduledTask(id)
 }
 
-func (gss *GameserverService) UpdateScheduledTask(task *ScheduledTask) error {
+func (gss *GameserverService) UpdateScheduledTask(task *models.ScheduledTask) error {
 	task.UpdatedAt = time.Now()
 	// Clear next run time so scheduler will recalculate it
 	task.NextRun = nil
@@ -729,7 +720,7 @@ func (gss *GameserverService) DeleteScheduledTask(id string) error {
 	return gss.db.DeleteScheduledTask(id)
 }
 
-func (gss *GameserverService) ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error) {
+func (gss *GameserverService) ListScheduledTasksForGameserver(gameserverID string) ([]*models.ScheduledTask, error) {
 	return gss.db.ListScheduledTasksForGameserver(gameserverID)
 }
 
@@ -765,7 +756,7 @@ func (gss *GameserverService) RestoreGameserverBackup(gameserverID, backupFilena
 
 // File operation methods
 
-func (gss *GameserverService) ListFiles(containerID string, path string) ([]*FileInfo, error) {
+func (gss *GameserverService) ListFiles(containerID string, path string) ([]*models.FileInfo, error) {
 	return gss.docker.ListFiles(containerID, path)
 }
 
@@ -797,7 +788,7 @@ func (gss *GameserverService) UploadFile(containerID string, destPath string, re
 	return gss.docker.UploadFile(containerID, destPath, reader)
 }
 
-func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*FileInfo, error) {
+func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*models.FileInfo, error) {
 	gameserver, err := gss.db.GetGameserver(gameserverID)
 	if err != nil {
 		return nil, err
@@ -810,7 +801,7 @@ func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*Fil
 	}
 	
 	// Filter for backup files
-	var backups []*FileInfo
+	var backups []*models.FileInfo
 	for _, file := range files {
 		if !file.IsDir && strings.HasSuffix(strings.ToLower(file.Name), ".tar.gz") {
 			backups = append(backups, file)
@@ -825,7 +816,7 @@ func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*Fil
 // Scheduled Task Database Operations
 // =============================================================================
 
-func (dm *DatabaseManager) CreateScheduledTask(task *ScheduledTask) error {
+func (dm *DatabaseManager) CreateScheduledTask(task *models.ScheduledTask) error {
 	query := `INSERT INTO scheduled_tasks (id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run) 
 			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	
@@ -833,27 +824,27 @@ func (dm *DatabaseManager) CreateScheduledTask(task *ScheduledTask) error {
 		task.CronSchedule, task.CreatedAt, task.UpdatedAt, task.LastRun, task.NextRun)
 	
 	if err != nil {
-		return &DatabaseError{Op: "create_task", Msg: "failed to create scheduled task", Err: err}
+		return &models.DatabaseError{Op: "create_task", Msg: "failed to create scheduled task", Err: err}
 	}
 	return nil
 }
 
-func (dm *DatabaseManager) GetScheduledTask(id string) (*ScheduledTask, error) {
+func (dm *DatabaseManager) GetScheduledTask(id string) (*models.ScheduledTask, error) {
 	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
 			  FROM scheduled_tasks WHERE id = ?`
 	
 	row := dm.db.QueryRow(query, id)
 	task, err := dm.scanScheduledTask(row)
 	if err == sql.ErrNoRows {
-		return nil, &DatabaseError{Op: "get_task", Msg: fmt.Sprintf("scheduled task %s not found", id), Err: nil}
+		return nil, &models.DatabaseError{Op: "get_task", Msg: fmt.Sprintf("scheduled task %s not found", id), Err: nil}
 	}
 	if err != nil {
-		return nil, &DatabaseError{Op: "get_task", Msg: fmt.Sprintf("failed to query scheduled task %s", id), Err: err}
+		return nil, &models.DatabaseError{Op: "get_task", Msg: fmt.Sprintf("failed to query scheduled task %s", id), Err: err}
 	}
 	return task, nil
 }
 
-func (dm *DatabaseManager) UpdateScheduledTask(task *ScheduledTask) error {
+func (dm *DatabaseManager) UpdateScheduledTask(task *models.ScheduledTask) error {
 	query := `UPDATE scheduled_tasks SET name = ?, type = ?, status = ?, cron_schedule = ?, updated_at = ?, last_run = ?, next_run = ? 
 			  WHERE id = ?`
 	
@@ -861,10 +852,10 @@ func (dm *DatabaseManager) UpdateScheduledTask(task *ScheduledTask) error {
 		task.UpdatedAt, task.LastRun, task.NextRun, task.ID)
 	
 	if err != nil {
-		return &DatabaseError{Op: "update_task", Msg: "failed to update scheduled task", Err: err}
+		return &models.DatabaseError{Op: "update_task", Msg: "failed to update scheduled task", Err: err}
 	}
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		return &DatabaseError{Op: "update_task", Msg: fmt.Sprintf("scheduled task %s not found", task.ID), Err: nil}
+		return &models.DatabaseError{Op: "update_task", Msg: fmt.Sprintf("scheduled task %s not found", task.ID), Err: nil}
 	}
 	return nil
 }
@@ -874,50 +865,50 @@ func (dm *DatabaseManager) DeleteScheduledTask(id string) error {
 	
 	result, err := dm.db.Exec(query, id)
 	if err != nil {
-		return &DatabaseError{Op: "delete_task", Msg: "failed to delete scheduled task", Err: err}
+		return &models.DatabaseError{Op: "delete_task", Msg: "failed to delete scheduled task", Err: err}
 	}
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
-		return &DatabaseError{Op: "delete_task", Msg: fmt.Sprintf("scheduled task %s not found", id), Err: nil}
+		return &models.DatabaseError{Op: "delete_task", Msg: fmt.Sprintf("scheduled task %s not found", id), Err: nil}
 	}
 	return nil
 }
 
-func (dm *DatabaseManager) ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error) {
+func (dm *DatabaseManager) ListScheduledTasksForGameserver(gameserverID string) ([]*models.ScheduledTask, error) {
 	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
 			  FROM scheduled_tasks WHERE gameserver_id = ? ORDER BY created_at DESC`
 	
 	rows, err := dm.db.Query(query, gameserverID)
 	if err != nil {
-		return nil, &DatabaseError{Op: "list_tasks", Msg: "failed to query scheduled tasks", Err: err}
+		return nil, &models.DatabaseError{Op: "list_tasks", Msg: "failed to query scheduled tasks", Err: err}
 	}
 	defer rows.Close()
 
-	var tasks []*ScheduledTask
+	var tasks []*models.ScheduledTask
 	for rows.Next() {
 		task, err := dm.scanScheduledTask(rows)
 		if err != nil {
-			return nil, &DatabaseError{Op: "list_tasks", Msg: "failed to scan scheduled task row", Err: err}
+			return nil, &models.DatabaseError{Op: "list_tasks", Msg: "failed to scan scheduled task row", Err: err}
 		}
 		tasks = append(tasks, task)
 	}
 	return tasks, rows.Err()
 }
 
-func (dm *DatabaseManager) ListActiveScheduledTasks() ([]*ScheduledTask, error) {
+func (dm *DatabaseManager) ListActiveScheduledTasks() ([]*models.ScheduledTask, error) {
 	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
 			  FROM scheduled_tasks WHERE status = ? ORDER BY next_run ASC`
 	
-	rows, err := dm.db.Query(query, string(TaskStatusActive))
+	rows, err := dm.db.Query(query, string(models.TaskStatusActive))
 	if err != nil {
-		return nil, &DatabaseError{Op: "list_active_tasks", Msg: "failed to query active scheduled tasks", Err: err}
+		return nil, &models.DatabaseError{Op: "list_active_tasks", Msg: "failed to query active scheduled tasks", Err: err}
 	}
 	defer rows.Close()
 
-	var tasks []*ScheduledTask
+	var tasks []*models.ScheduledTask
 	for rows.Next() {
 		task, err := dm.scanScheduledTask(rows)
 		if err != nil {
-			return nil, &DatabaseError{Op: "list_active_tasks", Msg: "failed to scan scheduled task row", Err: err}
+			return nil, &models.DatabaseError{Op: "list_active_tasks", Msg: "failed to scan scheduled task row", Err: err}
 		}
 		tasks = append(tasks, task)
 	}
@@ -928,8 +919,8 @@ type ScheduledTaskScanner interface {
 	Scan(dest ...interface{}) error
 }
 
-func (dm *DatabaseManager) scanScheduledTask(row ScheduledTaskScanner) (*ScheduledTask, error) {
-	var task ScheduledTask
+func (dm *DatabaseManager) scanScheduledTask(row ScheduledTaskScanner) (*models.ScheduledTask, error) {
+	var task models.ScheduledTask
 	var taskType, status string
 	var lastRun, nextRun sql.NullTime
 	
@@ -940,8 +931,8 @@ func (dm *DatabaseManager) scanScheduledTask(row ScheduledTaskScanner) (*Schedul
 		return nil, err
 	}
 	
-	task.Type = TaskType(taskType)
-	task.Status = TaskStatus(status)
+	task.Type = models.TaskType(taskType)
+	task.Status = models.TaskStatus(status)
 	
 	if lastRun.Valid {
 		task.LastRun = &lastRun.Time

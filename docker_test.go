@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"0xkowalskidev/gameservers/models"
 )
 
 // =============================================================================
@@ -12,25 +14,25 @@ import (
 // =============================================================================
 
 type MockDockerManager struct {
-	containers map[string]*Gameserver
+	containers map[string]*models.Gameserver
 	logs       map[string][]string
 	shouldFail map[string]bool
 }
 
 func NewMockDockerManager() *MockDockerManager {
 	return &MockDockerManager{
-		containers: make(map[string]*Gameserver),
+		containers: make(map[string]*models.Gameserver),
 		logs:       make(map[string][]string),
 		shouldFail: make(map[string]bool),
 	}
 }
 
-func (m *MockDockerManager) CreateContainer(server *Gameserver) error {
+func (m *MockDockerManager) CreateContainer(server *models.Gameserver) error {
 	if m.shouldFail["create"] {
 		return &DockerError{Op: "create", Msg: "mock create error"}
 	}
 	server.ContainerID = "mock-container-" + server.ID
-	server.Status = StatusStopped
+	server.Status = models.StatusStopped
 	m.containers[server.ContainerID] = server
 	return nil
 }
@@ -40,7 +42,7 @@ func (m *MockDockerManager) StartContainer(containerID string) error {
 		return &DockerError{Op: "start", Msg: "mock start error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
-		server.Status = StatusRunning
+		server.Status = models.StatusRunning
 		return nil
 	}
 	return &DockerError{Op: "start", Msg: "container not found"}
@@ -51,7 +53,7 @@ func (m *MockDockerManager) StopContainer(containerID string) error {
 		return &DockerError{Op: "stop", Msg: "mock stop error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
-		server.Status = StatusStopped
+		server.Status = models.StatusStopped
 		return nil
 	}
 	return &DockerError{Op: "stop", Msg: "container not found"}
@@ -66,14 +68,14 @@ func (m *MockDockerManager) RemoveContainer(containerID string) error {
 	return nil
 }
 
-func (m *MockDockerManager) GetContainerStatus(containerID string) (GameserverStatus, error) {
+func (m *MockDockerManager) GetContainerStatus(containerID string) (models.GameserverStatus, error) {
 	if m.shouldFail["status"] {
-		return StatusError, &DockerError{Op: "status", Msg: "mock status error"}
+		return models.StatusError, &DockerError{Op: "status", Msg: "mock status error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		return server.Status, nil
 	}
-	return StatusError, &DockerError{Op: "status", Msg: "container not found"}
+	return models.StatusError, &DockerError{Op: "status", Msg: "container not found"}
 }
 
 
@@ -116,11 +118,11 @@ func (m *MockDockerManager) RemoveVolume(volumeName string) error {
 	return nil
 }
 
-func (m *MockDockerManager) GetVolumeInfo(volumeName string) (*VolumeInfo, error) {
+func (m *MockDockerManager) GetVolumeInfo(volumeName string) (*models.VolumeInfo, error) {
 	if m.shouldFail["get_volume_info"] {
 		return nil, &DockerError{Op: "get_volume_info", Msg: "mock get volume info error"}
 	}
-	return &VolumeInfo{
+	return &models.VolumeInfo{
 		Name:       volumeName,
 		MountPoint: "/var/lib/docker/volumes/" + volumeName + "/_data",
 		Driver:     "local",
@@ -144,14 +146,14 @@ func (m *MockDockerManager) RestoreBackup(containerID, backupFilename string) er
 }
 
 // File manager methods
-func (m *MockDockerManager) ListFiles(containerID string, path string) ([]*FileInfo, error) {
+func (m *MockDockerManager) ListFiles(containerID string, path string) ([]*models.FileInfo, error) {
 	if m.shouldFail["list_files"] {
 		return nil, &DockerError{Op: "list_files", Msg: "mock list files error"}
 	}
 	modTime, _ := time.Parse(time.RFC3339, "2025-06-21T00:00:00Z")
-	return []*FileInfo{
-		{Name: "server.properties", Size: 1024, IsDir: false, Modified: modTime},
-		{Name: "logs", Size: 0, IsDir: true, Modified: modTime},
+	return []*models.FileInfo{
+		{Name: "server.properties", Size: 1024, IsDir: false, Modified: modTime.Format(time.RFC3339)},
+		{Name: "logs", Size: 0, IsDir: true, Modified: modTime.Format(time.RFC3339)},
 	}, nil
 }
 
@@ -248,28 +250,28 @@ func (m *MockDockerManager) shouldPullImage(imageName string) (bool, error) {
 func TestCreateContainer(t *testing.T) {
 	tests := []struct {
 		name      string
-		server    *Gameserver
+		server    *models.Gameserver
 		shouldErr bool
 	}{
 		{
 			name: "successful creation",
-			server: &Gameserver{
+			server: &models.Gameserver{
 				ID:           "test-1",
 				Name:         "Test Minecraft Server",
 				GameType:     "minecraft",
 				Image:        "ghcr.io/0xkowalskidev/gameservers/minecraft:1.20.4",
-				PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+				PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 			},
 			shouldErr: false,
 		},
 		{
 			name: "creation with environment variables",
-			server: &Gameserver{
+			server: &models.Gameserver{
 				ID:           "test-2",
 				Name:         "Test CS2 Server",
 				GameType:     "cs2",
 				Image:        "ghcr.io/0xkowalskidev/gameservers/cs2:latest",
-				PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 27015, HostPort: 0}},
+				PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 27015, HostPort: 0}},
 				Environment:  []string{"GSLT_TOKEN=abc123", "MAP=de_dust2"},
 			},
 			shouldErr: false,
@@ -295,8 +297,8 @@ func TestCreateContainer(t *testing.T) {
 				if tt.server.ContainerID == "" {
 					t.Errorf("expected ContainerID to be set")
 				}
-				if tt.server.Status != StatusStopped {
-					t.Errorf("expected status to be %s, got %s", StatusStopped, tt.server.Status)
+				if tt.server.Status != models.StatusStopped {
+					t.Errorf("expected status to be %s, got %s", models.StatusStopped, tt.server.Status)
 				}
 			}
 		})
@@ -309,12 +311,12 @@ func TestCreateContainer(t *testing.T) {
 
 func TestStartContainer(t *testing.T) {
 	mock := NewMockDockerManager()
-	server := &Gameserver{
+	server := &models.Gameserver{
 		ID:           "test-1",
 		Name:         "Test Server",
 		GameType:     "minecraft",
 		Image:        "minecraft:latest",
-		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 	}
 
 	// Create container first
@@ -352,8 +354,8 @@ func TestStartContainer(t *testing.T) {
 			}
 			if !tt.shouldErr {
 				status, _ := mock.GetContainerStatus(tt.containerID)
-				if status != StatusRunning {
-					t.Errorf("expected status to be %s, got %s", StatusRunning, status)
+				if status != models.StatusRunning {
+					t.Errorf("expected status to be %s, got %s", models.StatusRunning, status)
 				}
 			}
 		})
@@ -375,9 +377,9 @@ func TestListContainers(t *testing.T) {
 	mock := NewMockDockerManager()
 
 	// Create a few containers
-	servers := []*Gameserver{
-		{ID: "test-1", Name: "Server 1", GameType: "minecraft", Image: "minecraft:latest", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}},
-		{ID: "test-2", Name: "Server 2", GameType: "cs2", Image: "cs2:latest", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 27015, HostPort: 0}}},
+	servers := []*models.Gameserver{
+		{ID: "test-1", Name: "Server 1", GameType: "minecraft", Image: "minecraft:latest", PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}},
+		{ID: "test-2", Name: "Server 2", GameType: "cs2", Image: "cs2:latest", PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 27015, HostPort: 0}}},
 	}
 
 	for _, server := range servers {
@@ -402,12 +404,12 @@ func TestDockerError(t *testing.T) {
 	mock := NewMockDockerManager()
 	mock.shouldFail["create"] = true
 
-	server := &Gameserver{
+	server := &models.Gameserver{
 		ID:           "test-1",
 		Name:         "Test Server",
 		GameType:     "minecraft",
 		Image:        "minecraft:latest",
-		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 	}
 
 	err := mock.CreateContainer(server)

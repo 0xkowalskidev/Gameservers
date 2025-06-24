@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"0xkowalskidev/gameservers/models"
 )
 
 // =============================================================================
@@ -12,34 +14,34 @@ import (
 // =============================================================================
 
 type MockDatabaseManager struct {
-	tasks      map[string]*ScheduledTask
+	tasks      map[string]*models.ScheduledTask
 	shouldFail map[string]bool
 }
 
 func NewMockDatabaseManager() *MockDatabaseManager {
 	return &MockDatabaseManager{
-		tasks:      make(map[string]*ScheduledTask),
+		tasks:      make(map[string]*models.ScheduledTask),
 		shouldFail: make(map[string]bool),
 	}
 }
 
-func (m *MockDatabaseManager) ListActiveScheduledTasks() ([]*ScheduledTask, error) {
+func (m *MockDatabaseManager) ListActiveScheduledTasks() ([]*models.ScheduledTask, error) {
 	if m.shouldFail["list_active"] {
-		return nil, &DatabaseError{Op: "list_active", Msg: "mock error"}
+		return nil, &models.DatabaseError{Op: "list_active", Msg: "mock error"}
 	}
 	
-	var active []*ScheduledTask
+	var active []*models.ScheduledTask
 	for _, task := range m.tasks {
-		if task.Status == TaskStatusActive {
+		if task.Status == models.TaskStatusActive {
 			active = append(active, task)
 		}
 	}
 	return active, nil
 }
 
-func (m *MockDatabaseManager) UpdateScheduledTask(task *ScheduledTask) error {
+func (m *MockDatabaseManager) UpdateScheduledTask(task *models.ScheduledTask) error {
 	if m.shouldFail["update_task"] {
-		return &DatabaseError{Op: "update_task", Msg: "mock error"}
+		return &models.DatabaseError{Op: "update_task", Msg: "mock error"}
 	}
 	
 	m.tasks[task.ID] = task
@@ -47,11 +49,11 @@ func (m *MockDatabaseManager) UpdateScheduledTask(task *ScheduledTask) error {
 }
 
 // =============================================================================
-// Mock Gameserver Service for Scheduler Testing
+// Mock models.Gameserver Service for Scheduler Testing
 // =============================================================================
 
 type MockGameserverService struct {
-	gameservers    map[string]*Gameserver
+	gameservers    map[string]*models.Gameserver
 	restartCalled  []string
 	backupCalled   []string
 	shouldFail     map[string]bool
@@ -59,7 +61,7 @@ type MockGameserverService struct {
 
 func NewMockGameserverService() *MockGameserverService {
 	return &MockGameserverService{
-		gameservers:   make(map[string]*Gameserver),
+		gameservers:   make(map[string]*models.Gameserver),
 		restartCalled: make([]string, 0),
 		backupCalled:  make([]string, 0),
 		shouldFail:    make(map[string]bool),
@@ -68,20 +70,20 @@ func NewMockGameserverService() *MockGameserverService {
 
 func (m *MockGameserverService) RestartGameserver(id string) error {
 	if m.shouldFail["restart"] {
-		return &DatabaseError{Op: "restart", Msg: "mock restart error"}
+		return &models.DatabaseError{Op: "restart", Msg: "mock restart error"}
 	}
 	m.restartCalled = append(m.restartCalled, id)
 	return nil
 }
 
-func (m *MockGameserverService) GetGameserver(id string) (*Gameserver, error) {
+func (m *MockGameserverService) GetGameserver(id string) (*models.Gameserver, error) {
 	if m.shouldFail["get"] {
-		return nil, &DatabaseError{Op: "get", Msg: "mock get error"}
+		return nil, &models.DatabaseError{Op: "get", Msg: "mock get error"}
 	}
 	if gs, exists := m.gameservers[id]; exists {
 		return gs, nil
 	}
-	return nil, &DatabaseError{Op: "get", Msg: "not found"}
+	return nil, &models.DatabaseError{Op: "get", Msg: "not found"}
 }
 
 // Mock docker access for backup testing
@@ -98,25 +100,25 @@ func (m *MockGameserverService) createBackup(gameserverName string) error {
 // =============================================================================
 
 type MockDockerManagerForScheduler struct {
-	containers map[string]*Gameserver
+	containers map[string]*models.Gameserver
 	logs       map[string][]string
 	shouldFail map[string]bool
 }
 
 func NewMockDockerManagerForScheduler() *MockDockerManagerForScheduler {
 	return &MockDockerManagerForScheduler{
-		containers: make(map[string]*Gameserver),
+		containers: make(map[string]*models.Gameserver),
 		logs:       make(map[string][]string),
 		shouldFail: make(map[string]bool),
 	}
 }
 
-func (m *MockDockerManagerForScheduler) CreateContainer(server *Gameserver) error {
+func (m *MockDockerManagerForScheduler) CreateContainer(server *models.Gameserver) error {
 	if m.shouldFail["create"] {
 		return &DockerError{Op: "create", Msg: "mock create error"}
 	}
 	server.ContainerID = "mock-container-" + server.ID
-	server.Status = StatusStopped
+	server.Status = models.StatusStopped
 	m.containers[server.ContainerID] = server
 	return nil
 }
@@ -126,7 +128,7 @@ func (m *MockDockerManagerForScheduler) StartContainer(containerID string) error
 		return &DockerError{Op: "start", Msg: "mock start error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
-		server.Status = StatusRunning
+		server.Status = models.StatusRunning
 		return nil
 	}
 	return &DockerError{Op: "start", Msg: "container not found"}
@@ -137,7 +139,7 @@ func (m *MockDockerManagerForScheduler) StopContainer(containerID string) error 
 		return &DockerError{Op: "stop", Msg: "mock stop error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
-		server.Status = StatusStopped
+		server.Status = models.StatusStopped
 		return nil
 	}
 	return &DockerError{Op: "stop", Msg: "container not found"}
@@ -151,14 +153,14 @@ func (m *MockDockerManagerForScheduler) RemoveContainer(containerID string) erro
 	return nil
 }
 
-func (m *MockDockerManagerForScheduler) GetContainerStatus(containerID string) (GameserverStatus, error) {
+func (m *MockDockerManagerForScheduler) GetContainerStatus(containerID string) (models.GameserverStatus, error) {
 	if m.shouldFail["status"] {
-		return StatusError, &DockerError{Op: "status", Msg: "mock status error"}
+		return models.StatusError, &DockerError{Op: "status", Msg: "mock status error"}
 	}
 	if server, exists := m.containers[containerID]; exists {
 		return server.Status, nil
 	}
-	return StatusError, &DockerError{Op: "status", Msg: "container not found"}
+	return models.StatusError, &DockerError{Op: "status", Msg: "container not found"}
 }
 
 func (m *MockDockerManagerForScheduler) StreamContainerLogs(containerID string) (io.ReadCloser, error) {
@@ -200,11 +202,11 @@ func (m *MockDockerManagerForScheduler) RemoveVolume(volumeName string) error {
 	return nil
 }
 
-func (m *MockDockerManagerForScheduler) GetVolumeInfo(volumeName string) (*VolumeInfo, error) {
+func (m *MockDockerManagerForScheduler) GetVolumeInfo(volumeName string) (*models.VolumeInfo, error) {
 	if m.shouldFail["get_volume_info"] {
 		return nil, &DockerError{Op: "get_volume_info", Msg: "mock get volume info error"}
 	}
-	return &VolumeInfo{
+	return &models.VolumeInfo{
 		Name:       volumeName,
 		MountPoint: "/var/lib/docker/volumes/" + volumeName + "/_data",
 		Driver:     "local",
@@ -228,14 +230,14 @@ func (m *MockDockerManagerForScheduler) RestoreBackup(containerID, backupFilenam
 }
 
 // File manager methods
-func (m *MockDockerManagerForScheduler) ListFiles(containerID string, path string) ([]*FileInfo, error) {
+func (m *MockDockerManagerForScheduler) ListFiles(containerID string, path string) ([]*models.FileInfo, error) {
 	if m.shouldFail["list_files"] {
 		return nil, &DockerError{Op: "list_files", Msg: "mock list files error"}
 	}
 	modTime, _ := time.Parse(time.RFC3339, "2025-06-21T00:00:00Z")
-	return []*FileInfo{
-		{Name: "server.properties", Size: 1024, IsDir: false, Modified: modTime},
-		{Name: "logs", Size: 0, IsDir: true, Modified: modTime},
+	return []*models.FileInfo{
+		{Name: "server.properties", Size: 1024, IsDir: false, Modified: modTime.Format(time.RFC3339)},
+		{Name: "logs", Size: 0, IsDir: true, Modified: modTime.Format(time.RFC3339)},
 	}, nil
 }
 
@@ -425,12 +427,12 @@ func TestTaskScheduler_executeTask(t *testing.T) {
 	// Test restart task
 	t.Run("restart task", func(t *testing.T) {
 		svc := NewMockGameserverService()
-		svc.gameservers["test-id"] = &Gameserver{ID: "test-id", Name: "test-server"}
+		svc.gameservers["test-id"] = &models.Gameserver{ID: "test-id", Name: "test-server"}
 		
-		task := &ScheduledTask{
+		task := &models.ScheduledTask{
 			ID:           "task-1",
 			GameserverID: "test-id",
-			Type:         TaskTypeRestart,
+			Type:         models.TaskTypeRestart,
 		}
 		
 		err := svc.RestartGameserver(task.GameserverID)
@@ -446,7 +448,7 @@ func TestTaskScheduler_executeTask(t *testing.T) {
 	// Test backup task  
 	t.Run("backup task", func(t *testing.T) {
 		svc := NewMockGameserverService()
-		svc.gameservers["test-id"] = &Gameserver{ID: "test-id", Name: "test-server"}
+		svc.gameservers["test-id"] = &models.Gameserver{ID: "test-id", Name: "test-server"}
 		
 		err := svc.createBackup("test-server")
 		if err != nil {
@@ -468,14 +470,14 @@ func TestMockDatabaseManager_ListActiveScheduledTasks(t *testing.T) {
 
 	// Add some tasks
 	now := time.Now()
-	db.tasks["active-task"] = &ScheduledTask{
+	db.tasks["active-task"] = &models.ScheduledTask{
 		ID:     "active-task",
-		Status: TaskStatusActive,
+		Status: models.TaskStatusActive,
 		NextRun: &now,
 	}
-	db.tasks["disabled-task"] = &ScheduledTask{
+	db.tasks["disabled-task"] = &models.ScheduledTask{
 		ID:     "disabled-task", 
-		Status: TaskStatusDisabled,
+		Status: models.TaskStatusDisabled,
 		NextRun: &now,
 	}
 
@@ -515,12 +517,12 @@ func TestTaskScheduler_BackupPathHandling(t *testing.T) {
 	scheduler := NewTaskScheduler(db, svc)
 	
 	// Create a test gameserver
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID:       "backup-test",
 		Name:     "test-backup-server",
 		GameID:   "minecraft",
-		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
-		Status:   StatusStopped,
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:   models.StatusStopped,
 		Environment: []string{"EULA=true"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -557,12 +559,12 @@ func TestTaskScheduler_IntegrationBasic(t *testing.T) {
 	svc := NewGameserverService(db, docker)
 	
 	// Create a test gameserver
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID:       "integration-test",
 		Name:     "test-server",
 		GameID:   "minecraft",
-		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
-		Status:   StatusStopped,
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:   models.StatusStopped,
 		Environment: []string{"EULA=true"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -574,11 +576,11 @@ func TestTaskScheduler_IntegrationBasic(t *testing.T) {
 	}
 
 	// Create a scheduled task
-	task := &ScheduledTask{
+	task := &models.ScheduledTask{
 		GameserverID: gameserver.ID,
 		Name:         "Test Restart",
-		Type:         TaskTypeRestart,
-		Status:       TaskStatusActive,
+		Type:         models.TaskTypeRestart,
+		Status:       models.TaskStatusActive,
 		CronSchedule: "*/1 * * * *", // Every minute
 	}
 	
@@ -627,12 +629,12 @@ func TestTaskScheduler_NextRunRecalculation(t *testing.T) {
 	svc := NewGameserverService(db, mockDocker)
 	
 	// Create a test gameserver
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID:       "test-gs",
 		Name:     "Test Server",
 		GameID:   "minecraft",
-		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
-		Status:   StatusRunning,
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:   models.StatusRunning,
 		Environment: []string{"EULA=true"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -644,12 +646,12 @@ func TestTaskScheduler_NextRunRecalculation(t *testing.T) {
 
 	// Create a task with NextRun = nil (simulating updated task)
 	now := time.Now()
-	task := &ScheduledTask{
+	task := &models.ScheduledTask{
 		ID:           "test-task",
 		GameserverID: "test-gs",
 		Name:         "Test Task",
-		Type:         TaskTypeRestart,
-		Status:       TaskStatusActive,
+		Type:         models.TaskTypeRestart,
+		Status:       models.TaskStatusActive,
 		CronSchedule: "0 2 * * *", // Daily at 2 AM
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -702,22 +704,22 @@ func TestTaskScheduler_TaskExecution_RestartOnlyWhenRunning(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		gameserverStatus GameserverStatus
+		gameserverStatus models.GameserverStatus
 		expectedRestart bool
 	}{
 		{
 			name:           "restart running server",
-			gameserverStatus: StatusRunning,
+			gameserverStatus: models.StatusRunning,
 			expectedRestart: true,
 		},
 		{
 			name:           "skip restart for stopped server",
-			gameserverStatus: StatusStopped,
+			gameserverStatus: models.StatusStopped,
 			expectedRestart: false,
 		},
 		{
 			name:           "skip restart for starting server",
-			gameserverStatus: StatusStarting,
+			gameserverStatus: models.StatusStarting,
 			expectedRestart: false,
 		},
 	}
@@ -725,11 +727,11 @@ func TestTaskScheduler_TaskExecution_RestartOnlyWhenRunning(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a test gameserver with specific status
-			gameserver := &Gameserver{
+			gameserver := &models.Gameserver{
 				ID:       "test-gs-" + strings.ReplaceAll(tt.name, " ", "-"),
 				Name:     "Test Server " + tt.name,
 				GameID:   "minecraft",
-				PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+				PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 				Status:   tt.gameserverStatus,
 				Environment: []string{"EULA=true"},
 				CreatedAt: time.Now(),
@@ -742,10 +744,10 @@ func TestTaskScheduler_TaskExecution_RestartOnlyWhenRunning(t *testing.T) {
 			svc.UpdateGameserver(gameserver)
 
 			// Create restart task
-			task := &ScheduledTask{
+			task := &models.ScheduledTask{
 				ID:           "restart-task-" + tt.name,
 				GameserverID: gameserver.ID,
-				Type:         TaskTypeRestart,
+				Type:         models.TaskTypeRestart,
 			}
 
 			// Execute task - this will check status and only restart if running
@@ -780,22 +782,22 @@ func TestTaskScheduler_TaskExecution_BackupRegardlessOfStatus(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		gameserverStatus GameserverStatus
+		gameserverStatus models.GameserverStatus
 		expectedBackup   bool
 	}{
 		{
 			name:             "backup running server",
-			gameserverStatus: StatusRunning,
+			gameserverStatus: models.StatusRunning,
 			expectedBackup:   true,
 		},
 		{
 			name:             "backup stopped server",
-			gameserverStatus: StatusStopped,
+			gameserverStatus: models.StatusStopped,
 			expectedBackup:   true,
 		},
 		{
 			name:             "backup starting server",
-			gameserverStatus: StatusStarting,
+			gameserverStatus: models.StatusStarting,
 			expectedBackup:   true,
 		},
 	}
@@ -803,11 +805,11 @@ func TestTaskScheduler_TaskExecution_BackupRegardlessOfStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a test gameserver with specific status
-			gameserver := &Gameserver{
+			gameserver := &models.Gameserver{
 				ID:       "test-gs-" + strings.ReplaceAll(tt.name, " ", "-"),
 				Name:     "Test Server " + tt.name,
 				GameID:   "minecraft",
-				PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+				PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
 				Status:   tt.gameserverStatus,
 				Environment: []string{"EULA=true"},
 				CreatedAt: time.Now(),
@@ -820,10 +822,10 @@ func TestTaskScheduler_TaskExecution_BackupRegardlessOfStatus(t *testing.T) {
 			svc.UpdateGameserver(gameserver)
 
 			// Create backup task
-			task := &ScheduledTask{
+			task := &models.ScheduledTask{
 				ID:           "backup-task-" + tt.name,
 				GameserverID: gameserver.ID,
-				Type:         TaskTypeBackup,
+				Type:         models.TaskTypeBackup,
 			}
 
 			// Execute task - this should work regardless of status
@@ -857,10 +859,10 @@ func TestTaskScheduler_ErrorHandling(t *testing.T) {
 	scheduler.processTasks() // Should not panic
 
 	// Test task execution with missing gameserver
-	task := &ScheduledTask{
+	task := &models.ScheduledTask{
 		ID:           "missing-gs-task",
 		GameserverID: "nonexistent",
-		Type:         TaskTypeRestart,
+		Type:         models.TaskTypeRestart,
 	}
 
 	err = scheduler.executeTask(task)
@@ -882,12 +884,12 @@ func TestTaskScheduler_LastRunAndNextRunUpdates(t *testing.T) {
 	svc := NewGameserverService(db, mockDocker)
 	
 	// Create a test gameserver
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID:       "test-gs",
 		Name:     "Test Server",
 		GameID:   "minecraft",
-		PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
-		Status:   StatusRunning,
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:   models.StatusRunning,
 		Environment: []string{"EULA=true"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -899,12 +901,12 @@ func TestTaskScheduler_LastRunAndNextRunUpdates(t *testing.T) {
 
 	// Create a task that's due for execution
 	pastTime := time.Now().Add(-time.Hour) // 1 hour ago
-	task := &ScheduledTask{
+	task := &models.ScheduledTask{
 		ID:           "due-task",
 		GameserverID: "test-gs",
 		Name:         "Due Task",
-		Type:         TaskTypeRestart,
-		Status:       TaskStatusActive,
+		Type:         models.TaskTypeRestart,
+		Status:       models.TaskStatusActive,
 		CronSchedule: "*/30 * * * *", // Every 30 minutes
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),

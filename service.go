@@ -8,29 +8,31 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+
+	"0xkowalskidev/gameservers/models"
 )
 
 // ServiceInterface defines the business logic layer for gameserver operations
 type ServiceInterface interface {
-	CreateGameserver(ctx context.Context, req CreateGameserverRequest) (*Gameserver, error)
-	GetGameserver(ctx context.Context, id string) (*Gameserver, error)
+	CreateGameserver(ctx context.Context, req CreateGameserverRequest) (*models.Gameserver, error)
+	GetGameserver(ctx context.Context, id string) (*models.Gameserver, error)
 	UpdateGameserver(ctx context.Context, id string, req UpdateGameserverRequest) error
 	DeleteGameserver(ctx context.Context, id string) error
 	StartGameserver(ctx context.Context, id string) error
 	StopGameserver(ctx context.Context, id string) error
 	RestartGameserver(ctx context.Context, id string) error
-	ExecuteScheduledTask(ctx context.Context, task *ScheduledTask) error
+	ExecuteScheduledTask(ctx context.Context, task *models.ScheduledTask) error
 }
 
 // Service handles business logic for gameserver operations
 type Service struct {
-	db       GameserverServiceInterface
-	docker   DockerManagerInterface
+	db       models.GameserverServiceInterface
+	docker   models.DockerManagerInterface
 	basePath string
 }
 
 // NewService creates a new service instance
-func NewService(db GameserverServiceInterface, docker DockerManagerInterface, basePath string) *Service {
+func NewService(db models.GameserverServiceInterface, docker models.DockerManagerInterface, basePath string) *Service {
 	return &Service{
 		db:       db,
 		docker:   docker,
@@ -39,7 +41,7 @@ func NewService(db GameserverServiceInterface, docker DockerManagerInterface, ba
 }
 
 // CreateGameserver creates a new gameserver with Docker container
-func (s *Service) CreateGameserver(ctx context.Context, req CreateGameserverRequest) (*Gameserver, error) {
+func (s *Service) CreateGameserver(ctx context.Context, req CreateGameserverRequest) (*models.Gameserver, error) {
 	// Validate input
 	if req.Name == "" {
 		return nil, BadRequest("Name is required")
@@ -55,13 +57,13 @@ func (s *Service) CreateGameserver(ctx context.Context, req CreateGameserverRequ
 	}
 
 	// Create database record with port mappings from game template
-	gs := &Gameserver{
+	gs := &models.Gameserver{
 		Name:         req.Name,
 		GameID:       req.GameID,
-		PortMappings: make([]PortMapping, len(game.PortMappings)),
+		PortMappings: make([]models.PortMapping, len(game.PortMappings)),
 		MemoryMB:     req.MemoryMB,
 		CPUCores:     req.CPUCores,
-		Status:       StatusStopped,
+		Status:       models.StatusStopped,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -92,7 +94,7 @@ func (s *Service) CreateGameserver(ctx context.Context, req CreateGameserverRequ
 }
 
 // GetGameserver retrieves a gameserver by ID
-func (s *Service) GetGameserver(ctx context.Context, id string) (*Gameserver, error) {
+func (s *Service) GetGameserver(ctx context.Context, id string) (*models.Gameserver, error) {
 	gs, err := s.db.GetGameserver(id)
 	if err != nil {
 		return nil, NotFound("gameserver")
@@ -111,7 +113,7 @@ func (s *Service) StartGameserver(ctx context.Context, id string) error {
 		return InternalError(err, "Failed to start container")
 	}
 
-	gs.Status = StatusRunning
+	gs.Status = models.StatusRunning
 	gs.UpdatedAt = time.Now()
 	if err := s.db.UpdateGameserver(gs); err != nil {
 		return InternalError(err, "Failed to update status")
@@ -132,7 +134,7 @@ func (s *Service) StopGameserver(ctx context.Context, id string) error {
 		return InternalError(err, "Failed to stop container")
 	}
 
-	gs.Status = StatusStopped
+	gs.Status = models.StatusStopped
 	gs.UpdatedAt = time.Now()
 	if err := s.db.UpdateGameserver(gs); err != nil {
 		return InternalError(err, "Failed to update status")
@@ -159,7 +161,7 @@ func (s *Service) DeleteGameserver(ctx context.Context, id string) error {
 	}
 
 	// Stop container if running
-	if gs.Status == StatusRunning {
+	if gs.Status == models.StatusRunning {
 		s.docker.StopContainer(gs.ContainerID)
 	}
 
@@ -202,13 +204,13 @@ func (s *Service) UpdateGameserver(ctx context.Context, id string, req UpdateGam
 }
 
 // ExecuteScheduledTask executes a scheduled task
-func (s *Service) ExecuteScheduledTask(ctx context.Context, task *ScheduledTask) error {
+func (s *Service) ExecuteScheduledTask(ctx context.Context, task *models.ScheduledTask) error {
 	log.Info().Str("id", task.ID).Str("type", string(task.Type)).Msg("Executing scheduled task")
 
 	switch task.Type {
-	case TaskTypeRestart:
+	case models.TaskTypeRestart:
 		return s.RestartGameserver(ctx, task.GameserverID)
-	case TaskTypeBackup:
+	case models.TaskTypeBackup:
 		return s.CreateBackup(ctx, task.GameserverID, "")
 	default:
 		return BadRequest("Unknown task type: %s", string(task.Type))

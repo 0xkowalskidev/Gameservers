@@ -9,7 +9,23 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+
+	"0xkowalskidev/gameservers/models"
+	"0xkowalskidev/gameservers/handlers"
 )
+
+// Initialize handler function variables for testing
+func init() {
+	handlers.HandleError = HandleError
+	handlers.NotFound = NotFound
+	handlers.BadRequest = BadRequest
+	handlers.InternalError = InternalError
+	handlers.ParseForm = ParseForm
+	handlers.RequireMethod = RequireMethod
+	handlers.LogAndRespond = LogAndRespond
+	handlers.Render = Render
+}
+
 
 // Helper function to create test templates with all required templates
 func createTestTemplate(contentTemplate string, contentParsing string) *template.Template {
@@ -25,29 +41,29 @@ func createTestTemplate(contentTemplate string, contentParsing string) *template
 }
 
 type mockGameserverService struct {
-	games       []*Game
-	gameservers []*Gameserver
+	games       []*models.Game
+	gameservers []*models.Gameserver
 }
 
-func (m *mockGameserverService) CreateGameserver(server *Gameserver) error { return nil }
-func (m *mockGameserverService) GetGameserver(id string) (*Gameserver, error) {
+func (m *mockGameserverService) CreateGameserver(server *models.Gameserver) error { return nil }
+func (m *mockGameserverService) GetGameserver(id string) (*models.Gameserver, error) {
 	for _, gs := range m.gameservers {
 		if gs.ID == id {
 			return gs, nil
 		}
 	}
-	return nil, &DatabaseError{Op: "get", Msg: "not found"}
+	return nil, &models.DatabaseError{Op: "get", Msg: "not found"}
 }
-func (m *mockGameserverService) UpdateGameserver(server *Gameserver) error { return nil }
-func (m *mockGameserverService) ListGameservers() ([]*Gameserver, error) { return m.gameservers, nil }
+func (m *mockGameserverService) UpdateGameserver(server *models.Gameserver) error { return nil }
+func (m *mockGameserverService) ListGameservers() ([]*models.Gameserver, error) { return m.gameservers, nil }
 func (m *mockGameserverService) StartGameserver(id string) error         { return nil }
 func (m *mockGameserverService) StopGameserver(id string) error          { return nil }
 func (m *mockGameserverService) RestartGameserver(id string) error       { return nil }
 func (m *mockGameserverService) SendGameserverCommand(id string, command string) error { return nil }
 func (m *mockGameserverService) DeleteGameserver(id string) error        { return nil }
-func (m *mockGameserverService) ListGames() ([]*Game, error)             { return m.games, nil }
-func (m *mockGameserverService) GetGame(id string) (*Game, error)        { return nil, nil }
-func (m *mockGameserverService) CreateGame(game *Game) error             { return nil }
+func (m *mockGameserverService) ListGames() ([]*models.Game, error)             { return m.games, nil }
+func (m *mockGameserverService) GetGame(id string) (*models.Game, error)        { return nil, nil }
+func (m *mockGameserverService) CreateGame(game *models.Game) error             { return nil }
 func (m *mockGameserverService) StreamGameserverLogs(id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("log stream")), nil
 }
@@ -56,38 +72,38 @@ func (m *mockGameserverService) StreamGameserverStats(id string) (io.ReadCloser,
 }
 
 // Scheduled Task methods
-func (m *mockGameserverService) CreateScheduledTask(task *ScheduledTask) error { return nil }
-func (m *mockGameserverService) GetScheduledTask(id string) (*ScheduledTask, error) { 
-	return &ScheduledTask{ID: id, Name: "Mock Task", Type: TaskTypeRestart}, nil 
+func (m *mockGameserverService) CreateScheduledTask(task *models.ScheduledTask) error { return nil }
+func (m *mockGameserverService) GetScheduledTask(id string) (*models.ScheduledTask, error) { 
+	return &models.ScheduledTask{ID: id, Name: "Mock Task", Type: models.TaskTypeRestart}, nil 
 }
-func (m *mockGameserverService) UpdateScheduledTask(task *ScheduledTask) error { return nil }
+func (m *mockGameserverService) UpdateScheduledTask(task *models.ScheduledTask) error { return nil }
 func (m *mockGameserverService) DeleteScheduledTask(id string) error { return nil }
-func (m *mockGameserverService) ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error) {
-	return []*ScheduledTask{
-		{ID: "task-1", GameserverID: gameserverID, Name: "Daily Restart", Type: TaskTypeRestart, Status: TaskStatusActive},
-		{ID: "task-2", GameserverID: gameserverID, Name: "Weekly Backup", Type: TaskTypeBackup, Status: TaskStatusActive},
+func (m *mockGameserverService) ListScheduledTasksForGameserver(gameserverID string) ([]*models.ScheduledTask, error) {
+	return []*models.ScheduledTask{
+		{ID: "task-1", GameserverID: gameserverID, Name: "Daily Restart", Type: models.TaskTypeRestart, Status: models.TaskStatusActive},
+		{ID: "task-2", GameserverID: gameserverID, Name: "Weekly Backup", Type: models.TaskTypeBackup, Status: models.TaskStatusActive},
 	}, nil
 }
 func (m *mockGameserverService) CreateGameserverBackup(gameserverID string) error { return nil }
 func (m *mockGameserverService) RestoreGameserverBackup(gameserverID, backupFilename string) error { return nil }
-func (m *mockGameserverService) ListGameserverBackups(gameserverID string) ([]*FileInfo, error) {
-	return []*FileInfo{
+func (m *mockGameserverService) ListGameserverBackups(gameserverID string) ([]*models.FileInfo, error) {
+	return []*models.FileInfo{
 		{Name: "backup1.tar.gz", Size: 1024, IsDir: false},
 		{Name: "backup2.tar.gz", Size: 2048, IsDir: false},
 	}, nil
 }
 
 // File manager methods
-func (m *mockGameserverService) ListFiles(containerID string, path string) ([]*FileInfo, error) { 
+func (m *mockGameserverService) ListFiles(containerID string, path string) ([]*models.FileInfo, error) { 
 	// Return some mock files for backup list testing
 	if path == "/data/backups" {
-		return []*FileInfo{
+		return []*models.FileInfo{
 			{Name: "backup1.tar.gz", Size: 1024, IsDir: false},
 			{Name: "backup2.tar.gz", Size: 2048, IsDir: false},
 			{Name: "notabackup.txt", Size: 100, IsDir: false}, // This should be filtered out
 		}, nil
 	}
-	return []*FileInfo{
+	return []*models.FileInfo{
 		{Name: "server.properties", Size: 1024, IsDir: false},
 		{Name: "logs", Size: 0, IsDir: true},
 	}, nil 
@@ -104,9 +120,9 @@ func TestHandlers_IndexGameservers(t *testing.T) {
 	tmpl := template.Must(template.New("index.html").Parse(`{{range .Gameservers}}{{.Name}}{{end}}`))
 	template.Must(tmpl.New("layout.html").Parse(`{{.Content}}`))
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
@@ -124,7 +140,7 @@ func TestHandlers_IndexGameservers(t *testing.T) {
 func TestHandlers_CreateGameserver(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	body := strings.NewReader("name=test&game_id=minecraft&port=25565")
 	req := httptest.NewRequest("POST", "/", body)
@@ -144,11 +160,12 @@ func TestHandlers_CreateGameserver(t *testing.T) {
 func TestHandlers_ShowGameserver(t *testing.T) {
 	tmpl := createTestTemplate("gameserver-details.html", `{{.Gameserver.Name}}`)
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("GET", "/1", nil)
+	req.Header.Set("HX-Request", "true")
 	w := httptest.NewRecorder()
 	
 	r := chi.NewRouter()
@@ -158,8 +175,9 @@ func TestHandlers_ShowGameserver(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", w.Code)
 	}
-	if !strings.Contains(w.Body.String(), "test") {
-		t.Errorf("expected body to contain 'test'")
+	body := w.Body.String()
+	if !strings.Contains(body, "test") {
+		t.Errorf("expected body to contain 'test', got: %q", body)
 	}
 }
 
@@ -170,11 +188,12 @@ func TestHandlers_ShowGameserver(t *testing.T) {
 func TestHandlers_ListGameserverTasks(t *testing.T) {
 	tmpl := createTestTemplate("gameserver-tasks.html", `{{range .Tasks}}{{.Name}}{{end}}`)
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("GET", "/1/tasks", nil)
+	req.Header.Set("HX-Request", "true")
 	w := httptest.NewRecorder()
 
 	r := chi.NewRouter()
@@ -192,9 +211,9 @@ func TestHandlers_ListGameserverTasks(t *testing.T) {
 func TestHandlers_CreateGameserverTask(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	body := strings.NewReader("name=Test Task&type=restart&cron_schedule=0 2 * * *")
 	req := httptest.NewRequest("POST", "/1/tasks", body)
@@ -216,7 +235,7 @@ func TestHandlers_CreateGameserverTask(t *testing.T) {
 func TestHandlers_DeleteGameserverTask(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("DELETE", "/1/tasks/task-1", nil)
 	w := httptest.NewRecorder()
@@ -233,7 +252,7 @@ func TestHandlers_DeleteGameserverTask(t *testing.T) {
 func TestHandlers_UpdateGameserverTask(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	body := strings.NewReader("name=Updated Task&type=backup&status=active&cron_schedule=0 3 * * *")
 	req := httptest.NewRequest("PUT", "/1/tasks/task-1", body)
@@ -259,7 +278,7 @@ func TestHandlers_UpdateGameserverTask(t *testing.T) {
 func TestHandlers_CreateGameserverBackup(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("POST", "/1/backup", nil)
 	w := httptest.NewRecorder()
@@ -276,9 +295,9 @@ func TestHandlers_CreateGameserverBackup(t *testing.T) {
 func TestHandlers_RestoreGameserverBackup(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("POST", "/1/restore?backup=test-backup.tar.gz", nil)
 	w := httptest.NewRecorder()
@@ -295,7 +314,7 @@ func TestHandlers_RestoreGameserverBackup(t *testing.T) {
 func TestHandlers_RestoreGameserverBackup_MissingFilename(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	// Request without backup parameter
 	req := httptest.NewRequest("POST", "/1/restore", nil)
@@ -313,9 +332,9 @@ func TestHandlers_RestoreGameserverBackup_MissingFilename(t *testing.T) {
 func TestHandlers_ListGameserverBackups(t *testing.T) {
 	tmpl := createTestTemplate("backup-list.html", `{{range .Backups}}{{.Name}}{{end}}`)
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("GET", "/1/backups", nil)
 	w := httptest.NewRecorder()
@@ -332,9 +351,9 @@ func TestHandlers_ListGameserverBackups(t *testing.T) {
 func TestHandlers_DeleteGameserverBackup(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("DELETE", "/1/backups/delete?backup=test-backup.tar.gz", nil)
 	w := httptest.NewRecorder()
@@ -351,7 +370,7 @@ func TestHandlers_DeleteGameserverBackup(t *testing.T) {
 func TestHandlers_DeleteGameserverBackup_MissingFilename(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	// Request without backup parameter
 	req := httptest.NewRequest("DELETE", "/1/backups/delete", nil)
@@ -373,11 +392,12 @@ func TestHandlers_DeleteGameserverBackup_MissingFilename(t *testing.T) {
 func TestHandlers_GameserverFiles(t *testing.T) {
 	tmpl := createTestTemplate("gameserver-files.html", `{{.CurrentPath}}`)
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("GET", "/1/files", nil)
+	req.Header.Set("HX-Request", "true")
 	w := httptest.NewRecorder()
 
 	r := chi.NewRouter()
@@ -395,9 +415,9 @@ func TestHandlers_GameserverFiles(t *testing.T) {
 func TestHandlers_BrowseGameserverFiles(t *testing.T) {
 	tmpl := template.Must(template.New("file-browser.html").Parse(`{{.CurrentPath}}`))
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("GET", "/1/files/browse?path=/data/server/logs", nil)
 	w := httptest.NewRecorder()
@@ -414,9 +434,9 @@ func TestHandlers_BrowseGameserverFiles(t *testing.T) {
 func TestHandlers_CreateGameserverFile(t *testing.T) {
 	tmpl := template.Must(template.New("file-browser.html").Parse(`{{.CurrentPath}}`))
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	body := strings.NewReader("path=/data/server&name=newfile.txt&type=file")
 	req := httptest.NewRequest("POST", "/1/files/create", body)
@@ -435,9 +455,9 @@ func TestHandlers_CreateGameserverFile(t *testing.T) {
 func TestHandlers_DeleteGameserverFile(t *testing.T) {
 	tmpl := template.Must(template.New("test").Parse(`{{.}}`))
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	req := httptest.NewRequest("DELETE", "/1/files/delete?path=/data/server/oldfile.txt", nil)
 	w := httptest.NewRecorder()
@@ -454,9 +474,9 @@ func TestHandlers_DeleteGameserverFile(t *testing.T) {
 func TestHandlers_RenameGameserverFile(t *testing.T) {
 	tmpl := template.Must(template.New("file-browser.html").Parse(`{{.CurrentPath}}`))
 	svc := &mockGameserverService{
-		gameservers: []*Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
+		gameservers: []*models.Gameserver{{ID: "1", Name: "test", ContainerID: "container-1"}},
 	}
-	h := NewHandlers(svc, tmpl)
+	h := handlers.New(svc, tmpl)
 
 	body := strings.NewReader("old_path=/data/server/oldfile.txt&new_name=newfile.txt")
 	req := httptest.NewRequest("POST", "/1/files/rename", body)

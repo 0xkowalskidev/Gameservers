@@ -14,6 +14,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"0xkowalskidev/gameservers/handlers"
 )
 
 //go:embed templates/*.html
@@ -101,8 +103,18 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to setup static files")
 	}
 
+	// Set up error handling functions for handlers
+	handlers.HandleError = HandleError
+	handlers.NotFound = NotFound
+	handlers.BadRequest = BadRequest
+	handlers.InternalError = InternalError
+	handlers.ParseForm = ParseForm
+	handlers.RequireMethod = RequireMethod
+	handlers.LogAndRespond = LogAndRespond
+	handlers.Render = Render
+
 	// Initialize handlers
-	handlers := NewHandlers(gameServerService, tmpl)
+	handlerInstance := handlers.New(gameServerService, tmpl)
 
 	// Chi HTTP Server
 	r := chi.NewRouter()
@@ -133,41 +145,41 @@ func main() {
 	r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(http.FS(staticFS))))
 
 	// Routes
-	r.Get("/", handlers.IndexGameservers)
-	r.Post("/", handlers.CreateGameserver)
-	r.Get("/new", handlers.NewGameserver)
-	r.Get("/{id}", handlers.ShowGameserver)
-	r.Get("/{id}/edit", handlers.EditGameserver)
-	r.Put("/{id}", handlers.UpdateGameserver)
-	r.Post("/{id}/start", handlers.StartGameserver)
-	r.Post("/{id}/stop", handlers.StopGameserver)
-	r.Post("/{id}/restart", handlers.RestartGameserver)
-	r.Post("/{id}/console", handlers.SendGameserverCommand)
-	r.Delete("/{id}", handlers.DestroyGameserver)
-	r.Get("/{id}/console", handlers.GameserverConsole)
-	r.Get("/{id}/logs", handlers.GameserverLogs)
-	r.Get("/{id}/stats", handlers.GameserverStats)
-	r.Get("/{id}/tasks", handlers.ListGameserverTasks)
-	r.Get("/{id}/tasks/new", handlers.NewGameserverTask)
-	r.Post("/{id}/tasks", handlers.CreateGameserverTask)
-	r.Get("/{id}/tasks/{taskId}/edit", handlers.EditGameserverTask)
-	r.Put("/{id}/tasks/{taskId}", handlers.UpdateGameserverTask)
-	r.Delete("/{id}/tasks/{taskId}", handlers.DeleteGameserverTask)
-	r.Post("/{id}/restore", handlers.RestoreGameserverBackup)
-	r.Post("/{id}/backup", handlers.CreateGameserverBackup)
-	r.Get("/{id}/backups", handlers.ListGameserverBackups)
-	r.Delete("/{id}/backups/delete", handlers.DeleteGameserverBackup)
+	r.Get("/", handlerInstance.IndexGameservers)
+	r.Post("/", handlerInstance.CreateGameserver)
+	r.Get("/new", handlerInstance.NewGameserver)
+	r.Get("/{id}", handlerInstance.ShowGameserver)
+	r.Get("/{id}/edit", handlerInstance.EditGameserver)
+	r.Put("/{id}", handlerInstance.UpdateGameserver)
+	r.Post("/{id}/start", handlerInstance.StartGameserver)
+	r.Post("/{id}/stop", handlerInstance.StopGameserver)
+	r.Post("/{id}/restart", handlerInstance.RestartGameserver)
+	r.Post("/{id}/console", handlerInstance.SendGameserverCommand)
+	r.Delete("/{id}", handlerInstance.DestroyGameserver)
+	r.Get("/{id}/console", handlerInstance.GameserverConsole)
+	r.Get("/{id}/logs", handlerInstance.GameserverLogs)
+	r.Get("/{id}/stats", handlerInstance.GameserverStats)
+	r.Get("/{id}/tasks", handlerInstance.ListGameserverTasks)
+	r.Get("/{id}/tasks/new", handlerInstance.NewGameserverTask)
+	r.Post("/{id}/tasks", handlerInstance.CreateGameserverTask)
+	r.Get("/{id}/tasks/{taskId}/edit", handlerInstance.EditGameserverTask)
+	r.Put("/{id}/tasks/{taskId}", handlerInstance.UpdateGameserverTask)
+	r.Delete("/{id}/tasks/{taskId}", handlerInstance.DeleteGameserverTask)
+	r.Post("/{id}/restore", handlerInstance.RestoreGameserverBackup)
+	r.Post("/{id}/backup", handlerInstance.CreateGameserverBackup)
+	r.Get("/{id}/backups", handlerInstance.ListGameserverBackups)
+	r.Delete("/{id}/backups/delete", handlerInstance.DeleteGameserverBackup)
 
 	// File manager routes
-	r.Get("/{id}/files", handlers.GameserverFiles)
-	r.Get("/{id}/files/browse", handlers.BrowseGameserverFiles)
-	r.Get("/{id}/files/content", handlers.GameserverFileContent)
-	r.Post("/{id}/files/save", handlers.SaveGameserverFile)
-	r.Get("/{id}/files/download", handlers.DownloadGameserverFile)
-	r.Post("/{id}/files/create", handlers.CreateGameserverFile)
-	r.Delete("/{id}/files/delete", handlers.DeleteGameserverFile)
-	r.Post("/{id}/files/rename", handlers.RenameGameserverFile)
-	r.Post("/{id}/files/upload", handlers.UploadGameserverFile)
+	r.Get("/{id}/files", handlerInstance.GameserverFiles)
+	r.Get("/{id}/files/browse", handlerInstance.BrowseGameserverFiles)
+	r.Get("/{id}/files/content", handlerInstance.GameserverFileContent)
+	r.Post("/{id}/files/save", handlerInstance.SaveGameserverFile)
+	r.Get("/{id}/files/download", handlerInstance.DownloadGameserverFile)
+	r.Post("/{id}/files/create", handlerInstance.CreateGameserverFile)
+	r.Delete("/{id}/files/delete", handlerInstance.DeleteGameserverFile)
+	r.Post("/{id}/files/rename", handlerInstance.RenameGameserverFile)
+	r.Post("/{id}/files/upload", handlerInstance.UploadGameserverFile)
 
 	// Start Chi HTTP server
 	log.Info().Str("port", "3000").Msg("Starting HTTP server")

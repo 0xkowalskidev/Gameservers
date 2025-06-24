@@ -1,8 +1,10 @@
-package main
+package models
 
 import (
+	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -206,6 +208,26 @@ type ScheduledTask struct {
 	NextRun      *time.Time `json:"next_run,omitempty"`
 }
 
+type FileInfo struct {
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	Size     int64  `json:"size"`
+	IsDir    bool   `json:"is_dir"`
+	Modified string `json:"modified"`
+}
+
+type DatabaseError struct {
+	Op  string
+	Msg string
+	Err error
+}
+
+func (e *DatabaseError) Error() string {
+	if e.Err != nil {
+		return e.Op + ": " + e.Msg + ": " + e.Err.Error()
+	}
+	return e.Op + ": " + e.Msg
+}
 
 type DockerManagerInterface interface {
 	CreateContainer(server *Gameserver) error
@@ -232,4 +254,48 @@ type DockerManagerInterface interface {
 	DownloadFile(containerID string, path string) (io.ReadCloser, error)
 	UploadFile(containerID string, destPath string, reader io.Reader) error
 	RenameFile(containerID string, oldPath string, newPath string) error
+}
+
+type GameserverServiceInterface interface {
+	CreateGameserver(server *Gameserver) error
+	GetGameserver(id string) (*Gameserver, error)
+	UpdateGameserver(server *Gameserver) error
+	ListGameservers() ([]*Gameserver, error)
+	StartGameserver(id string) error
+	StopGameserver(id string) error
+	RestartGameserver(id string) error
+	DeleteGameserver(id string) error
+	SendGameserverCommand(id string, command string) error
+	StreamGameserverLogs(id string) (io.ReadCloser, error)
+	StreamGameserverStats(id string) (io.ReadCloser, error)
+	ListGames() ([]*Game, error)
+	GetGame(id string) (*Game, error)
+	CreateGame(game *Game) error
+	CreateScheduledTask(task *ScheduledTask) error
+	GetScheduledTask(id string) (*ScheduledTask, error)
+	UpdateScheduledTask(task *ScheduledTask) error
+	DeleteScheduledTask(id string) error
+	ListScheduledTasksForGameserver(gameserverID string) ([]*ScheduledTask, error)
+	CreateGameserverBackup(gameserverID string) error
+	RestoreGameserverBackup(gameserverID, backupFilename string) error
+	ListGameserverBackups(gameserverID string) ([]*FileInfo, error)
+	// File operations
+	ListFiles(containerID string, path string) ([]*FileInfo, error)
+	ReadFile(containerID string, path string) ([]byte, error)
+	WriteFile(containerID string, path string, content []byte) error
+	CreateDirectory(containerID string, path string) error
+	DeletePath(containerID string, path string) error
+	DownloadFile(containerID string, path string) (io.ReadCloser, error)
+	RenameFile(containerID string, oldPath string, newPath string) error
+	UploadFile(containerID string, destPath string, reader io.Reader) error
+}
+
+// Utility functions
+var idCounter int64
+
+func GenerateID() string {
+	now := time.Now()
+	// Use atomic increment to ensure uniqueness even within the same nanosecond
+	counter := atomic.AddInt64(&idCounter, 1)
+	return fmt.Sprintf("%s%06d", now.Format("20060102150405"), counter%1000000)
 }

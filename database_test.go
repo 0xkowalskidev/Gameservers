@@ -3,6 +3,8 @@ package main
 import (
 	"testing"
 	"time"
+
+	"0xkowalskidev/gameservers/models"
 )
 
 func TestDatabaseManager_CRUD(t *testing.T) {
@@ -12,11 +14,11 @@ func TestDatabaseManager_CRUD(t *testing.T) {
 	}
 	defer db.Close()
 
-	server := &Gameserver{
+	server := &models.Gameserver{
 		ID: "test-1", Name: "Test Server", GameID: "minecraft",
-		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
 		Environment: []string{"ENV=prod"}, Volumes: []string{"/data:/mc"},
-		Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 
 	// Create
@@ -34,14 +36,14 @@ func TestDatabaseManager_CRUD(t *testing.T) {
 	}
 
 	// Update
-	retrieved.Status = StatusRunning
+	retrieved.Status = models.StatusRunning
 	retrieved.ContainerID = "container-123"
 	if err := db.UpdateGameserver(retrieved); err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
 	updated, _ := db.GetGameserver(server.ID)
-	if updated.Status != StatusRunning || updated.ContainerID != "container-123" {
+	if updated.Status != models.StatusRunning || updated.ContainerID != "container-123" {
 		t.Errorf("Update data mismatch")
 	}
 
@@ -64,8 +66,8 @@ func TestDatabaseManager_DuplicateName(t *testing.T) {
 	db, _ := NewDatabaseManager(":memory:")
 	defer db.Close()
 
-	server1 := &Gameserver{ID: "1", Name: "dup", GameID: "minecraft", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	server2 := &Gameserver{ID: "2", Name: "dup", GameID: "minecraft", PortMappings: []PortMapping{{Protocol: "tcp", ContainerPort: 25566, HostPort: 0}}, Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	server1 := &models.Gameserver{ID: "1", Name: "dup", GameID: "minecraft", PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	server2 := &models.Gameserver{ID: "2", Name: "dup", GameID: "minecraft", PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25566, HostPort: 0}}, Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 
 	db.CreateGameserver(server1)
 	if err := db.CreateGameserver(server2); err == nil {
@@ -85,10 +87,10 @@ func TestDatabaseManager_ScheduledTaskCRUD(t *testing.T) {
 	defer db.Close()
 
 	// Create a gameserver first
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Status: StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
+		Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	if err := db.CreateGameserver(gameserver); err != nil {
 		t.Fatalf("Failed to create gameserver: %v", err)
@@ -97,12 +99,12 @@ func TestDatabaseManager_ScheduledTaskCRUD(t *testing.T) {
 	// Create scheduled task
 	now := time.Now()
 	nextRun := now.Add(time.Hour)
-	task := &ScheduledTask{
+	task := &models.ScheduledTask{
 		ID:           "test-task",
 		GameserverID: gameserver.ID,
 		Name:         "Test Restart",
-		Type:         TaskTypeRestart,
-		Status:       TaskStatusActive,
+		Type:         models.TaskTypeRestart,
+		Status:       models.TaskStatusActive,
 		CronSchedule: "0 2 * * *",
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -127,14 +129,14 @@ func TestDatabaseManager_ScheduledTaskCRUD(t *testing.T) {
 	}
 
 	// Update
-	retrieved.Status = TaskStatusDisabled
+	retrieved.Status = models.TaskStatusDisabled
 	retrieved.Name = "Updated Task"
 	if err := db.UpdateScheduledTask(retrieved); err != nil {
 		t.Fatalf("Update task failed: %v", err)
 	}
 
 	updated, _ := db.GetScheduledTask(task.ID)
-	if updated.Status != TaskStatusDisabled || updated.Name != "Updated Task" {
+	if updated.Status != models.TaskStatusDisabled || updated.Name != "Updated Task" {
 		t.Errorf("Update task data mismatch")
 	}
 
@@ -157,7 +159,7 @@ func TestDatabaseManager_ScheduledTaskCRUD(t *testing.T) {
 	}
 
 	// Re-enable task
-	updated.Status = TaskStatusActive
+	updated.Status = models.TaskStatusActive
 	db.UpdateScheduledTask(updated)
 
 	activeTasks, _ = db.ListActiveScheduledTasks()
@@ -182,19 +184,19 @@ func TestDatabaseManager_ScheduledTaskCascadeDelete(t *testing.T) {
 	defer db.Close()
 
 	// Create gameserver and task
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped, 
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped, 
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	db.CreateGameserver(gameserver)
 
-	task := &ScheduledTask{
+	task := &models.ScheduledTask{
 		ID:           "test-task",
 		GameserverID: gameserver.ID,
 		Name:         "Test Task",
-		Type:         TaskTypeRestart,
-		Status:       TaskStatusActive,
+		Type:         models.TaskTypeRestart,
+		Status:       models.TaskStatusActive,
 		CronSchedule: "0 2 * * *",
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -229,9 +231,9 @@ func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
 	svc := NewGameserverService(db, mockDocker)
 
 	// Create gameserver first
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped,
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped,
 		Environment: []string{"EULA=true"},
 	}
 
@@ -241,12 +243,12 @@ func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
 	}
 
 	// Test creating a scheduled task with next run calculation
-	task := &ScheduledTask{
+	task := &models.ScheduledTask{
 		GameserverID: gameserver.ID,
 		Name:         "Test Task",
-		Type:         TaskTypeRestart,
-		Status:       TaskStatusActive,
-		CronSchedule: "0 2 * * *", // Daily at 2 AM
+		Type:         models.TaskTypeRestart,
+		Status:       models.TaskStatusActive,
+		CronSchedule: "0 3 * * *", // Daily at 3 AM (different from backup task)
 	}
 
 	err = svc.CreateScheduledTask(task)
@@ -295,9 +297,9 @@ func TestGameserverService_BackupOperations(t *testing.T) {
 	svc := NewGameserverService(db, mockDocker)
 
 	// Create gameserver
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID: "backup-test-gs", Name: "Backup Test Server", GameID: "minecraft", 
-		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped, MaxBackups: 5,
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped, MaxBackups: 5,
 		Environment: []string{"EULA=true"},
 	}
 
@@ -346,9 +348,9 @@ func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
 	svc := NewGameserverService(db, mockDocker)
 
 	// Create gameserver
-	gameserver := &Gameserver{
+	gameserver := &models.Gameserver{
 		ID: "auto-backup-test", Name: "Auto Backup Test", GameID: "minecraft", 
-		PortMappings: []PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: StatusStopped,
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped,
 		Environment: []string{"EULA=true"},
 	}
 
@@ -368,7 +370,7 @@ func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
 	}
 
 	backupTask := tasks[0]
-	if backupTask.Type != TaskTypeBackup {
+	if backupTask.Type != models.TaskTypeBackup {
 		t.Errorf("Expected backup task type, got %s", backupTask.Type)
 	}
 	if backupTask.CronSchedule != "0 2 * * *" {
@@ -377,7 +379,7 @@ func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
 	if backupTask.Name != "Daily Backup" {
 		t.Errorf("Expected 'Daily Backup' name, got %s", backupTask.Name)
 	}
-	if backupTask.Status != TaskStatusActive {
+	if backupTask.Status != models.TaskStatusActive {
 		t.Errorf("Expected active status, got %s", backupTask.Status)
 	}
 }

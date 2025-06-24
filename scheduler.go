@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+
+	"0xkowalskidev/gameservers/models"
 )
 
 type TaskScheduler struct {
@@ -125,7 +127,7 @@ func (ts *TaskScheduler) processTasks() {
 	}
 }
 
-func (ts *TaskScheduler) executeTask(task *ScheduledTask) error {
+func (ts *TaskScheduler) executeTask(task *models.ScheduledTask) error {
 	// First check if the gameserver exists and get its status
 	gameserver, err := ts.gameserverSvc.GetGameserver(task.GameserverID)
 	if err != nil {
@@ -134,16 +136,16 @@ func (ts *TaskScheduler) executeTask(task *ScheduledTask) error {
 	}
 	
 	switch task.Type {
-	case TaskTypeRestart:
+	case models.TaskTypeRestart:
 		// Only restart if the gameserver is currently running
-		if gameserver.Status != StatusRunning {
+		if gameserver.Status != models.StatusRunning {
 			log.Info().Str("gameserver_id", task.GameserverID).Str("status", string(gameserver.Status)).Msg("Skipping restart - gameserver not running")
 			return nil // Don't treat this as an error, just skip
 		}
 		log.Info().Str("gameserver_id", task.GameserverID).Msg("Executing scheduled restart")
 		return ts.gameserverSvc.RestartGameserver(task.GameserverID)
 	
-	case TaskTypeBackup:
+	case models.TaskTypeBackup:
 		// Backups can run regardless of gameserver status (stopped servers can still be backed up)
 		log.Info().Str("gameserver_id", task.GameserverID).Str("status", string(gameserver.Status)).Msg("Executing scheduled backup")
 		return ts.createBackup(task.GameserverID)
