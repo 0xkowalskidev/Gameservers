@@ -15,4 +15,4 @@ mono /data/server/TerrariaServer.exe \
   -maxplayers "${MAXPLAYERS}" \
   -password "${PASSWORD}" \
   -difficulty "${DIFFICULTY}" \
-  -logfile /data/server/server.log
+  -logfile /data/server/logs
