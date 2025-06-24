@@ -21,6 +21,7 @@ jobs:
         run: |
           echo "minecraft=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/minecraft/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "garrysmod=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/garrysmod/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "terraria=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/terraria/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -43,3 +44,9 @@ jobs:
         run: |
           docker build images/garrysmod --tag ghcr.io/0xkowalskidev/gameservers/garrysmod:latest
           docker push ghcr.io/0xkowalskidev/gameservers/garrysmod:latest
+
+      - name: Build and push terraria
+        if: steps.changes.outputs.terraria == 'true'
+        run: |
+          docker build images/terraria --tag ghcr.io/0xkowalskidev/gameservers/terraria:latest
+          docker push ghcr.io/0xkowalskidev/gameservers/terraria:latest
