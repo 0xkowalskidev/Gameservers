@@ -149,21 +149,21 @@ func TestMockDockerManager_GetVolumeInfo_Failure(t *testing.T) {
 
 func TestVolumeNameGeneration(t *testing.T) {
 	mock := NewMockDockerManager()
-	
+
 	// Test the volume name generation function
 	// Note: This would be the getVolumeNameForServer method in the real implementation
 	expectedVolumeName := "gameservers-my-minecraft-server-data"
-	
+
 	err := mock.CreateVolume(expectedVolumeName)
 	if err != nil {
 		t.Fatalf("Failed to create volume: %v", err)
 	}
-	
+
 	volumeInfo, err := mock.GetVolumeInfo(expectedVolumeName)
 	if err != nil {
 		t.Errorf("Failed to get volume info: %v", err)
 	}
-	
+
 	if volumeInfo.Name != expectedVolumeName {
 		t.Errorf("Volume name mismatch: expected %s, got %s", expectedVolumeName, volumeInfo.Name)
 	}
@@ -172,44 +172,44 @@ func TestVolumeNameGeneration(t *testing.T) {
 func TestVolumeLifecycle(t *testing.T) {
 	mock := NewMockDockerManager()
 	volumeName := "lifecycle-test-volume"
-	
+
 	// 1. Volume should not exist initially
 	if mock.HasVolume(volumeName) {
 		t.Error("Volume should not exist initially")
 	}
-	
+
 	// 2. Create volume
 	err := mock.CreateVolume(volumeName)
 	if err != nil {
 		t.Fatalf("Failed to create volume: %v", err)
 	}
-	
+
 	// 3. Volume should exist
 	if !mock.HasVolume(volumeName) {
 		t.Error("Volume should exist after creation")
 	}
-	
+
 	// 4. Get volume info
 	volumeInfo, err := mock.GetVolumeInfo(volumeName)
 	if err != nil {
 		t.Fatalf("Failed to get volume info: %v", err)
 	}
-	
+
 	if volumeInfo == nil {
 		t.Fatal("Volume info should not be nil")
 	}
-	
+
 	// 5. Remove volume
 	err = mock.RemoveVolume(volumeName)
 	if err != nil {
 		t.Fatalf("Failed to remove volume: %v", err)
 	}
-	
+
 	// 6. Volume should not exist
 	if mock.HasVolume(volumeName) {
 		t.Error("Volume should not exist after removal")
 	}
-	
+
 	// 7. Getting info should fail
 	_, err = mock.GetVolumeInfo(volumeName)
 	if err == nil {
@@ -219,13 +219,13 @@ func TestVolumeLifecycle(t *testing.T) {
 
 func TestMultipleVolumes(t *testing.T) {
 	mock := NewMockDockerManager()
-	
+
 	volumes := []string{
 		"gameservers-server1-data",
-		"gameservers-server2-data", 
+		"gameservers-server2-data",
 		"gameservers-server3-data",
 	}
-	
+
 	// Create all volumes
 	for _, volumeName := range volumes {
 		err := mock.CreateVolume(volumeName)
@@ -233,29 +233,29 @@ func TestMultipleVolumes(t *testing.T) {
 			t.Errorf("Failed to create volume %s: %v", volumeName, err)
 		}
 	}
-	
+
 	// Verify all exist
 	for _, volumeName := range volumes {
 		if !mock.HasVolume(volumeName) {
 			t.Errorf("Volume %s should exist", volumeName)
 		}
-		
+
 		volumeInfo, err := mock.GetVolumeInfo(volumeName)
 		if err != nil {
 			t.Errorf("Failed to get info for volume %s: %v", volumeName, err)
 		}
-		
+
 		if volumeInfo.Name != volumeName {
 			t.Errorf("Volume name mismatch for %s", volumeName)
 		}
 	}
-	
+
 	// Remove middle volume
 	err := mock.RemoveVolume(volumes[1])
 	if err != nil {
 		t.Errorf("Failed to remove volume %s: %v", volumes[1], err)
 	}
-	
+
 	// Check states
 	if !mock.HasVolume(volumes[0]) {
 		t.Error("First volume should still exist")

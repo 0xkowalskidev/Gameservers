@@ -9,12 +9,12 @@ import (
 
 // MockDockerManager provides a mock implementation for testing
 type MockDockerManager struct {
-	containers  map[string]*models.Gameserver
-	logs        map[string][]string
-	shouldFail  map[string]bool
-	volumes     map[string]*models.VolumeInfo
-	files       map[string]map[string][]byte // containerID -> path -> content
-	backups     map[string][]string         // containerID -> backup filenames
+	containers map[string]*models.Gameserver
+	logs       map[string][]string
+	shouldFail map[string]bool
+	volumes    map[string]*models.VolumeInfo
+	files      map[string]map[string][]byte // containerID -> path -> content
+	backups    map[string][]string          // containerID -> backup filenames
 }
 
 // NewMockDockerManager creates a new mock Docker manager
@@ -42,12 +42,12 @@ func (m *MockDockerManager) CreateContainer(server *models.Gameserver) error {
 	server.ContainerID = "mock-container-" + server.ID
 	server.Status = models.StatusStopped
 	m.containers[server.ContainerID] = server
-	
+
 	// Initialize file system for container
 	if m.files[server.ContainerID] == nil {
 		m.files[server.ContainerID] = make(map[string][]byte)
 	}
-	
+
 	return nil
 }
 
@@ -196,12 +196,12 @@ func (m *MockDockerManager) ListFiles(containerID string, path string) ([]*model
 	if m.shouldFail["list_files"] {
 		return nil, &DockerError{Op: "list_files", Msg: "mock list files error"}
 	}
-	
+
 	files := []*models.FileInfo{
 		{Name: "server.properties", Path: "/data/server/server.properties", IsDir: false, Size: 1024, Modified: "2024-01-01 12:00:00"},
 		{Name: "world", Path: "/data/server/world", IsDir: true, Size: 0, Modified: "2024-01-01 12:00:00"},
 	}
-	
+
 	if strings.Contains(path, "backup") {
 		if backups, exists := m.backups[containerID]; exists {
 			for _, backup := range backups {
@@ -211,7 +211,7 @@ func (m *MockDockerManager) ListFiles(containerID string, path string) ([]*model
 			}
 		}
 	}
-	
+
 	return files, nil
 }
 

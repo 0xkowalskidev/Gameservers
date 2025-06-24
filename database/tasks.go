@@ -11,10 +11,10 @@ import (
 func (dm *DatabaseManager) CreateScheduledTask(task *models.ScheduledTask) error {
 	query := `INSERT INTO scheduled_tasks (id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run) 
 			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	
-	_, err := dm.db.Exec(query, task.ID, task.GameserverID, task.Name, string(task.Type), string(task.Status), 
+
+	_, err := dm.db.Exec(query, task.ID, task.GameserverID, task.Name, string(task.Type), string(task.Status),
 		task.CronSchedule, task.CreatedAt, task.UpdatedAt, task.LastRun, task.NextRun)
-	
+
 	if err != nil {
 		return &models.DatabaseError{Op: "create_task", Msg: "failed to create scheduled task", Err: err}
 	}
@@ -25,7 +25,7 @@ func (dm *DatabaseManager) CreateScheduledTask(task *models.ScheduledTask) error
 func (dm *DatabaseManager) GetScheduledTask(id string) (*models.ScheduledTask, error) {
 	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
 			  FROM scheduled_tasks WHERE id = ?`
-	
+
 	row := dm.db.QueryRow(query, id)
 	task, err := dm.scanScheduledTask(row)
 	if err == sql.ErrNoRows {
@@ -41,10 +41,10 @@ func (dm *DatabaseManager) GetScheduledTask(id string) (*models.ScheduledTask, e
 func (dm *DatabaseManager) UpdateScheduledTask(task *models.ScheduledTask) error {
 	query := `UPDATE scheduled_tasks SET name = ?, type = ?, status = ?, cron_schedule = ?, updated_at = ?, last_run = ?, next_run = ? 
 			  WHERE id = ?`
-	
-	result, err := dm.db.Exec(query, task.Name, string(task.Type), string(task.Status), task.CronSchedule, 
+
+	result, err := dm.db.Exec(query, task.Name, string(task.Type), string(task.Status), task.CronSchedule,
 		task.UpdatedAt, task.LastRun, task.NextRun, task.ID)
-	
+
 	if err != nil {
 		return &models.DatabaseError{Op: "update_task", Msg: "failed to update scheduled task", Err: err}
 	}
@@ -57,7 +57,7 @@ func (dm *DatabaseManager) UpdateScheduledTask(task *models.ScheduledTask) error
 // DeleteScheduledTask deletes a scheduled task by ID
 func (dm *DatabaseManager) DeleteScheduledTask(id string) error {
 	query := `DELETE FROM scheduled_tasks WHERE id = ?`
-	
+
 	result, err := dm.db.Exec(query, id)
 	if err != nil {
 		return &models.DatabaseError{Op: "delete_task", Msg: "failed to delete scheduled task", Err: err}
@@ -72,7 +72,7 @@ func (dm *DatabaseManager) DeleteScheduledTask(id string) error {
 func (dm *DatabaseManager) ListScheduledTasksForGameserver(gameserverID string) ([]*models.ScheduledTask, error) {
 	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
 			  FROM scheduled_tasks WHERE gameserver_id = ? ORDER BY created_at DESC`
-	
+
 	rows, err := dm.db.Query(query, gameserverID)
 	if err != nil {
 		return nil, &models.DatabaseError{Op: "list_tasks", Msg: "failed to query scheduled tasks", Err: err}
@@ -94,7 +94,7 @@ func (dm *DatabaseManager) ListScheduledTasksForGameserver(gameserverID string) 
 func (dm *DatabaseManager) ListActiveScheduledTasks() ([]*models.ScheduledTask, error) {
 	query := `SELECT id, gameserver_id, name, type, status, cron_schedule, created_at, updated_at, last_run, next_run 
 			  FROM scheduled_tasks WHERE status = ? ORDER BY next_run ASC`
-	
+
 	rows, err := dm.db.Query(query, string(models.TaskStatusActive))
 	if err != nil {
 		return nil, &models.DatabaseError{Op: "list_active_tasks", Msg: "failed to query active scheduled tasks", Err: err}
@@ -122,23 +122,23 @@ func (dm *DatabaseManager) scanScheduledTask(row ScheduledTaskScanner) (*models.
 	var task models.ScheduledTask
 	var taskType, status string
 	var lastRun, nextRun sql.NullTime
-	
-	err := row.Scan(&task.ID, &task.GameserverID, &task.Name, &taskType, &status, 
+
+	err := row.Scan(&task.ID, &task.GameserverID, &task.Name, &taskType, &status,
 		&task.CronSchedule, &task.CreatedAt, &task.UpdatedAt, &lastRun, &nextRun)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	task.Type = models.TaskType(taskType)
 	task.Status = models.TaskStatus(status)
-	
+
 	if lastRun.Valid {
 		task.LastRun = &lastRun.Time
 	}
 	if nextRun.Valid {
 		task.NextRun = &nextRun.Time
 	}
-	
+
 	return &task, nil
 }

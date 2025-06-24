@@ -1,8 +1,8 @@
 package models
 
 type PortMapping struct {
-	Name          string `json:"name"`           // "game", "rcon", "query", etc.
-	Protocol      string `json:"protocol"`       // "tcp" or "udp"
+	Name          string `json:"name"`     // "game", "rcon", "query", etc.
+	Protocol      string `json:"protocol"` // "tcp" or "udp"
 	ContainerPort int    `json:"container_port"`
 	HostPort      int    `json:"host_port"` // 0 = auto-assign
 }

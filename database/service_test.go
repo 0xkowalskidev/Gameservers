@@ -20,7 +20,7 @@ func TestGameserverService_ScheduledTaskLifecycle(t *testing.T) {
 
 	// Create gameserver first
 	gameserver := &models.Gameserver{
-		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
+		ID: "test-gs", Name: "Test Server", GameID: "minecraft",
 		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped,
 		Environment: []string{"EULA=true"},
 	}
@@ -86,7 +86,7 @@ func TestGameserverService_BackupOperations(t *testing.T) {
 
 	// Create gameserver
 	gameserver := &models.Gameserver{
-		ID: "backup-test-gs", Name: "Backup Test Server", GameID: "minecraft", 
+		ID: "backup-test-gs", Name: "Backup Test Server", GameID: "minecraft",
 		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped, MaxBackups: 5,
 		Environment: []string{"EULA=true"},
 	}
@@ -137,7 +137,7 @@ func TestGameserverService_AutomaticDailyBackupTask(t *testing.T) {
 
 	// Create gameserver
 	gameserver := &models.Gameserver{
-		ID: "auto-backup-test", Name: "Auto Backup Test", GameID: "minecraft", 
+		ID: "auto-backup-test", Name: "Auto Backup Test", GameID: "minecraft",
 		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped,
 		Environment: []string{"EULA=true"},
 	}
@@ -184,9 +184,9 @@ func TestGameserverService_CreateGameserverWithValidation(t *testing.T) {
 
 	// Test creating gameserver without required environment variables
 	gameserver := &models.Gameserver{
-		ID: "fail-test", Name: "Fail Test", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Status: models.StatusStopped,
+		ID: "fail-test", Name: "Fail Test", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:       models.StatusStopped,
 		// Missing required EULA environment variable
 	}
 
@@ -214,10 +214,10 @@ func TestGameserverService_StartGameserver(t *testing.T) {
 
 	// Create gameserver first
 	gameserver := &models.Gameserver{
-		ID: "start-test", Name: "Start Test", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Environment: []string{"EULA=true"},
-		Status: models.StatusStopped,
+		ID: "start-test", Name: "Start Test", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Environment:  []string{"EULA=true"},
+		Status:       models.StatusStopped,
 	}
 	svc.CreateGameserver(gameserver)
 
@@ -240,10 +240,10 @@ func TestGameserverService_StopGameserver(t *testing.T) {
 
 	// Create gameserver first
 	gameserver := &models.Gameserver{
-		ID: "stop-test", Name: "Stop Test", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Environment: []string{"EULA=true"},
-		Status: models.StatusStopped,
+		ID: "stop-test", Name: "Stop Test", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Environment:  []string{"EULA=true"},
+		Status:       models.StatusStopped,
 	}
 	svc.CreateGameserver(gameserver)
 
@@ -266,10 +266,10 @@ func TestGameserverService_RestartGameserver(t *testing.T) {
 
 	// Create gameserver first
 	gameserver := &models.Gameserver{
-		ID: "restart-test", Name: "Restart Test", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Environment: []string{"EULA=true"},
-		Status: models.StatusStopped,
+		ID: "restart-test", Name: "Restart Test", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Environment:  []string{"EULA=true"},
+		Status:       models.StatusStopped,
 	}
 	svc.CreateGameserver(gameserver)
 
@@ -292,10 +292,10 @@ func TestGameserverService_DeleteGameserver(t *testing.T) {
 
 	// Create gameserver first
 	gameserver := &models.Gameserver{
-		ID: "delete-test", Name: "Delete Test", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Environment: []string{"EULA=true"},
-		Status: models.StatusStopped,
+		ID: "delete-test", Name: "Delete Test", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Environment:  []string{"EULA=true"},
+		Status:       models.StatusStopped,
 	}
 	svc.CreateGameserver(gameserver)
 
@@ -330,10 +330,10 @@ func TestGameserverService_UpdateGameserver(t *testing.T) {
 
 	// Create gameserver first
 	gameserver := &models.Gameserver{
-		ID: "update-test", Name: "Update Test", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Environment: []string{"EULA=true"},
-		Status: models.StatusStopped,
+		ID: "update-test", Name: "Update Test", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Environment:  []string{"EULA=true"},
+		Status:       models.StatusStopped,
 	}
 	svc.CreateGameserver(gameserver)
 

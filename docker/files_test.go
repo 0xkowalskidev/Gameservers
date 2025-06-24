@@ -484,10 +484,10 @@ func TestPathValidation(t *testing.T) {
 func TestLargeFileHandling(t *testing.T) {
 	mock := NewMockDockerManager()
 	containerID := "large-file-container"
-	
+
 	// Test with different file sizes
 	sizes := []int{1024, 10240, 102400} // 1KB, 10KB, 100KB
-	
+
 	for _, size := range sizes {
 		t.Run(fmt.Sprintf("file_size_%d", size), func(t *testing.T) {
 			// Create content of specified size
@@ -495,37 +495,37 @@ func TestLargeFileHandling(t *testing.T) {
 			for i := range content {
 				content[i] = byte(i % 256)
 			}
-			
+
 			filePath := fmt.Sprintf("/data/server/large_%d.bin", size)
-			
+
 			// Write large file
 			err := mock.WriteFile(containerID, filePath, content)
 			if err != nil {
 				t.Errorf("Failed to write large file (%d bytes): %v", size, err)
 			}
-			
+
 			// Read it back
 			readContent, err := mock.ReadFile(containerID, filePath)
 			if err != nil {
 				t.Errorf("Failed to read large file (%d bytes): %v", size, err)
 			}
-			
+
 			if len(readContent) != len(content) {
 				t.Errorf("Size mismatch: expected %d bytes, got %d bytes", len(content), len(readContent))
 			}
-			
+
 			// Download it
 			reader, err := mock.DownloadFile(containerID, filePath)
 			if err != nil {
 				t.Errorf("Failed to download large file (%d bytes): %v", size, err)
 			}
 			defer reader.Close()
-			
+
 			downloadedContent, err := io.ReadAll(reader)
 			if err != nil {
 				t.Errorf("Failed to read downloaded large file (%d bytes): %v", size, err)
 			}
-			
+
 			if len(downloadedContent) != len(content) {
 				t.Errorf("Download size mismatch: expected %d bytes, got %d bytes", len(content), len(downloadedContent))
 			}

@@ -8,8 +8,8 @@ import (
 
 // MockImageManager provides a mock for testing image operations
 type MockImageManager struct {
-	localImages  map[string]string  // imageName -> digest
-	remoteImages map[string]string  // imageName -> digest
+	localImages  map[string]string // imageName -> digest
+	remoteImages map[string]string // imageName -> digest
 	shouldFail   map[string]bool
 	pullHistory  []string // Track which images were pulled
 }
@@ -71,12 +71,12 @@ func (m *MockImageManager) pullImage(ctx context.Context, imageName string) erro
 	}
 
 	m.pullHistory = append(m.pullHistory, imageName)
-	
+
 	// Update local image with remote digest after successful pull
 	if remoteDigest, exists := m.remoteImages[imageName]; exists {
 		m.localImages[imageName] = remoteDigest
 	}
-	
+
 	return nil
 }
 
@@ -105,12 +105,12 @@ func TestMockImageManager_ShouldPullImage(t *testing.T) {
 		expectError  bool
 	}{
 		{
-			name:        "pull latest tag",
-			imageName:   "minecraft:latest",
-			localDigest: "",
+			name:         "pull latest tag",
+			imageName:    "minecraft:latest",
+			localDigest:  "",
 			remoteDigest: "sha256:abc123",
-			expectPull:  true,
-			expectError: false,
+			expectPull:   true,
+			expectError:  false,
 		},
 		{
 			name:         "pull new version",
@@ -148,7 +148,7 @@ func TestMockImageManager_ShouldPullImage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := NewMockImageManager()
-			
+
 			if tt.localDigest != "" {
 				mock.SetLocalImage(tt.imageName, tt.localDigest)
 			}
@@ -202,7 +202,7 @@ func TestMockImageManager_PullImage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := NewMockImageManager()
-			
+
 			if tt.shouldFail {
 				mock.SetShouldFail("pull_image", true)
 			}
@@ -284,7 +284,7 @@ func TestMockImageManager_PullImageIfNeeded(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := NewMockImageManager()
-			
+
 			if tt.localDigest != "" {
 				mock.SetLocalImage(tt.imageName, tt.localDigest)
 			}
@@ -429,7 +429,7 @@ func TestImageDigestComparison(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := NewMockImageManager()
-			
+
 			mock.SetLocalImage("test:latest", tt.localDigest)
 			mock.SetRemoteImage("test:latest", tt.remoteDigest)
 
@@ -452,7 +452,7 @@ func TestConcurrentImagePulls(t *testing.T) {
 
 	images := []string{
 		"minecraft:latest",
-		"valheim:latest", 
+		"valheim:latest",
 		"cs2:latest",
 		"palworld:latest",
 	}

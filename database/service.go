@@ -79,7 +79,7 @@ func (gss *GameserverService) CreateGameserver(server *models.Gameserver) error 
 		Status:       models.TaskStatusActive,
 		CronSchedule: "0 2 * * *", // Daily at 2 AM
 	}
-	
+
 	if err := gss.CreateScheduledTask(backupTask); err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Msg("Failed to create automatic backup task")
 		// Don't fail gameserver creation if backup task creation fails
@@ -97,18 +97,18 @@ func (gss *GameserverService) UpdateGameserver(server *models.Gameserver) error 
 	if err != nil {
 		return err
 	}
-	
+
 	// Preserve fields that shouldn't be updated via form
 	server.CreatedAt = existing.CreatedAt
 	server.ContainerID = existing.ContainerID
 	server.Status = existing.Status
 	server.UpdatedAt = time.Now()
-	
+
 	// Populate derived fields from game
 	if err := gss.populateGameFields(server); err != nil {
 		return err
 	}
-	
+
 	return gss.db.UpdateGameserver(server)
 }
 
@@ -121,13 +121,13 @@ func (gss *GameserverService) populateGameFields(server *models.Gameserver) erro
 	server.GameType = game.Name
 	server.Image = game.Image
 	server.MemoryGB = float64(server.MemoryMB) / 1024.0
-	
+
 	// Get volume information
 	volumeName := fmt.Sprintf("gameservers-%s-data", server.Name)
 	if volumeInfo, err := gss.docker.GetVolumeInfo(volumeName); err == nil {
 		server.VolumeInfo = volumeInfo
 	}
-	
+
 	return nil
 }
 
@@ -138,7 +138,7 @@ func (gss *GameserverService) allocatePortsForServer(server *models.Gameserver) 
 	if err != nil {
 		return err
 	}
-	
+
 	usedPorts := make(map[int]bool)
 	for _, existingServer := range servers {
 		// Skip the current server if it's being updated
@@ -151,7 +151,7 @@ func (gss *GameserverService) allocatePortsForServer(server *models.Gameserver) 
 			}
 		}
 	}
-	
+
 	// Allocate ports using our port allocator
 	return gss.portAllocator.AllocatePortsForServer(server, usedPorts)
 }
@@ -162,22 +162,22 @@ func (gss *GameserverService) StartGameserver(id string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Populate latest settings from database
 	if err := gss.populateGameFields(server); err != nil {
 		return err
 	}
-	
+
 	// Create new container with latest settings
 	if err := gss.docker.CreateContainer(server); err != nil {
 		return err
 	}
-	
+
 	// Start the new container
 	if err := gss.docker.StartContainer(server.ContainerID); err != nil {
 		return err
 	}
-	
+
 	server.Status = models.StatusStarting
 	server.UpdatedAt = time.Now()
 	return gss.db.UpdateGameserver(server)
@@ -189,7 +189,7 @@ func (gss *GameserverService) StopGameserver(id string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Remove container entirely (this stops and removes)
 	if server.ContainerID != "" {
 		if err := gss.docker.RemoveContainer(server.ContainerID); err != nil {
@@ -197,7 +197,7 @@ func (gss *GameserverService) StopGameserver(id string) error {
 		}
 		server.ContainerID = "" // Clear container ID since it's gone
 	}
-	
+
 	server.Status = models.StatusStopped
 	server.UpdatedAt = time.Now()
 	return gss.db.UpdateGameserver(server)
@@ -209,7 +209,7 @@ func (gss *GameserverService) RestartGameserver(id string) error {
 	if err := gss.StopGameserver(id); err != nil {
 		return err
 	}
-	
+
 	// Then start (creates new container)
 	return gss.StartGameserver(id)
 }
@@ -220,7 +220,7 @@ func (gss *GameserverService) SendGameserverCommand(id string, command string) e
 	if err != nil {
 		return err
 	}
-	
+
 	if server.ContainerID == "" {
 		return &models.DatabaseError{
 			Op:  "send_command",
@@ -228,15 +228,15 @@ func (gss *GameserverService) SendGameserverCommand(id string, command string) e
 			Err: nil,
 		}
 	}
-	
+
 	if server.Status != models.StatusRunning {
 		return &models.DatabaseError{
-			Op:  "send_command", 
+			Op:  "send_command",
 			Msg: "gameserver is not running",
 			Err: nil,
 		}
 	}
-	
+
 	return gss.docker.SendCommand(server.ContainerID, command)
 }
 
@@ -246,18 +246,18 @@ func (gss *GameserverService) DeleteGameserver(id string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Remove container if it exists
 	if server.ContainerID != "" {
 		gss.docker.RemoveContainer(server.ContainerID)
 	}
-	
+
 	// Remove the auto-managed volume (this will delete all data!)
 	volumeName := fmt.Sprintf("gameservers-%s-data", server.Name)
 	if err := gss.docker.RemoveVolume(volumeName); err != nil {
 		log.Warn().Err(err).Str("volume", volumeName).Msg("Failed to remove volume, may not exist")
 	}
-	
+
 	return gss.db.DeleteGameserver(id)
 }
 
@@ -343,13 +343,13 @@ func (gss *GameserverService) CreateScheduledTask(task *models.ScheduledTask) er
 	now := time.Now()
 	task.CreatedAt, task.UpdatedAt = now, now
 	task.ID = models.GenerateID()
-	
+
 	// Calculate initial next run time
 	nextRun := services.CalculateNextRun(task.CronSchedule, now)
 	if !nextRun.IsZero() {
 		task.NextRun = &nextRun
 	}
-	
+
 	return gss.db.CreateScheduledTask(task)
 }
 
@@ -382,20 +382,20 @@ func (gss *GameserverService) CreateGameserverBackup(gameserverID string) error 
 	if err != nil {
 		return err
 	}
-	
+
 	// Create backup
 	err = gss.docker.CreateBackup(gameserver.ContainerID, gameserver.Name)
 	if err != nil {
 		return err
 	}
-	
+
 	// Clean up old backups if max_backups is set
 	err = gss.docker.CleanupOldBackups(gameserver.ContainerID, gameserver.MaxBackups)
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", gameserverID).Msg("Failed to cleanup old backups")
 		// Don't return error for cleanup failure, backup creation was successful
 	}
-	
+
 	return nil
 }
 
@@ -456,13 +456,13 @@ func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*mod
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// List files in /data/backups and filter for .tar.gz files
 	files, err := gss.docker.ListFiles(gameserver.ContainerID, "/data/backups")
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Filter for backup files
 	var backups []*models.FileInfo
 	for _, file := range files {
@@ -470,6 +470,6 @@ func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*mod
 			backups = append(backups, file)
 		}
 	}
-	
+
 	return backups, nil
 }

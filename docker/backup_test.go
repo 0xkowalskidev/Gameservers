@@ -256,7 +256,7 @@ func TestBackupFilenameParsing(t *testing.T) {
 	}
 
 	filename := backups[0]
-	
+
 	// Check filename format: backup-YYYY-MM-DD_HH-MM-SS.tar.gz
 	if len(filename) != 33 { // "backup-2024-01-01_12-00-00.tar.gz" = 33 chars
 		t.Errorf("Unexpected backup filename length: %d (filename: %s)", len(filename), filename)
@@ -273,9 +273,9 @@ func TestBackupFilenameParsing(t *testing.T) {
 
 func TestMultipleContainerBackups(t *testing.T) {
 	mock := NewMockDockerManager()
-	
+
 	containers := []string{"container-1", "container-2", "container-3"}
-	
+
 	// Create backups for each container
 	for i, containerID := range containers {
 		for j := 0; j < i+1; j++ { // Create 1, 2, 3 backups respectively
@@ -285,7 +285,7 @@ func TestMultipleContainerBackups(t *testing.T) {
 			}
 		}
 	}
-	
+
 	// Verify backup counts
 	for i, containerID := range containers {
 		backups := mock.GetBackups(containerID)
@@ -294,18 +294,18 @@ func TestMultipleContainerBackups(t *testing.T) {
 			t.Errorf("Container %s: expected %d backups, got %d", containerID, expectedCount, len(backups))
 		}
 	}
-	
+
 	// Cleanup one container's backups
 	err := mock.CleanupOldBackups("container-3", 2)
 	if err != nil {
 		t.Errorf("Failed to cleanup backups: %v", err)
 	}
-	
+
 	// Verify only container-3 was affected
 	backups1 := mock.GetBackups("container-1")
 	backups2 := mock.GetBackups("container-2")
 	backups3 := mock.GetBackups("container-3")
-	
+
 	if len(backups1) != 1 {
 		t.Errorf("Container-1 should still have 1 backup, got %d", len(backups1))
 	}

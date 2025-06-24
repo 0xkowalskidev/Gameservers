@@ -53,8 +53,8 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 }
 
 // Close closes the database connection
-func (dm *DatabaseManager) Close() error { 
-	return dm.db.Close() 
+func (dm *DatabaseManager) Close() error {
+	return dm.db.Close()
 }
 
 // migrate creates the database schema
@@ -99,7 +99,7 @@ func (dm *DatabaseManager) migrate() error {
 		`ALTER TABLE games ADD COLUMN port_mappings TEXT DEFAULT '[]'`,
 		`ALTER TABLE gameservers ADD COLUMN port_mappings TEXT DEFAULT '[]'`,
 	}
-	
+
 	for _, query := range alterQueries {
 		_, err := dm.db.Exec(query)
 		// Ignore errors for columns that already exist
@@ -107,7 +107,7 @@ func (dm *DatabaseManager) migrate() error {
 			log.Warn().Err(err).Str("query", query).Msg("Failed to add column, may already exist")
 		}
 	}
-	
+
 	return nil
 }
 
@@ -122,7 +122,7 @@ func (dm *DatabaseManager) seedGames() error {
 	}
 
 	games := []*models.Game{
-		{ID: "minecraft", Name: "Minecraft", Image: "ghcr.io/0xkowalskidev/gameservers/minecraft:latest", 
+		{ID: "minecraft", Name: "Minecraft", Image: "ghcr.io/0xkowalskidev/gameservers/minecraft:latest",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0},
 			},
@@ -133,9 +133,9 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "normal", Description: "models.Game difficulty (peaceful, easy, normal, hard)"},
 				{Name: "GAMEMODE", DisplayName: "models.Game Mode", Required: false, Default: "survival", Description: "Default game mode (survival, creative, adventure, spectator)"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 3072, CreatedAt: time.Now(), UpdatedAt: time.Now()},
-		{ID: "cs2", Name: "Counter-Strike 2", Image: "ghcr.io/0xkowalskidev/gameservers/cs2:latest", 
+		{ID: "cs2", Name: "Counter-Strike 2", Image: "ghcr.io/0xkowalskidev/gameservers/cs2:latest",
 			PortMappings: []models.PortMapping{
-				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0}, 
+				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0},
 				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
 			},
 			ConfigVars: []models.ConfigVar{
@@ -144,9 +144,9 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "10", Description: "Maximum number of players"},
 			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
-		{ID: "valheim", Name: "Valheim", Image: "ghcr.io/0xkowalskidev/gameservers/valheim:latest", 
+		{ID: "valheim", Name: "Valheim", Image: "ghcr.io/0xkowalskidev/gameservers/valheim:latest",
 			PortMappings: []models.PortMapping{
-				{Name: "game", Protocol: "udp", ContainerPort: 2456, HostPort: 0}, 
+				{Name: "game", Protocol: "udp", ContainerPort: 2456, HostPort: 0},
 				{Name: "query", Protocol: "udp", ContainerPort: 2457, HostPort: 0},
 			},
 			ConfigVars: []models.ConfigVar{
@@ -155,7 +155,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "PUBLIC", DisplayName: "Public Server", Required: false, Default: "true", Description: "Whether to list server publicly"},
 			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
-		{ID: "palworld", Name: "Palworld", Image: "ghcr.io/0xkowalskidev/gameservers/palworld:latest", 
+		{ID: "palworld", Name: "Palworld", Image: "ghcr.io/0xkowalskidev/gameservers/palworld:latest",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 8211, HostPort: 0},
 			},

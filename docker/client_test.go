@@ -42,7 +42,7 @@ func TestNewDockerManager(t *testing.T) {
 	// This test would require a real Docker daemon or extensive mocking
 	// For now, we'll just test that the function exists and returns the right type
 	t.Skip("Skipping integration test - requires Docker daemon")
-	
+
 	// In a real test environment with Docker available:
 	// dm, err := NewDockerManager()
 	// if err != nil {
@@ -58,7 +58,7 @@ func TestDockerError_Error(t *testing.T) {
 		Op:  "test_operation",
 		Msg: "test error message",
 	}
-	
+
 	expected := "docker test_operation: test error message"
 	if got := err.Error(); got != expected {
 		t.Errorf("DockerError.Error() = %q, want %q", got, expected)
@@ -70,13 +70,13 @@ func TestDockerError_WithCause(t *testing.T) {
 		Op:  "underlying",
 		Msg: "underlying error",
 	}
-	
+
 	err := &DockerError{
 		Op:  "wrapper",
 		Msg: "wrapper error",
 		Err: causeErr,
 	}
-	
+
 	expected := "docker wrapper: wrapper error: docker underlying: underlying error"
 	if got := err.Error(); got != expected {
 		t.Errorf("DockerError.Error() = %q, want %q", got, expected)

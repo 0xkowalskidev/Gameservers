@@ -29,10 +29,10 @@ func (h *Handlers) SendGameserverCommand(w http.ResponseWriter, r *http.Request)
 		HandleError(w, err, "send_command")
 		return
 	}
-	
+
 	command := r.FormValue("command")
 	log.Info().Str("gameserver_id", id).Str("command", command).Msg("Sending console command")
-	
+
 	if err := h.service.SendGameserverCommand(id, command); err != nil {
 		HandleError(w, InternalError(err, "Failed to send console command"), "send_command")
 		return
@@ -143,10 +143,10 @@ func (h *Handlers) GameserverStats(w http.ResponseWriter, r *http.Request) {
 
 			// Create stats JSON
 			statsJSON := map[string]interface{}{
-				"cpu":            cpuPercent,
-				"memoryUsageGB":  memUsageMB / 1024, // Convert MB to GB
-				"memoryLimitGB":  memLimitMB / 1024, // Convert MB to GB
-				"memoryPercent":  memPercent,
+				"cpu":           cpuPercent,
+				"memoryUsageGB": memUsageMB / 1024, // Convert MB to GB
+				"memoryLimitGB": memLimitMB / 1024, // Convert MB to GB
+				"memoryPercent": memPercent,
 			}
 
 			statsData, _ := json.Marshal(statsJSON)

@@ -73,7 +73,7 @@ func TestHandlers_StartGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-status.html", `{{.Status}}`)
 	handlers := New(mockService, tmpl)
-	
+
 	req := httptest.NewRequest("POST", "/1/start", nil)
 	w := httptest.NewRecorder()
 
@@ -90,7 +90,7 @@ func TestHandlers_StopGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-status.html", `{{.Status}}`)
 	handlers := New(mockService, tmpl)
-	
+
 	req := httptest.NewRequest("POST", "/1/stop", nil)
 	w := httptest.NewRecorder()
 
@@ -107,7 +107,7 @@ func TestHandlers_RestartGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-status.html", `{{.Status}}`)
 	handlers := New(mockService, tmpl)
-	
+
 	req := httptest.NewRequest("POST", "/1/restart", nil)
 	w := httptest.NewRecorder()
 
@@ -124,7 +124,7 @@ func TestHandlers_DeleteGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-deleted.html", `Gameserver deleted`)
 	handlers := New(mockService, tmpl)
-	
+
 	req := httptest.NewRequest("DELETE", "/1", nil)
 	w := httptest.NewRecorder()
 
@@ -183,7 +183,7 @@ func TestHandlers_UpdateGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-updated.html", `Gameserver updated`)
 	handlers := New(mockService, tmpl)
-	
+
 	formData := "name=Updated Server&game_id=minecraft&memory_mb=2048&cpu_cores=1"
 	req := httptest.NewRequest("PUT", "/1", strings.NewReader(formData))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -202,7 +202,7 @@ func TestHandlers_GetGameserverStatus(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-status.html", `{{.Status}}`)
 	handlers := New(mockService, tmpl)
-	
+
 	req := httptest.NewRequest("GET", "/1/status", nil)
 	w := httptest.NewRecorder()
 

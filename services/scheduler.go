@@ -41,7 +41,7 @@ func NewTaskScheduler(db DatabaseInterface, gameserverSvc GameserverServiceInter
 func (ts *TaskScheduler) Start() {
 	log.Info().Dur("interval", ts.checkInterval).Msg("Starting task scheduler")
 	ts.ticker = time.NewTicker(ts.checkInterval)
-	
+
 	go func() {
 		ts.updateNextRunTimes() // Initial calculation
 		for {
@@ -106,7 +106,7 @@ func (ts *TaskScheduler) updateTaskNextRun(task *models.ScheduledTask, from time
 		task.NextRun = nil
 	}
 	task.UpdatedAt = from
-	
+
 	if err := ts.db.UpdateScheduledTask(task); err != nil {
 		log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to update task")
 	}

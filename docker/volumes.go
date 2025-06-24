@@ -13,7 +13,7 @@ import (
 // CreateVolume creates a Docker volume
 func (d *DockerManager) CreateVolume(volumeName string) error {
 	ctx := context.Background()
-	
+
 	// Check if volume already exists
 	_, err := d.client.VolumeInspect(ctx, volumeName)
 	if err == nil {
@@ -21,9 +21,9 @@ func (d *DockerManager) CreateVolume(volumeName string) error {
 		log.Debug().Str("volume", volumeName).Msg("Volume already exists")
 		return nil
 	}
-	
+
 	log.Info().Str("volume", volumeName).Msg("Creating Docker volume")
-	
+
 	_, err = d.client.VolumeCreate(ctx, volume.CreateOptions{
 		Name: volumeName,
 		Labels: map[string]string{
@@ -37,7 +37,7 @@ func (d *DockerManager) CreateVolume(volumeName string) error {
 			Err: err,
 		}
 	}
-	
+
 	log.Info().Str("volume", volumeName).Msg("Successfully created Docker volume")
 	return nil
 }
@@ -45,9 +45,9 @@ func (d *DockerManager) CreateVolume(volumeName string) error {
 // RemoveVolume removes a Docker volume
 func (d *DockerManager) RemoveVolume(volumeName string) error {
 	ctx := context.Background()
-	
+
 	log.Info().Str("volume", volumeName).Msg("Removing Docker volume")
-	
+
 	err := d.client.VolumeRemove(ctx, volumeName, true) // force=true
 	if err != nil {
 		return &DockerError{
@@ -56,7 +56,7 @@ func (d *DockerManager) RemoveVolume(volumeName string) error {
 			Err: err,
 		}
 	}
-	
+
 	log.Info().Str("volume", volumeName).Msg("Successfully removed Docker volume")
 	return nil
 }
@@ -69,7 +69,7 @@ func (d *DockerManager) getVolumeNameForServer(server *models.Gameserver) string
 // GetVolumeInfo returns information about a Docker volume
 func (d *DockerManager) GetVolumeInfo(volumeName string) (*models.VolumeInfo, error) {
 	ctx := context.Background()
-	
+
 	vol, err := d.client.VolumeInspect(ctx, volumeName)
 	if err != nil {
 		return nil, &DockerError{
@@ -78,7 +78,7 @@ func (d *DockerManager) GetVolumeInfo(volumeName string) (*models.VolumeInfo, er
 			Err: err,
 		}
 	}
-	
+
 	return &models.VolumeInfo{
 		Name:       vol.Name,
 		MountPoint: vol.Mountpoint,

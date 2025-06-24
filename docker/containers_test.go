@@ -99,11 +99,11 @@ func TestMockDockerManager_CreateContainer(t *testing.T) {
 
 func TestMockDockerManager_StartContainer(t *testing.T) {
 	tests := []struct {
-		name          string
-		containerID   string
+		name           string
+		containerID    string
 		setupContainer bool
-		shouldFail    bool
-		expectError   bool
+		shouldFail     bool
+		expectError    bool
 		expectedStatus models.GameserverStatus
 	}{
 		{
@@ -115,11 +115,11 @@ func TestMockDockerManager_StartContainer(t *testing.T) {
 			expectedStatus: models.StatusRunning,
 		},
 		{
-			name:          "start non-existent container",
-			containerID:   "non-existent",
+			name:           "start non-existent container",
+			containerID:    "non-existent",
 			setupContainer: false,
-			shouldFail:    false,
-			expectError:   true,
+			shouldFail:     false,
+			expectError:    true,
 		},
 		{
 			name:           "start failure",
@@ -259,7 +259,7 @@ func TestMockDockerManager_ListContainers(t *testing.T) {
 	// Add some containers
 	server1 := &models.Gameserver{ID: "test1", Name: "server1"}
 	server2 := &models.Gameserver{ID: "test2", Name: "server2"}
-	
+
 	mock.CreateContainer(server1)
 	mock.CreateContainer(server2)
 

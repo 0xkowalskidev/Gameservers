@@ -58,15 +58,15 @@ func TestDatabaseManager_GameserverPortMappings(t *testing.T) {
 		}
 
 		if mapping.Protocol != expected.Protocol {
-			t.Errorf("Protocol mismatch for %s: expected %s, got %s", 
+			t.Errorf("Protocol mismatch for %s: expected %s, got %s",
 				mapping.Name, expected.Protocol, mapping.Protocol)
 		}
 		if mapping.ContainerPort != expected.ContainerPort {
-			t.Errorf("ContainerPort mismatch for %s: expected %d, got %d", 
+			t.Errorf("ContainerPort mismatch for %s: expected %d, got %d",
 				mapping.Name, expected.ContainerPort, mapping.ContainerPort)
 		}
 		if mapping.HostPort != expected.HostPort {
-			t.Errorf("HostPort mismatch for %s: expected %d, got %d", 
+			t.Errorf("HostPort mismatch for %s: expected %d, got %d",
 				mapping.Name, expected.HostPort, mapping.HostPort)
 		}
 	}

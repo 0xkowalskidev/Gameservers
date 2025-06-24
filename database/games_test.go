@@ -160,7 +160,7 @@ func TestDatabaseManager_GameImageFormat(t *testing.T) {
 
 		registryPart := game.Image[:len(expectedRegistry)]
 		if registryPart != expectedRegistry {
-			t.Errorf("Game %s image '%s' doesn't start with expected registry '%s'", 
+			t.Errorf("Game %s image '%s' doesn't start with expected registry '%s'",
 				game.ID, game.Image, expectedRegistry)
 		}
 

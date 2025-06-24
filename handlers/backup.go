@@ -35,14 +35,14 @@ func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Reques
 // CreateGameserverBackup creates a new backup
 func (h *Handlers) CreateGameserverBackup(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	log.Info().Str("gameserver_id", id).Msg("Creating backup")
-	
+
 	if err := h.service.CreateGameserverBackup(id); err != nil {
 		HandleError(w, InternalError(err, "Failed to create backup"), "create_backup")
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -53,14 +53,14 @@ func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	
+
 	// Get backup files
 	backups, err := h.service.ListGameserverBackups(id)
 	if err != nil {
 		HandleError(w, InternalError(err, "Failed to list backup files"), "list_backups")
 		return
 	}
-	
+
 	data := map[string]interface{}{
 		"Gameserver":   gameserver,
 		"Backups":      backups,
@@ -68,7 +68,7 @@ func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request)
 		"BackupCount":  len(backups),
 		"MaxBackups":   gameserver.MaxBackups,
 	}
-	
+
 	// If HTMX request, check if it's targeting a specific element
 	if r.Header.Get("HX-Request") == "true" {
 		// If the request is targeting #backup-list specifically, return just the list
@@ -94,20 +94,20 @@ func (h *Handlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request
 		HandleError(w, err, "delete_backup")
 		return
 	}
-	
+
 	gameserver, ok := h.getGameserver(w, id)
 	if !ok {
 		return
 	}
-	
+
 	log.Info().Str("gameserver_id", id).Str("backup_filename", backupFilename).Msg("Deleting backup")
-	
+
 	// Delete the backup file from /data/backups
 	backupPath := fmt.Sprintf("/data/backups/%s", backupFilename)
 	if err := h.service.DeletePath(gameserver.ContainerID, backupPath); err != nil {
 		HandleError(w, InternalError(err, "Failed to delete backup"), "delete_backup")
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusOK)
 }

@@ -114,7 +114,7 @@ func (s *GameserverService) CreateGameserver(ctx context.Context, req CreateGame
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
-	
+
 	// Copy port mappings from game template
 	copy(gs.PortMappings, game.PortMappings)
 
@@ -262,7 +262,7 @@ func (s *GameserverService) ExecuteScheduledTask(ctx context.Context, task *mode
 			return nil
 		}
 		return s.RestartGameserver(ctx, task.GameserverID)
-		
+
 	case models.TaskTypeBackup:
 		// Backups can happen regardless of server status
 		log.Info().
@@ -270,7 +270,7 @@ func (s *GameserverService) ExecuteScheduledTask(ctx context.Context, task *mode
 			Str("status", string(gameserver.Status)).
 			Msg("Executing scheduled backup")
 		return s.CreateBackup(ctx, task.GameserverID, "")
-		
+
 	default:
 		return BadRequest("Unknown task type: %s", string(task.Type))
 	}

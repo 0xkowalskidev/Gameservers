@@ -31,7 +31,7 @@ type DockerManager struct {
 // NewDockerManager creates a new Docker manager instance
 func NewDockerManager() (*DockerManager, error) {
 	log.Info().Msg("Connecting to Docker daemon")
-	
+
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create Docker client")
@@ -41,7 +41,7 @@ func NewDockerManager() (*DockerManager, error) {
 			Err: err,
 		}
 	}
-	
+
 	log.Info().Msg("Docker client connected successfully")
 	return &DockerManager{client: cli}, nil
 }

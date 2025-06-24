@@ -24,7 +24,7 @@ func createTestTemplate(contentTemplate string, contentParsing string) *template
 	if contentTemplate != "gameserver-files.html" {
 		template.Must(tmpl.New("gameserver-files.html").Parse(`{{.CurrentPath}}{{range .Files}}{{.Name}}{{end}}`))
 	}
-	// Add gameserver-backups.html if it's not the content template to avoid conflicts  
+	// Add gameserver-backups.html if it's not the content template to avoid conflicts
 	if contentTemplate != "gameserver-backups.html" {
 		template.Must(tmpl.New("gameserver-backups.html").Parse(`{{range .Backups}}{{.Name}}{{end}}`))
 	}
@@ -51,7 +51,7 @@ func (m *mockGameserverService) GetGameserver(id string) (*models.Gameserver, er
 }
 
 func (m *mockGameserverService) UpdateGameserver(server *models.Gameserver) error { return nil }
-func (m *mockGameserverService) DeleteGameserver(id string) error               { return nil }
+func (m *mockGameserverService) DeleteGameserver(id string) error                 { return nil }
 func (m *mockGameserverService) ListGameservers() ([]*models.Gameserver, error) {
 	return m.gameservers, nil
 }
@@ -68,7 +68,7 @@ func (m *mockGameserverService) GetGame(id string) (*models.Game, error) {
 	}
 	return nil, &services.HTTPError{Status: 404, Message: "game not found"}
 }
-func (m *mockGameserverService) CreateGame(game *models.Game) error { return nil }
+func (m *mockGameserverService) CreateGame(game *models.Game) error                    { return nil }
 func (m *mockGameserverService) SendGameserverCommand(id string, command string) error { return nil }
 func (m *mockGameserverService) StreamGameserverLogs(id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("log content")), nil
@@ -127,7 +127,7 @@ func (m *mockGameserverService) WriteFile(containerID, path string, content []by
 	return nil
 }
 func (m *mockGameserverService) CreateDirectory(containerID, path string) error { return nil }
-func (m *mockGameserverService) DeletePath(containerID, path string) error { return nil }
+func (m *mockGameserverService) DeletePath(containerID, path string) error      { return nil }
 func (m *mockGameserverService) RenameFile(containerID, oldPath, newPath string) error {
 	return nil
 }
@@ -148,7 +148,9 @@ func (m *mockGameserverService) ReadGameserverFile(gameserverID, path string) ([
 func (m *mockGameserverService) WriteGameserverFile(gameserverID, path string, content []byte) error {
 	return nil
 }
-func (m *mockGameserverService) CreateGameserverDirectory(gameserverID, path string) error { return nil }
+func (m *mockGameserverService) CreateGameserverDirectory(gameserverID, path string) error {
+	return nil
+}
 func (m *mockGameserverService) DeleteGameserverPath(gameserverID, path string) error { return nil }
 func (m *mockGameserverService) RenameGameserverFile(gameserverID, oldPath, newPath string) error {
 	return nil
@@ -215,7 +217,7 @@ func init() {
 // Helper function to create a new test router with gameserver ID
 func newTestRouter(gameserverID string) *chi.Mux {
 	r := chi.NewRouter()
-	
+
 	// Add middleware to inject the gameserver ID into all requests
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -227,14 +229,14 @@ func newTestRouter(gameserverID string) *chi.Mux {
 			next.ServeHTTP(w, req)
 		})
 	})
-	
+
 	return r
 }
 
 // Helper function to create a new test router with multiple URL parameters
 func newTestRouterWithParams(params map[string]string) *chi.Mux {
 	r := chi.NewRouter()
-	
+
 	// Add middleware to inject the URL parameters into all requests
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -248,7 +250,7 @@ func newTestRouterWithParams(params map[string]string) *chi.Mux {
 			next.ServeHTTP(w, req)
 		})
 	})
-	
+
 	return r
 }
 

@@ -15,7 +15,7 @@ func (h *Handlers) ListGameserverTasks(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	
+
 	tasks, err := h.service.ListScheduledTasksForGameserver(id)
 	if err != nil {
 		HandleError(w, InternalError(err, "Failed to list scheduled tasks"), "list_tasks")

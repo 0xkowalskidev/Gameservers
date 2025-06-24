@@ -179,8 +179,8 @@ func TestHandlers_BackupOperationsWithServiceErrors(t *testing.T) {
 		expectedStatus int
 	}{
 		{
-			name:           "create backup",
-			handler:        func(s *mockGameserverService) http.HandlerFunc { 
+			name: "create backup",
+			handler: func(s *mockGameserverService) http.HandlerFunc {
 				tmpl := createTestTemplate("backup-success.html", `Backup created`)
 				handlers := New(s, tmpl)
 				return handlers.CreateGameserverBackup
@@ -190,8 +190,8 @@ func TestHandlers_BackupOperationsWithServiceErrors(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "restore backup",
-			handler:        func(s *mockGameserverService) http.HandlerFunc { 
+			name: "restore backup",
+			handler: func(s *mockGameserverService) http.HandlerFunc {
 				tmpl := createTestTemplate("backup-success.html", `Backup restored`)
 				handlers := New(s, tmpl)
 				return handlers.RestoreGameserverBackup
@@ -201,8 +201,8 @@ func TestHandlers_BackupOperationsWithServiceErrors(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "delete backup",
-			handler:        func(s *mockGameserverService) http.HandlerFunc { 
+			name: "delete backup",
+			handler: func(s *mockGameserverService) http.HandlerFunc {
 				tmpl := createTestTemplate("backup-success.html", `Backup deleted`)
 				handlers := New(s, tmpl)
 				return handlers.DeleteGameserverBackup
@@ -219,7 +219,7 @@ func TestHandlers_BackupOperationsWithServiceErrors(t *testing.T) {
 
 			var req *http.Request
 			var url string
-			
+
 			if strings.Contains(tt.formData, "backup=") {
 				// For restore and delete operations, use query parameters
 				if tt.method == "POST" {
@@ -230,7 +230,7 @@ func TestHandlers_BackupOperationsWithServiceErrors(t *testing.T) {
 			} else {
 				url = "/1/backups"
 			}
-			
+
 			req = httptest.NewRequest(tt.method, url, nil)
 			w := httptest.NewRecorder()
 

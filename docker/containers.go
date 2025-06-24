@@ -28,19 +28,19 @@ func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
 	// Prepare environment variables with automatic resource settings
 	env := make([]string, len(server.Environment))
 	copy(env, server.Environment)
-	
+
 	// Automatically set MEMORY_MB for images that need it
 	if server.MemoryMB > 0 {
 		env = append(env, fmt.Sprintf("MEMORY_MB=%d", server.MemoryMB))
 	}
-	
+
 	// Set up port mappings
 	exposedPorts := make(nat.PortSet)
 	for _, portMapping := range server.PortMappings {
 		port := nat.Port(fmt.Sprintf("%d/%s", portMapping.ContainerPort, portMapping.Protocol))
 		exposedPorts[port] = struct{}{}
 	}
-	
+
 	// Container configuration
 	config := &container.Config{
 		Image:        server.Image,
@@ -80,10 +80,10 @@ func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
 			Name: "unless-stopped",
 		},
 	}
-	
+
 	// Apply memory constraint (always required)
 	hostConfig.Memory = int64(server.MemoryMB) * 1024 * 1024 // Convert MB to bytes
-	
+
 	// Apply CPU constraint (optional - 0 means unlimited)
 	if server.CPUCores > 0 {
 		// Convert CPU cores to Docker's quota/period system
@@ -98,12 +98,12 @@ func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
 		log.Error().Err(err).Str("volume", volumeName).Msg("Failed to create volume")
 		return err
 	}
-	
+
 	// Mount the volume to /data in the container (standard gameserver path)
 	hostConfig.Binds = []string{
 		fmt.Sprintf("%s:/data", volumeName),
 	}
-	
+
 	// Add any additional volumes if specified
 	if len(server.Volumes) > 0 {
 		hostConfig.Binds = append(hostConfig.Binds, server.Volumes...)

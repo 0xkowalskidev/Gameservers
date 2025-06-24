@@ -37,18 +37,18 @@ func cronFieldMatches(field string, value int) bool {
 	if field == "*" {
 		return true
 	}
-	
+
 	if strings.HasPrefix(field, "*/") {
 		step, err := strconv.Atoi(field[2:])
 		return err == nil && step > 0 && value%step == 0
 	}
-	
+
 	if parts := strings.Split(field, "-"); len(parts) == 2 {
 		start, err1 := strconv.Atoi(parts[0])
 		end, err2 := strconv.Atoi(parts[1])
 		return err1 == nil && err2 == nil && value >= start && value <= end
 	}
-	
+
 	fieldValue, err := strconv.Atoi(field)
 	return err == nil && fieldValue == value
 }

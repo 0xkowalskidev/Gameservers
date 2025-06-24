@@ -16,8 +16,8 @@ func TestDatabaseManager_CRUD(t *testing.T) {
 
 	server := &models.Gameserver{
 		ID: "test-1", Name: "Test Server", GameID: "minecraft",
-		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Environment: []string{"ENV=prod"}, Volumes: []string{"/data:/mc"},
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Environment:  []string{"ENV=prod"}, Volumes: []string{"/data:/mc"},
 		Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 
@@ -166,9 +166,9 @@ func TestDatabaseManager_GameserverWithComplexData(t *testing.T) {
 	defer db.Close()
 
 	server := &models.Gameserver{
-		ID:       "complex-test",
-		Name:     "Complex Server",
-		GameID:   "minecraft",
+		ID:     "complex-test",
+		Name:   "Complex Server",
+		GameID: "minecraft",
 		PortMappings: []models.PortMapping{
 			{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 25565},
 			{Name: "rcon", Protocol: "tcp", ContainerPort: 25575, HostPort: 25575},

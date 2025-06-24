@@ -91,7 +91,7 @@ func (dm *DatabaseManager) scanGame(row interface{ Scan(...interface{}) error })
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := json.Unmarshal([]byte(portMappingsJSON), &game.PortMappings); err != nil {
 		return nil, &models.DatabaseError{Op: "scan_game", Msg: "failed to unmarshal port mappings", Err: err}
 	}

@@ -16,9 +16,9 @@ func TestDatabaseManager_ScheduledTaskCRUD(t *testing.T) {
 
 	// Create a gameserver first
 	gameserver := &models.Gameserver{
-		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		ID: "test-gs", Name: "Test Server", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:       models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	if err := db.CreateGameserver(gameserver); err != nil {
 		t.Fatalf("Failed to create gameserver: %v", err)
@@ -113,8 +113,8 @@ func TestDatabaseManager_ScheduledTaskCascadeDelete(t *testing.T) {
 
 	// Create gameserver and task
 	gameserver := &models.Gameserver{
-		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped, 
+		ID: "test-gs", Name: "Test Server", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, Status: models.StatusStopped,
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	db.CreateGameserver(gameserver)
@@ -202,9 +202,9 @@ func TestDatabaseManager_MultipleScheduledTasks(t *testing.T) {
 
 	// Create gameserver
 	gameserver := &models.Gameserver{
-		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		ID: "test-gs", Name: "Test Server", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:       models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	db.CreateGameserver(gameserver)
 
@@ -286,9 +286,9 @@ func TestDatabaseManager_ScheduledTaskWithNullNextRun(t *testing.T) {
 
 	// Create gameserver
 	gameserver := &models.Gameserver{
-		ID: "test-gs", Name: "Test Server", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		ID: "test-gs", Name: "Test Server", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:       models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	db.CreateGameserver(gameserver)
 
@@ -325,14 +325,14 @@ func TestDatabaseManager_ScheduledTaskDifferentGameservers(t *testing.T) {
 
 	// Create multiple gameservers
 	gameserver1 := &models.Gameserver{
-		ID: "gs-1", Name: "Server 1", GameID: "minecraft", 
-		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}}, 
-		Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		ID: "gs-1", Name: "Server 1", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Status:       models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	gameserver2 := &models.Gameserver{
-		ID: "gs-2", Name: "Server 2", GameID: "valheim", 
-		PortMappings: []models.PortMapping{{Protocol: "udp", ContainerPort: 2456, HostPort: 0}}, 
-		Status: models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		ID: "gs-2", Name: "Server 2", GameID: "valheim",
+		PortMappings: []models.PortMapping{{Protocol: "udp", ContainerPort: 2456, HostPort: 0}},
+		Status:       models.StatusStopped, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	db.CreateGameserver(gameserver1)
 	db.CreateGameserver(gameserver2)

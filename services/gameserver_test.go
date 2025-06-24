@@ -10,8 +10,8 @@ import (
 // mockDB implements models.GameserverServiceInterface for testing
 type mockDB struct {
 	models.GameserverServiceInterface // Embed interface with nil methods
-	gameservers map[string]*models.Gameserver
-	games       map[string]*models.Game
+	gameservers                       map[string]*models.Gameserver
+	games                             map[string]*models.Game
 }
 
 func newMockDB() *mockDB {
@@ -69,7 +69,7 @@ func (db *mockDB) DeleteGameserver(id string) error {
 // mockDocker implements models.DockerManagerInterface for testing
 type mockDocker struct {
 	models.DockerManagerInterface // Embed interface with nil methods
-	containers map[string]*models.Gameserver
+	containers                    map[string]*models.Gameserver
 }
 
 func newMockDocker() *mockDocker {
@@ -84,9 +84,9 @@ func (d *mockDocker) CreateContainer(server *models.Gameserver) error {
 	return nil
 }
 
-func (d *mockDocker) StartContainer(containerID string) error { return nil }
-func (d *mockDocker) StopContainer(containerID string) error { return nil }
-func (d *mockDocker) RemoveContainer(containerID string) error { return nil }
+func (d *mockDocker) StartContainer(containerID string) error            { return nil }
+func (d *mockDocker) StopContainer(containerID string) error             { return nil }
+func (d *mockDocker) RemoveContainer(containerID string) error           { return nil }
 func (d *mockDocker) CreateBackup(gameserverID, backupPath string) error { return nil }
 
 func TestServiceCreateGameserver(t *testing.T) {

@@ -71,7 +71,7 @@ func (h *BaseHandler) renderGameserverPageOrPartial(w http.ResponseWriter, r *ht
 		data = make(map[string]interface{})
 	}
 	data["Gameserver"] = gameserver
-	
+
 	if r.Header.Get("HX-Request") == "true" {
 		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
 			HandleError(w, InternalError(err, "Failed to render template"), "render_template")
@@ -139,7 +139,7 @@ func (h *BaseHandler) parseScheduledTaskForm(r *http.Request, gameserverID strin
 	name := strings.TrimSpace(r.FormValue("name"))
 	taskType := strings.TrimSpace(r.FormValue("type"))
 	cronSchedule := strings.TrimSpace(r.FormValue("cron_schedule"))
-	
+
 	if name == "" || taskType == "" || cronSchedule == "" {
 		return nil, BadRequest("name, type and cron_schedule are required")
 	}
@@ -240,14 +240,14 @@ func (h *BaseHandler) renderWithGameserverContext(w http.ResponseWriter, r *http
 			HandleError(w, err, "render_content_template")
 			return
 		}
-		
+
 		// Create wrapper data with the rendered content
 		wrapperData := map[string]interface{}{
 			"Gameserver":  gameserver,
 			"CurrentPage": currentPage,
 			"Content":     template.HTML(contentBuf.String()),
 		}
-		
+
 		// Use the Render function to wrap in layout
 		Render(w, r, h.tmpl, "gameserver-wrapper.html", wrapperData)
 		return
@@ -261,14 +261,14 @@ func (h *BaseHandler) renderWithGameserverContext(w http.ResponseWriter, r *http
 		HandleError(w, err, "render_content_template")
 		return
 	}
-	
+
 	// Create wrapper data with the rendered content
 	wrapperData := map[string]interface{}{
 		"Gameserver":  gameserver,
 		"CurrentPage": currentPage,
 		"Content":     template.HTML(contentBuf.String()),
 	}
-	
+
 	// Render the wrapper template
 	err = h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData)
 	if err != nil {
@@ -310,4 +310,3 @@ func (h *BaseHandler) jsonStatus(w http.ResponseWriter, status, message string) 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": status, "message": message})
 }
-

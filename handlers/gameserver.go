@@ -46,18 +46,18 @@ func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	
+
 	games, err := h.service.ListGames()
 	if err != nil {
 		HandleError(w, InternalError(err, "Failed to list games"), "edit_gameserver")
 		return
 	}
-	
+
 	data := map[string]interface{}{
 		"Gameserver": gameserver,
 		"Games":      games,
 	}
-	
+
 	// If HTMX request, render just the template content
 	if r.Header.Get("HX-Request") == "true" {
 		if err := h.tmpl.ExecuteTemplate(w, "edit-gameserver.html", data); err != nil {

@@ -29,7 +29,7 @@ func (m *MockSchedulerDatabase) ListActiveScheduledTasks() ([]*models.ScheduledT
 	if m.shouldFail["list_active"] {
 		return nil, fmt.Errorf("mock list active error")
 	}
-	
+
 	var activeTasks []*models.ScheduledTask
 	for _, task := range m.tasks {
 		if task.Status == models.TaskStatusActive {
@@ -43,7 +43,7 @@ func (m *MockSchedulerDatabase) UpdateScheduledTask(task *models.ScheduledTask) 
 	if m.shouldFail["update"] {
 		return fmt.Errorf("mock update error")
 	}
-	
+
 	m.tasks[task.ID] = task
 	return nil
 }
@@ -53,11 +53,11 @@ func (m *MockSchedulerDatabase) UpdateScheduledTask(task *models.ScheduledTask) 
 // =============================================================================
 
 type MockSchedulerGameserverService struct {
-	gameservers    map[string]*models.Gameserver
-	executedTasks  []string
-	shouldFail     map[string]bool
-	restartCalled  []string
-	backupsCalled  []string
+	gameservers   map[string]*models.Gameserver
+	executedTasks []string
+	shouldFail    map[string]bool
+	restartCalled []string
+	backupsCalled []string
 }
 
 func NewMockSchedulerGameserverService() *MockSchedulerGameserverService {
@@ -123,9 +123,9 @@ func (m *MockSchedulerGameserverService) ExecuteScheduledTask(ctx context.Contex
 	if m.shouldFail["execute"] {
 		return fmt.Errorf("mock execute error")
 	}
-	
+
 	m.executedTasks = append(m.executedTasks, task.ID)
-	
+
 	switch task.Type {
 	case models.TaskTypeRestart:
 		// Check if gameserver exists and is running
@@ -138,7 +138,7 @@ func (m *MockSchedulerGameserverService) ExecuteScheduledTask(ctx context.Contex
 		m.backupsCalled = append(m.backupsCalled, task.GameserverID)
 		return m.CreateBackup(ctx, task.GameserverID, "")
 	}
-	
+
 	return nil
 }
 
@@ -161,7 +161,7 @@ func TestTaskScheduler_NextRunCalculation(t *testing.T) {
 	db := NewMockSchedulerDatabase()
 	svc := NewMockSchedulerGameserverService()
 	scheduler := NewTaskScheduler(db, svc)
-	
+
 	// Create a task with a cron schedule
 	task := &models.ScheduledTask{
 		ID:           "test-task",
@@ -173,12 +173,12 @@ func TestTaskScheduler_NextRunCalculation(t *testing.T) {
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
-	
+
 	db.tasks[task.ID] = task
-	
+
 	// Calculate next run times
 	scheduler.updateNextRunTimes()
-	
+
 	// Verify next run was set
 	updatedTask := db.tasks[task.ID]
 	if updatedTask.NextRun == nil {
@@ -228,13 +228,13 @@ func TestTaskScheduler_TaskExecution(t *testing.T) {
 			expectBackup:   true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := NewMockSchedulerDatabase()
 			svc := NewMockSchedulerGameserverService()
 			scheduler := NewTaskScheduler(db, svc)
-			
+
 			// Setup gameserver
 			gameserver := &models.Gameserver{
 				ID:     "test-gs",
@@ -242,7 +242,7 @@ func TestTaskScheduler_TaskExecution(t *testing.T) {
 				Status: tt.serverStatus,
 			}
 			svc.gameservers[gameserver.ID] = gameserver
-			
+
 			// Create task that's due now
 			now := time.Now()
 			task := &models.ScheduledTask{
@@ -257,17 +257,17 @@ func TestTaskScheduler_TaskExecution(t *testing.T) {
 				UpdatedAt:    now,
 			}
 			db.tasks[task.ID] = task
-			
+
 			// Execute the scheduler check
 			scheduler.processTasks()
-			
+
 			// Verify execution
 			if tt.expectExecuted {
 				if len(svc.executedTasks) == 0 {
 					t.Errorf("Expected task to be executed, but it wasn't")
 				}
 			}
-			
+
 			if tt.expectRestart {
 				if len(svc.restartCalled) == 0 {
 					t.Errorf("Expected restart to be called, but it wasn't")
@@ -277,7 +277,7 @@ func TestTaskScheduler_TaskExecution(t *testing.T) {
 					t.Errorf("Expected restart NOT to be called, but it was")
 				}
 			}
-			
+
 			if tt.expectBackup {
 				if len(svc.backupsCalled) == 0 {
 					t.Errorf("Expected backup to be called, but it wasn't")
@@ -287,7 +287,7 @@ func TestTaskScheduler_TaskExecution(t *testing.T) {
 					t.Errorf("Expected backup NOT to be called, but it was")
 				}
 			}
-			
+
 			// Verify task was updated with new next run
 			updatedTask := db.tasks[task.ID]
 			if updatedTask.LastRun == nil {
@@ -304,7 +304,7 @@ func TestTaskScheduler_ErrorHandling(t *testing.T) {
 	db := NewMockSchedulerDatabase()
 	svc := NewMockSchedulerGameserverService()
 	scheduler := NewTaskScheduler(db, svc)
-	
+
 	// Test with non-existent gameserver
 	now := time.Now()
 	task := &models.ScheduledTask{
@@ -317,10 +317,10 @@ func TestTaskScheduler_ErrorHandling(t *testing.T) {
 		NextRun:      &now,
 	}
 	db.tasks[task.ID] = task
-	
+
 	// This should not panic
 	scheduler.processTasks()
-	
+
 	// Task should still be updated even if execution failed
 	updatedTask := db.tasks[task.ID]
 	if updatedTask.LastRun == nil {
@@ -333,18 +333,18 @@ func TestTaskScheduler_DatabaseErrors(t *testing.T) {
 		db := NewMockSchedulerDatabase()
 		svc := NewMockSchedulerGameserverService()
 		scheduler := NewTaskScheduler(db, svc)
-		
+
 		db.shouldFail["list_active"] = true
-		
+
 		// Should not panic
 		scheduler.processTasks()
 	})
-	
+
 	t.Run("update_error", func(t *testing.T) {
 		db := NewMockSchedulerDatabase()
 		svc := NewMockSchedulerGameserverService()
 		scheduler := NewTaskScheduler(db, svc)
-		
+
 		now := time.Now()
 		task := &models.ScheduledTask{
 			ID:           "test-task",
@@ -355,15 +355,15 @@ func TestTaskScheduler_DatabaseErrors(t *testing.T) {
 			NextRun:      &now,
 		}
 		db.tasks[task.ID] = task
-		
+
 		// Setup gameserver
 		svc.gameservers["test-gs"] = &models.Gameserver{
 			ID:     "test-gs",
 			Status: models.StatusRunning,
 		}
-		
+
 		db.shouldFail["update"] = true
-		
+
 		// Should not panic even if update fails
 		scheduler.processTasks()
 	})
@@ -386,7 +386,7 @@ func TestCronFieldMatches(t *testing.T) {
 		{"invalid step", "*/0", 5, false},
 		{"invalid pattern", "abc", 5, false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := cronFieldMatches(tt.field, tt.value)
