@@ -33,19 +33,17 @@ func NewTaskScheduler(db DatabaseInterface, gameserverSvc GameserverServiceInter
 		gameserverSvc: gameserverSvc,
 		ctx:           ctx,
 		cancel:        cancel,
-		checkInterval: time.Minute, // Check every minute
+		checkInterval: time.Minute,
 	}
 }
 
 // Start begins the task scheduler
 func (ts *TaskScheduler) Start() {
 	log.Info().Dur("interval", ts.checkInterval).Msg("Starting task scheduler")
-	
 	ts.ticker = time.NewTicker(ts.checkInterval)
+	
 	go func() {
-		// Initial calculation of next run times
-		ts.calculateNextRunTimes()
-		
+		ts.updateNextRunTimes() // Initial calculation
 		for {
 			select {
 			case <-ts.ctx.Done():
@@ -66,21 +64,17 @@ func (ts *TaskScheduler) Stop() {
 	ts.cancel()
 }
 
-func (ts *TaskScheduler) calculateNextRunTimes() {
+func (ts *TaskScheduler) updateNextRunTimes() {
 	tasks, err := ts.db.ListActiveScheduledTasks()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to list active scheduled tasks")
 		return
 	}
 
+	now := time.Now()
 	for _, task := range tasks {
-		nextRun := CalculateNextRun(task.CronSchedule, time.Now())
-		if !nextRun.IsZero() {
-			task.NextRun = &nextRun
-			task.UpdatedAt = time.Now()
-			if err := ts.db.UpdateScheduledTask(task); err != nil {
-				log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to update task next run time")
-			}
+		if task.NextRun == nil {
+			ts.updateTaskNextRun(task, now)
 		}
 	}
 }
@@ -94,55 +88,33 @@ func (ts *TaskScheduler) processTasks() {
 	}
 
 	for _, task := range tasks {
-		// Recalculate next run time if it's nil (e.g., after task update)
 		if task.NextRun == nil {
-			log.Info().Str("task_id", task.ID).Str("task_name", task.Name).Msg("Recalculating next run time for updated task")
-			nextRun := CalculateNextRun(task.CronSchedule, now)
-			if !nextRun.IsZero() {
-				task.NextRun = &nextRun
-			} else {
-				task.NextRun = nil
-			}
-			task.UpdatedAt = now
-			if err := ts.db.UpdateScheduledTask(task); err != nil {
-				log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to update task next run time")
-			}
-			continue
-		}
-
-		// Check if task is due
-		if task.NextRun != nil && task.NextRun.Before(now) {
+			ts.updateTaskNextRun(task, now)
+		} else if task.NextRun.Before(now) {
 			ts.executeTask(task)
-			
-			// Update last run and calculate next run
 			task.LastRun = &now
-			nextRun := CalculateNextRun(task.CronSchedule, now)
-			if !nextRun.IsZero() {
-				task.NextRun = &nextRun
-			} else {
-				task.NextRun = nil
-			}
-			task.UpdatedAt = now
-			
-			if err := ts.db.UpdateScheduledTask(task); err != nil {
-				log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to update task after execution")
-			}
+			ts.updateTaskNextRun(task, now)
 		}
 	}
 }
 
-func (ts *TaskScheduler) executeTask(task *models.ScheduledTask) {
-	log.Info().
-		Str("task_id", task.ID).
-		Str("task_name", task.Name).
-		Str("type", string(task.Type)).
-		Msg("Executing scheduled task")
+func (ts *TaskScheduler) updateTaskNextRun(task *models.ScheduledTask, from time.Time) {
+	nextRun := CalculateNextRun(task.CronSchedule, from)
+	if !nextRun.IsZero() {
+		task.NextRun = &nextRun
+	} else {
+		task.NextRun = nil
+	}
+	task.UpdatedAt = from
+	
+	if err := ts.db.UpdateScheduledTask(task); err != nil {
+		log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to update task")
+	}
+}
 
+func (ts *TaskScheduler) executeTask(task *models.ScheduledTask) {
+	log.Info().Str("task_id", task.ID).Str("task_name", task.Name).Str("type", string(task.Type)).Msg("Executing scheduled task")
 	if err := ts.gameserverSvc.ExecuteScheduledTask(context.Background(), task); err != nil {
-		log.Error().
-			Err(err).
-			Str("task_id", task.ID).
-			Str("task_name", task.Name).
-			Msg("Failed to execute scheduled task")
+		log.Error().Err(err).Str("task_id", task.ID).Str("task_name", task.Name).Msg("Failed to execute scheduled task")
 	}
 }

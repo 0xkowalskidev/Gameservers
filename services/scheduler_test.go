@@ -177,7 +177,7 @@ func TestTaskScheduler_NextRunCalculation(t *testing.T) {
 	db.tasks[task.ID] = task
 	
 	// Calculate next run times
-	scheduler.calculateNextRunTimes()
+	scheduler.updateNextRunTimes()
 	
 	// Verify next run was set
 	updatedTask := db.tasks[task.ID]
