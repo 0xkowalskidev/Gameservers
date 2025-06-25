@@ -12,7 +12,7 @@ import (
 func TestHandlers_IndexGameservers(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("index.html", `{{range .Gameservers}}{{.Name}}{{end}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
@@ -32,7 +32,7 @@ func TestHandlers_IndexGameservers(t *testing.T) {
 func TestHandlers_CreateGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-row.html", `{{.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	formData := "name=test&game_id=minecraft&memory_mb=1024&cpu_cores=0"
 	req := httptest.NewRequest("POST", "/", strings.NewReader(formData))
@@ -49,7 +49,7 @@ func TestHandlers_CreateGameserver(t *testing.T) {
 func TestHandlers_ShowGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-details.html", `{{.Gameserver.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1", nil)
 	w := httptest.NewRecorder()
@@ -72,7 +72,7 @@ func TestHandlers_ShowGameserver(t *testing.T) {
 func TestHandlers_StartGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-status.html", `{{.Status}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("POST", "/1/start", nil)
 	w := httptest.NewRecorder()
@@ -89,7 +89,7 @@ func TestHandlers_StartGameserver(t *testing.T) {
 func TestHandlers_StopGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-status.html", `{{.Status}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("POST", "/1/stop", nil)
 	w := httptest.NewRecorder()
@@ -106,7 +106,7 @@ func TestHandlers_StopGameserver(t *testing.T) {
 func TestHandlers_RestartGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-status.html", `{{.Status}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("POST", "/1/restart", nil)
 	w := httptest.NewRecorder()
@@ -123,7 +123,7 @@ func TestHandlers_RestartGameserver(t *testing.T) {
 func TestHandlers_DeleteGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-deleted.html", `Gameserver deleted`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("DELETE", "/1", nil)
 	w := httptest.NewRecorder()
@@ -140,7 +140,7 @@ func TestHandlers_DeleteGameserver(t *testing.T) {
 func TestHandlers_NewGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("new-gameserver.html", `{{range .Games}}{{.Name}}{{end}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/new", nil)
 	w := httptest.NewRecorder()
@@ -160,7 +160,7 @@ func TestHandlers_NewGameserver(t *testing.T) {
 func TestHandlers_EditGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("edit-gameserver.html", `{{.Gameserver.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1/edit", nil)
 	w := httptest.NewRecorder()
@@ -182,7 +182,7 @@ func TestHandlers_EditGameserver(t *testing.T) {
 func TestHandlers_UpdateGameserver(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-updated.html", `Gameserver updated`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	formData := "name=Updated Server&game_id=minecraft&memory_mb=2048&cpu_cores=1"
 	req := httptest.NewRequest("PUT", "/1", strings.NewReader(formData))
@@ -201,7 +201,7 @@ func TestHandlers_UpdateGameserver(t *testing.T) {
 func TestHandlers_GetGameserverStatus(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-status.html", `{{.Status}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1/status", nil)
 	w := httptest.NewRecorder()
@@ -223,7 +223,7 @@ func TestHandlers_GetGameserverStatus(t *testing.T) {
 func TestHandlers_ShowGameserver_NotFound(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-details.html", `{{.Gameserver.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/999", nil)
 	w := httptest.NewRecorder()
@@ -240,7 +240,7 @@ func TestHandlers_ShowGameserver_NotFound(t *testing.T) {
 func TestHandlers_CreateGameserver_InvalidData(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-row.html", `{{.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	// Missing required fields
 	formData := "name=&game="
@@ -258,7 +258,7 @@ func TestHandlers_CreateGameserver_InvalidData(t *testing.T) {
 func TestHandlers_CreateGameserver_ParseFormError(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-row.html", `{{.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	// Invalid form data that will cause ParseForm to fail
 	req := httptest.NewRequest("POST", "/", strings.NewReader("invalid%form%data"))

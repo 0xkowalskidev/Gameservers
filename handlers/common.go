@@ -11,7 +11,13 @@ import (
 	"time"
 
 	"0xkowalskidev/gameservers/models"
+	"github.com/0xkowalskidev/gameserverquery/protocol"
 )
+
+// QueryServiceInterface defines the interface for game server queries
+type QueryServiceInterface interface {
+	QueryGameserver(gameserver *models.Gameserver, game *models.Game) (*protocol.ServerInfo, error)
+}
 
 // Error handling functions - imported from main package
 var (
@@ -35,15 +41,17 @@ type BaseHandler struct {
 	tmpl            *template.Template
 	maxFileEditSize int64
 	maxUploadSize   int64
+	queryService    QueryServiceInterface
 }
 
 // NewBaseHandler creates a new base handler
-func NewBaseHandler(service models.GameserverServiceInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64) *BaseHandler {
+func NewBaseHandler(service models.GameserverServiceInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64, queryService QueryServiceInterface) *BaseHandler {
 	return &BaseHandler{
 		service:         service,
 		tmpl:            tmpl,
 		maxFileEditSize: maxFileEditSize,
 		maxUploadSize:   maxUploadSize,
+		queryService:    queryService,
 	}
 }
 
@@ -52,8 +60,8 @@ type Handlers struct {
 	*BaseHandler
 }
 
-func New(service models.GameserverServiceInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64) *Handlers {
-	return &Handlers{BaseHandler: NewBaseHandler(service, tmpl, maxFileEditSize, maxUploadSize)}
+func New(service models.GameserverServiceInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64, queryService QueryServiceInterface) *Handlers {
+	return &Handlers{BaseHandler: NewBaseHandler(service, tmpl, maxFileEditSize, maxUploadSize, queryService)}
 }
 
 // Helper function to get gameserver with error handling

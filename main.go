@@ -148,8 +148,12 @@ func main() {
 	handlers.LogAndRespond = LogAndRespond
 	handlers.Render = Render
 
+	// Initialize query service
+	queryService := services.NewQueryService()
+	log.Info().Msg("Query service initialized")
+
 	// Initialize handlers (using database service which implements models.GameserverServiceInterface)
-	handlerInstance := handlers.New(dbGameserverService, tmpl, config.MaxFileEditSize, config.MaxUploadSize)
+	handlerInstance := handlers.New(dbGameserverService, tmpl, config.MaxFileEditSize, config.MaxUploadSize, queryService)
 
 	// Chi HTTP Server
 	r := chi.NewRouter()
@@ -194,6 +198,7 @@ func main() {
 	r.Get("/{id}/console", handlerInstance.GameserverConsole)
 	r.Get("/{id}/logs", handlerInstance.GameserverLogs)
 	r.Get("/{id}/stats", handlerInstance.GameserverStats)
+	r.Get("/{id}/status", handlerInstance.GetServerStatus)
 	r.Get("/{id}/tasks", handlerInstance.ListGameserverTasks)
 	r.Get("/{id}/tasks/new", handlerInstance.NewGameserverTask)
 	r.Post("/{id}/tasks", handlerInstance.CreateGameserverTask)

@@ -13,7 +13,7 @@ import (
 func TestHandlers_GameserverConsole(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-console.html", `Console for {{.Gameserver.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1/console", nil)
 	w := httptest.NewRecorder()
@@ -35,7 +35,7 @@ func TestHandlers_GameserverConsole(t *testing.T) {
 func TestHandlers_GameserverConsole_HTMX(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-console.html", `Console for {{.Gameserver.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1/console", nil)
 	req.Header.Set("HX-Request", "true")
@@ -58,7 +58,7 @@ func TestHandlers_GameserverConsole_HTMX(t *testing.T) {
 func TestHandlers_GameserverConsole_NotFound(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-console.html", `Console for {{.Gameserver.Name}}`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/999/console", nil)
 	w := httptest.NewRecorder()
@@ -75,7 +75,7 @@ func TestHandlers_GameserverConsole_NotFound(t *testing.T) {
 func TestHandlers_SendGameserverCommand(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	formData := "command=say Hello World"
 	req := httptest.NewRequest("POST", "/1/console/command", strings.NewReader(formData))
@@ -94,7 +94,7 @@ func TestHandlers_SendGameserverCommand(t *testing.T) {
 func TestHandlers_SendGameserverCommand_MissingCommand(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	// Missing command field
 	formData := "other_field=value"
@@ -118,7 +118,7 @@ func TestHandlers_SendGameserverCommand_ServiceError(t *testing.T) {
 		sendCommandError:      &services.HTTPError{Status: 500, Message: "Command failed"},
 	}
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	formData := "command=invalid command"
 	req := httptest.NewRequest("POST", "/1/console/command", strings.NewReader(formData))
@@ -137,7 +137,7 @@ func TestHandlers_SendGameserverCommand_ServiceError(t *testing.T) {
 func TestHandlers_GameserverLogs(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1/logs", nil)
 	w := httptest.NewRecorder()
@@ -166,7 +166,7 @@ func TestHandlers_GameserverLogs_ServiceError(t *testing.T) {
 		streamLogsError:       &services.HTTPError{Status: 500, Message: "Stream failed"},
 	}
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1/logs", nil)
 	w := httptest.NewRecorder()
@@ -188,7 +188,7 @@ func TestHandlers_GameserverLogs_ServiceError(t *testing.T) {
 func TestHandlers_GameserverStats(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1/stats", nil)
 	w := httptest.NewRecorder()
@@ -217,7 +217,7 @@ func TestHandlers_GameserverStats_ServiceError(t *testing.T) {
 		streamStatsError:      &services.HTTPError{Status: 500, Message: "Stats failed"},
 	}
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
-	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
 
 	req := httptest.NewRequest("GET", "/1/stats", nil)
 	w := httptest.NewRecorder()

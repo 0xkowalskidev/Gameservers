@@ -1,7 +1,7 @@
 <!-- Overview content -->
 <div class="space-y-6">
   <div class="grid gap-6 lg:grid-cols-3">
-    
+
     <!-- Server info -->
     <div class="lg:col-span-2">
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -16,10 +16,10 @@
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
               {{$gamePort := .Gameserver.GetGamePort}}
               {{if $gamePort}}
-                <span class="font-semibold text-blue-600 dark:text-blue-400">{{$gamePort.HostPort}}</span>
-                <span class="text-gray-500">{{if eq $gamePort.Protocol "tcp"}}(TCP){{else}}(UDP){{end}}</span>
+              <span class="font-semibold text-blue-600 dark:text-blue-400">{{$gamePort.HostPort}}</span>
+              <span class="text-gray-500">{{if eq $gamePort.Protocol "tcp"}}(TCP){{else}}(UDP){{end}}</span>
               {{else}}
-                <span class="text-gray-500">Not configured</span>
+              <span class="text-gray-500">Not configured</span>
               {{end}}
             </dd>
           </div>
@@ -27,8 +27,9 @@
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">All Port Mappings</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
               {{range $i, $port := .Gameserver.PortMappings}}
-                {{if $i}}<br>{{end}}
-                <span class="font-mono">{{$port.Name}}</span>: {{$port.Protocol | printf "%.3s"}}: {{$port.HostPort}} → {{$port.ContainerPort}}
+              {{if $i}}<br>{{end}}
+              <span class="font-mono">{{$port.Name}}</span>: {{$port.Protocol | printf "%.3s"}}: {{$port.HostPort}} →
+              {{$port.ContainerPort}}
               {{end}}
             </dd>
           </div>
@@ -53,23 +54,76 @@
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 font-mono break-all">{{.Gameserver.Image}}</dd>
           </div>
         </dl>
-        
+
         {{if .Gameserver.Environment}}
         <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
           <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Environment Variables</h4>
           <div class="space-y-2">
             {{range .Gameserver.Environment}}
-              <div class="bg-gray-50 dark:bg-gray-900 rounded px-3 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">{{.}}</div>
+            <div
+              class="bg-gray-50 dark:bg-gray-900 rounded px-3 py-2 text-sm font-mono text-gray-700 dark:text-gray-300">
+              {{.}}</div>
             {{end}}
           </div>
         </div>
         {{end}}
       </div>
     </div>
-    
+
     <!-- Resource monitoring -->
     <div class="space-y-6">
       {{if eq .Gameserver.Status "running"}}
+      <!-- Player Information -->
+      <div id="server-status"
+        class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6"
+        hx-get="/{{.Gameserver.ID}}/status" hx-trigger="load, every 30s" hx-swap="innerHTML">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Server Status</h3>
+        {{if .ServerInfo}}
+        {{if .ServerInfo.Online}}
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Status</span>
+            <span
+              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+              Online
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Players</span>
+            <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {{.ServerInfo.Players.Current}} / {{.ServerInfo.Players.Max}}
+            </span>
+          </div>
+          {{if .ServerInfo.Map}}
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Map</span>
+            <span class="text-sm text-gray-900 dark:text-gray-100">{{.ServerInfo.Map}}</span>
+          </div>
+          {{end}}
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Response Time</span>
+            <span class="text-sm text-gray-900 dark:text-gray-100">{{.ServerInfo.Ping}}</span>
+          </div>
+        </div>
+        {{else}}
+        <div class="text-center py-4">
+          <div
+            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+            Query Failed
+          </div>
+          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Unable to query server status</p>
+        </div>
+        {{end}}
+        {{else}}
+        <div class="text-center py-4">
+          <div
+            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+            No Query Data
+          </div>
+        </div>
+        {{end}}
+      </div>
+
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Resource Usage</h3>
         <div class="space-y-4">
@@ -79,7 +133,8 @@
               <span id="cpu-percent" class="font-medium text-gray-900 dark:text-gray-100">0%</span>
             </div>
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div id="cpu-bar" class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+              <div id="cpu-bar" class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
+                style="width: 0%"></div>
             </div>
           </div>
           <div>
@@ -88,33 +143,42 @@
               <span id="mem-usage" class="font-medium text-gray-900 dark:text-gray-100">0.0 / 0.0 GB</span>
             </div>
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div id="mem-bar" class="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+              <div id="mem-bar" class="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all duration-300"
+                style="width: 0%"></div>
             </div>
           </div>
         </div>
       </div>
       {{end}}
-      
+
       <!-- Quick actions card -->
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
         <div class="space-y-3">
-          <a href="/{{.Gameserver.ID}}/tasks" hx-get="/{{.Gameserver.ID}}/tasks" hx-target="#main-content" hx-push-url="true" class="w-full inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-smooth">
+          <a href="/{{.Gameserver.ID}}/tasks" hx-get="/{{.Gameserver.ID}}/tasks" hx-target="#main-content"
+            hx-push-url="true"
+            class="w-full inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             Manage Scheduled Tasks
           </a>
-          <a href="/{{.Gameserver.ID}}/files" hx-get="/{{.Gameserver.ID}}/files" hx-target="#main-content" hx-push-url="true" class="w-full inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-smooth">
+          <a href="/{{.Gameserver.ID}}/files" hx-get="/{{.Gameserver.ID}}/files" hx-target="#main-content"
+            hx-push-url="true"
+            class="w-full inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
             </svg>
             Open File Manager
           </a>
-          <button hx-post="/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none" hx-on::after-request="if(event.detail.successful) { showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
-                  class="w-full inline-flex items-center justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
+          <button hx-post="/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none"
+            hx-on::after-request="if(event.detail.successful) { showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
+            class="w-full inline-flex items-center justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
             Create Backup
           </button>
@@ -126,32 +190,32 @@
 
 {{if eq .Gameserver.Status "running"}}
 <script>
-// Stats monitoring
-const statsSource = new EventSource('/{{.Gameserver.ID}}/stats');
+  // Stats monitoring
+  const statsSource = new EventSource('/{{.Gameserver.ID}}/stats');
 
-statsSource.addEventListener('stats', function(e) {
-  const stats = JSON.parse(e.data);
-  
-  // Update CPU
-  const cpuPercent = document.getElementById('cpu-percent');
-  const cpuBar = document.getElementById('cpu-bar');
-  if (cpuPercent && cpuBar) {
-    cpuPercent.textContent = stats.cpu.toFixed(1) + '%';
-    cpuBar.style.width = Math.min(stats.cpu, 100) + '%';
-  }
-  
-  // Update Memory
-  const memUsage = document.getElementById('mem-usage');
-  const memBar = document.getElementById('mem-bar');
-  if (memUsage && memBar) {
-    const memPercent = stats.memoryLimitGB > 0 ? (stats.memoryUsageGB / stats.memoryLimitGB) * 100 : 0;
-    memUsage.textContent = stats.memoryUsageGB.toFixed(1) + ' / ' + stats.memoryLimitGB.toFixed(1) + ' GB';
-    memBar.style.width = Math.min(memPercent, 100) + '%';
-  }
-});
+  statsSource.addEventListener('stats', function (e) {
+    const stats = JSON.parse(e.data);
 
-statsSource.addEventListener('error', function(e) {
-  console.error('Stats error:', e);
-});
+    // Update CPU
+    const cpuPercent = document.getElementById('cpu-percent');
+    const cpuBar = document.getElementById('cpu-bar');
+    if (cpuPercent && cpuBar) {
+      cpuPercent.textContent = stats.cpu.toFixed(1) + '%';
+      cpuBar.style.width = Math.min(stats.cpu, 100) + '%';
+    }
+
+    // Update Memory
+    const memUsage = document.getElementById('mem-usage');
+    const memBar = document.getElementById('mem-bar');
+    if (memUsage && memBar) {
+      const memPercent = stats.memoryLimitGB > 0 ? (stats.memoryUsageGB / stats.memoryLimitGB) * 100 : 0;
+      memUsage.textContent = stats.memoryUsageGB.toFixed(1) + ' / ' + stats.memoryLimitGB.toFixed(1) + ' GB';
+      memBar.style.width = Math.min(memPercent, 100) + '%';
+    }
+  });
+
+  statsSource.addEventListener('error', function (e) {
+    console.error('Stats error:', e);
+  });
 </script>
 {{end}}

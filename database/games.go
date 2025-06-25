@@ -19,8 +19,8 @@ func (dm *DatabaseManager) CreateGame(game *models.Game) error {
 		return &models.DatabaseError{Op: "db", Msg: "failed to marshal config vars", Err: err}
 	}
 
-	_, err = dm.db.Exec(`INSERT INTO games (id, name, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		game.ID, game.Name, game.Image, string(portMappingsJSON), string(configVarsJSON), game.MinMemoryMB, game.RecMemoryMB, game.CreatedAt, game.UpdatedAt)
+	_, err = dm.db.Exec(`INSERT INTO games (id, name, slug, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		game.ID, game.Name, game.Slug, game.Image, string(portMappingsJSON), string(configVarsJSON), game.MinMemoryMB, game.RecMemoryMB, game.CreatedAt, game.UpdatedAt)
 
 	if err != nil {
 		return &models.DatabaseError{Op: "create_game", Msg: fmt.Sprintf("failed to insert game %s", game.Name), Err: err}
@@ -30,13 +30,13 @@ func (dm *DatabaseManager) CreateGame(game *models.Game) error {
 
 // GetGame retrieves a game by ID
 func (dm *DatabaseManager) GetGame(id string) (*models.Game, error) {
-	row := dm.db.QueryRow(`SELECT id, name, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at FROM games WHERE id = ?`, id)
+	row := dm.db.QueryRow(`SELECT id, name, slug, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at FROM games WHERE id = ?`, id)
 	return dm.scanGame(row)
 }
 
 // ListGames retrieves all games
 func (dm *DatabaseManager) ListGames() ([]*models.Game, error) {
-	rows, err := dm.db.Query(`SELECT id, name, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at FROM games ORDER BY name`)
+	rows, err := dm.db.Query(`SELECT id, name, slug, image, port_mappings, config_vars, min_memory_mb, rec_memory_mb, created_at, updated_at FROM games ORDER BY name`)
 	if err != nil {
 		return nil, &models.DatabaseError{Op: "list_games", Msg: "failed to query games", Err: err}
 	}
@@ -65,8 +65,8 @@ func (dm *DatabaseManager) UpdateGame(game *models.Game) error {
 		return &models.DatabaseError{Op: "update_game", Msg: "failed to marshal config vars", Err: err}
 	}
 
-	_, err = dm.db.Exec(`UPDATE games SET name = ?, image = ?, port_mappings = ?, config_vars = ?, updated_at = ? WHERE id = ?`,
-		game.Name, game.Image, string(portMappingsJSON), string(configVarsJSON), game.UpdatedAt, game.ID)
+	_, err = dm.db.Exec(`UPDATE games SET name = ?, slug = ?, image = ?, port_mappings = ?, config_vars = ?, updated_at = ? WHERE id = ?`,
+		game.Name, game.Slug, game.Image, string(portMappingsJSON), string(configVarsJSON), game.UpdatedAt, game.ID)
 
 	if err != nil {
 		return &models.DatabaseError{Op: "update_game", Msg: fmt.Sprintf("failed to update game %s", game.ID), Err: err}
@@ -87,7 +87,7 @@ func (dm *DatabaseManager) DeleteGame(id string) error {
 func (dm *DatabaseManager) scanGame(row interface{ Scan(...interface{}) error }) (*models.Game, error) {
 	var game models.Game
 	var portMappingsJSON, configVarsJSON string
-	err := row.Scan(&game.ID, &game.Name, &game.Image, &portMappingsJSON, &configVarsJSON, &game.MinMemoryMB, &game.RecMemoryMB, &game.CreatedAt, &game.UpdatedAt)
+	err := row.Scan(&game.ID, &game.Name, &game.Slug, &game.Image, &portMappingsJSON, &configVarsJSON, &game.MinMemoryMB, &game.RecMemoryMB, &game.CreatedAt, &game.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

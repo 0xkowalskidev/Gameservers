@@ -39,6 +39,30 @@ type mockGameserverService struct {
 	files       []*models.FileInfo
 }
 
+// Mock query service for testing
+type mockQueryService struct {
+	serverInfo *services.ServerInfo
+	shouldFail bool
+}
+
+func (m *mockQueryService) QueryGameserver(gameserver *models.Gameserver, game *models.Game) (*services.ServerInfo, error) {
+	if m.shouldFail {
+		return nil, nil
+	}
+	if m.serverInfo != nil {
+		return m.serverInfo, nil
+	}
+	// Default server info
+	return &services.ServerInfo{
+		Online:     true,
+		Name:       gameserver.Name,
+		Players:    5,
+		MaxPlayers: 20,
+		Map:        "de_dust2",
+		ResponseTime: 25,
+	}, nil
+}
+
 func (m *mockGameserverService) CreateGameserver(server *models.Gameserver) error { return nil }
 
 func (m *mockGameserverService) GetGameserver(id string) (*models.Gameserver, error) {

@@ -16,6 +16,7 @@ type ConfigVar struct {
 type Game struct {
 	ID           string        `json:"id"`
 	Name         string        `json:"name"`
+	Slug         string        `json:"slug"`          // Query slug for gameserver query library
 	Image        string        `json:"image"`
 	PortMappings []PortMapping `json:"port_mappings"`
 	ConfigVars   []ConfigVar   `json:"config_vars"`   // Required and optional configs

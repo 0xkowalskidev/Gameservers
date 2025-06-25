@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/0xkowalskidev/gameserverquery v0.0.0-20250625023612-abaf8eccab7d // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
