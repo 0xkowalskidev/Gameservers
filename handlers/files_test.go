@@ -11,7 +11,7 @@ import (
 func TestHandlers_GameserverFiles(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-files.html", `{{.CurrentPath}}{{range .Files}}{{.Name}}{{end}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("GET", "/1/files", nil)
 	req.Header.Set("HX-Request", "true")
@@ -37,7 +37,7 @@ func TestHandlers_GameserverFiles(t *testing.T) {
 func TestHandlers_BrowseGameserverFiles(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("GET", "/1/files/browse?path=/data/server/logs", nil)
 	w := httptest.NewRecorder()
@@ -54,7 +54,7 @@ func TestHandlers_BrowseGameserverFiles(t *testing.T) {
 func TestHandlers_CreateGameserverFile(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	formData := "path=/data/server&name=newfile.txt&type=file"
 	req := httptest.NewRequest("POST", "/1/files/create", strings.NewReader(formData))
@@ -73,7 +73,7 @@ func TestHandlers_CreateGameserverFile(t *testing.T) {
 func TestHandlers_CreateGameserverFile_Directory(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	formData := "path=/data/server&name=newfolder&type=directory"
 	req := httptest.NewRequest("POST", "/1/files/create", strings.NewReader(formData))
@@ -92,7 +92,7 @@ func TestHandlers_CreateGameserverFile_Directory(t *testing.T) {
 func TestHandlers_DeleteGameserverFile(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("file-deleted.html", `File deleted`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("DELETE", "/1/files/delete?path=/data/server/oldfile.txt", nil)
 	w := httptest.NewRecorder()
@@ -109,7 +109,7 @@ func TestHandlers_DeleteGameserverFile(t *testing.T) {
 func TestHandlers_RenameGameserverFile(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	formData := "old_path=/data/server/oldfile.txt&new_name=newfile.txt"
 	req := httptest.NewRequest("POST", "/1/files/rename", strings.NewReader(formData))
@@ -142,7 +142,7 @@ func TestHandlers_CreateGameserverFile_MissingParameters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := createMockService()
 			tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-			handlers := New(mockService, tmpl)
+			handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 			req := httptest.NewRequest("POST", "/1/files/create", strings.NewReader(tt.formData))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -162,7 +162,7 @@ func TestHandlers_CreateGameserverFile_MissingParameters(t *testing.T) {
 func TestHandlers_DeleteGameserverFile_MissingPath(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("file-deleted.html", `File deleted`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("DELETE", "/1/files/delete", nil)
 	w := httptest.NewRecorder()
@@ -197,7 +197,7 @@ func TestHandlers_RenameGameserverFile_MissingParameters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := createMockService()
 			tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-			handlers := New(mockService, tmpl)
+			handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 			req := httptest.NewRequest("POST", "/1/files/rename", strings.NewReader(tt.formData))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -217,7 +217,7 @@ func TestHandlers_RenameGameserverFile_MissingParameters(t *testing.T) {
 func TestHandlers_BrowseGameserverFiles_DefaultPath(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	// Request without path parameter (should use default)
 	req := httptest.NewRequest("GET", "/1/files/browse", nil)
@@ -249,7 +249,7 @@ func TestHandlers_FileOperations_InvalidGameserver(t *testing.T) {
 			"/999/files",
 			"",
 			func(s *mockGameserverService, tmpl *template.Template) http.HandlerFunc {
-				handlers := New(s, tmpl)
+				handlers := New(s, tmpl, 1024*1024, 10*1024*1024)
 				return handlers.GameserverFiles
 			},
 		},
@@ -259,7 +259,7 @@ func TestHandlers_FileOperations_InvalidGameserver(t *testing.T) {
 			"/999/files/browse",
 			"",
 			func(s *mockGameserverService, tmpl *template.Template) http.HandlerFunc {
-				handlers := New(s, tmpl)
+				handlers := New(s, tmpl, 1024*1024, 10*1024*1024)
 				return handlers.BrowseGameserverFiles
 			},
 		},
@@ -269,7 +269,7 @@ func TestHandlers_FileOperations_InvalidGameserver(t *testing.T) {
 			"/999/files/create",
 			"path=/data&name=test.txt&type=file",
 			func(s *mockGameserverService, tmpl *template.Template) http.HandlerFunc {
-				handlers := New(s, tmpl)
+				handlers := New(s, tmpl, 1024*1024, 10*1024*1024)
 				return handlers.CreateGameserverFile
 			},
 		},
@@ -279,7 +279,7 @@ func TestHandlers_FileOperations_InvalidGameserver(t *testing.T) {
 			"/999/files/delete?path=/data/test.txt",
 			"",
 			func(s *mockGameserverService, tmpl *template.Template) http.HandlerFunc {
-				handlers := New(s, tmpl)
+				handlers := New(s, tmpl, 1024*1024, 10*1024*1024)
 				return handlers.DeleteGameserverFile
 			},
 		},
@@ -289,7 +289,7 @@ func TestHandlers_FileOperations_InvalidGameserver(t *testing.T) {
 			"/999/files/rename",
 			"old_path=/data/old.txt&new_name=new.txt",
 			func(s *mockGameserverService, tmpl *template.Template) http.HandlerFunc {
-				handlers := New(s, tmpl)
+				handlers := New(s, tmpl, 1024*1024, 10*1024*1024)
 				return handlers.RenameGameserverFile
 			},
 		},
@@ -343,7 +343,7 @@ func TestHandlers_FileOperations_ValidFilenames(t *testing.T) {
 		t.Run(tt.name+" create", func(t *testing.T) {
 			mockService := createMockService()
 			tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-			handlers := New(mockService, tmpl)
+			handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 			formData := "path=/data&name=" + tt.filename + "&type=file"
 			req := httptest.NewRequest("POST", "/1/files/create", strings.NewReader(formData))
@@ -362,7 +362,7 @@ func TestHandlers_FileOperations_ValidFilenames(t *testing.T) {
 		t.Run(tt.name+" rename", func(t *testing.T) {
 			mockService := createMockService()
 			tmpl := createTestTemplate("file-browser.html", `{{.CurrentPath}}`)
-			handlers := New(mockService, tmpl)
+			handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 			formData := "old_path=/data/oldfile.txt&new_name=" + tt.filename
 			req := httptest.NewRequest("POST", "/1/files/rename", strings.NewReader(formData))

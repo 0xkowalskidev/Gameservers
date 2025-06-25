@@ -11,7 +11,7 @@ import (
 func TestHandlers_CreateGameserverBackup(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("backup-success.html", `Backup created`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("POST", "/1/backups", nil)
 	w := httptest.NewRecorder()
@@ -28,7 +28,7 @@ func TestHandlers_CreateGameserverBackup(t *testing.T) {
 func TestHandlers_RestoreGameserverBackup(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("backup-success.html", `Backup restored`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	// Use query parameter as expected by the handler
 	req := httptest.NewRequest("POST", "/1/backups/restore?backup=test-backup.tar.gz", nil)
@@ -46,7 +46,7 @@ func TestHandlers_RestoreGameserverBackup(t *testing.T) {
 func TestHandlers_RestoreGameserverBackup_MissingFilename(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("backup-success.html", `Backup restored`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	// No backup filename provided
 	req := httptest.NewRequest("POST", "/1/backups/restore", nil)
@@ -69,7 +69,7 @@ func TestHandlers_RestoreGameserverBackup_MissingFilename(t *testing.T) {
 func TestHandlers_ListGameserverBackups(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-backups.html", `{{range .Backups}}{{.Name}}{{end}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("GET", "/1/backups", nil)
 	req.Header.Set("HX-Request", "true") // Force HTMX mode to avoid complex template rendering
@@ -95,7 +95,7 @@ func TestHandlers_ListGameserverBackups(t *testing.T) {
 func TestHandlers_DeleteGameserverBackup(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("backup-success.html", `Backup deleted`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	// Use query parameter as expected by the handler
 	req := httptest.NewRequest("DELETE", "/1/backups?backup=test-backup.tar.gz", nil)
@@ -113,7 +113,7 @@ func TestHandlers_DeleteGameserverBackup(t *testing.T) {
 func TestHandlers_DeleteGameserverBackup_MissingFilename(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("backup-success.html", `Backup deleted`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	// No backup filename provided
 	req := httptest.NewRequest("DELETE", "/1/backups", nil)
@@ -136,7 +136,7 @@ func TestHandlers_DeleteGameserverBackup_MissingFilename(t *testing.T) {
 func TestHandlers_RestoreGameserverBackup_EmptyFilename(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("backup-success.html", `Backup restored`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	// Use empty query parameter
 	req := httptest.NewRequest("POST", "/1/backups/restore?backup=", nil)
@@ -154,7 +154,7 @@ func TestHandlers_RestoreGameserverBackup_EmptyFilename(t *testing.T) {
 func TestHandlers_DeleteGameserverBackup_EmptyFilename(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("backup-success.html", `Backup deleted`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	// Use empty query parameter
 	req := httptest.NewRequest("DELETE", "/1/backups?backup=", nil)
@@ -182,7 +182,7 @@ func TestHandlers_BackupOperationsWithServiceErrors(t *testing.T) {
 			name: "create backup",
 			handler: func(s *mockGameserverService) http.HandlerFunc {
 				tmpl := createTestTemplate("backup-success.html", `Backup created`)
-				handlers := New(s, tmpl)
+				handlers := New(s, tmpl, 1024*1024, 10*1024*1024)
 				return handlers.CreateGameserverBackup
 			},
 			method:         "POST",
@@ -193,7 +193,7 @@ func TestHandlers_BackupOperationsWithServiceErrors(t *testing.T) {
 			name: "restore backup",
 			handler: func(s *mockGameserverService) http.HandlerFunc {
 				tmpl := createTestTemplate("backup-success.html", `Backup restored`)
-				handlers := New(s, tmpl)
+				handlers := New(s, tmpl, 1024*1024, 10*1024*1024)
 				return handlers.RestoreGameserverBackup
 			},
 			method:         "POST",
@@ -204,7 +204,7 @@ func TestHandlers_BackupOperationsWithServiceErrors(t *testing.T) {
 			name: "delete backup",
 			handler: func(s *mockGameserverService) http.HandlerFunc {
 				tmpl := createTestTemplate("backup-success.html", `Backup deleted`)
-				handlers := New(s, tmpl)
+				handlers := New(s, tmpl, 1024*1024, 10*1024*1024)
 				return handlers.DeleteGameserverBackup
 			},
 			method:         "DELETE",
@@ -272,7 +272,7 @@ func TestHandlers_BackupFileValidation(t *testing.T) {
 		t.Run(tt.name+" restore", func(t *testing.T) {
 			mockService := createMockService()
 			tmpl := createTestTemplate("backup-success.html", `Backup restored`)
-			handlers := New(mockService, tmpl)
+			handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 			url := "/1/backups/restore?backup=" + url.QueryEscape(tt.filename)
 			req := httptest.NewRequest("POST", url, nil)
@@ -290,7 +290,7 @@ func TestHandlers_BackupFileValidation(t *testing.T) {
 		t.Run(tt.name+" delete", func(t *testing.T) {
 			mockService := createMockService()
 			tmpl := createTestTemplate("backup-success.html", `Backup deleted`)
-			handlers := New(mockService, tmpl)
+			handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 			url := "/1/backups?backup=" + url.QueryEscape(tt.filename)
 			req := httptest.NewRequest("DELETE", url, nil)

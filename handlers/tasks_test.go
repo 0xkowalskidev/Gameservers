@@ -10,7 +10,7 @@ import (
 func TestHandlers_ListGameserverTasks(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("gameserver-tasks.html", `{{range .Tasks}}{{.Name}}{{end}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("GET", "/1/tasks", nil)
 	w := httptest.NewRecorder()
@@ -32,7 +32,7 @@ func TestHandlers_ListGameserverTasks(t *testing.T) {
 func TestHandlers_CreateGameserverTask(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("task-form.html", `{{.Task.Name}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	formData := "name=Test Task&type=restart&cron_schedule=0 2 * * *"
 	req := httptest.NewRequest("POST", "/1/tasks", strings.NewReader(formData))
@@ -51,7 +51,7 @@ func TestHandlers_CreateGameserverTask(t *testing.T) {
 func TestHandlers_DeleteGameserverTask(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("task-deleted.html", `Task deleted`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("DELETE", "/1/tasks/task-1", nil)
 	w := httptest.NewRecorder()
@@ -68,7 +68,7 @@ func TestHandlers_DeleteGameserverTask(t *testing.T) {
 func TestHandlers_UpdateGameserverTask(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("task-form.html", `{{.Task.Name}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	formData := "name=Updated Task&status=disabled"
 	req := httptest.NewRequest("PUT", "/1/tasks/task-1", strings.NewReader(formData))
@@ -87,7 +87,7 @@ func TestHandlers_UpdateGameserverTask(t *testing.T) {
 func TestHandlers_NewGameserverTask(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("new-task.html", `{{.Gameserver.ID}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("GET", "/1/tasks/new", nil)
 	w := httptest.NewRecorder()
@@ -109,7 +109,7 @@ func TestHandlers_NewGameserverTask(t *testing.T) {
 func TestHandlers_EditGameserverTask(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("edit-task.html", `{{.Task.Name}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("GET", "/1/tasks/task-1/edit", nil)
 	w := httptest.NewRecorder()
@@ -131,7 +131,7 @@ func TestHandlers_EditGameserverTask(t *testing.T) {
 func TestHandlers_CreateGameserverTask_InvalidData(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("task-form.html", `{{.Task.Name}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	// Missing required fields
 	formData := "name=&type=&cron_schedule="
@@ -151,7 +151,7 @@ func TestHandlers_CreateGameserverTask_InvalidData(t *testing.T) {
 func TestHandlers_CreateGameserverTask_InvalidTaskType(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("task-form.html", `{{.Task.Name}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	formData := "name=Test Task&type=invalid&cron_schedule=0 2 * * *"
 	req := httptest.NewRequest("POST", "/1/tasks", strings.NewReader(formData))
@@ -170,7 +170,7 @@ func TestHandlers_CreateGameserverTask_InvalidTaskType(t *testing.T) {
 func TestHandlers_UpdateGameserverTask_InvalidStatus(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("task-form.html", `{{.Task.Name}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	formData := "name=Test Task&status=invalid"
 	req := httptest.NewRequest("PUT", "/1/tasks/task-1", strings.NewReader(formData))
@@ -189,7 +189,7 @@ func TestHandlers_UpdateGameserverTask_InvalidStatus(t *testing.T) {
 func TestHandlers_DeleteGameserverTask_NotFound(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("task-deleted.html", `Task deleted`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("DELETE", "/1/tasks/non-existent", nil)
 	w := httptest.NewRecorder()
@@ -206,7 +206,7 @@ func TestHandlers_DeleteGameserverTask_NotFound(t *testing.T) {
 func TestHandlers_EditGameserverTask_NotFound(t *testing.T) {
 	mockService := createMockService()
 	tmpl := createTestTemplate("edit-task.html", `{{.Task.Name}}`)
-	handlers := New(mockService, tmpl)
+	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 	req := httptest.NewRequest("GET", "/1/tasks/non-existent/edit", nil)
 	w := httptest.NewRecorder()
@@ -239,7 +239,7 @@ func TestHandlers_TaskValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := createMockService()
 			tmpl := createTestTemplate("task-form.html", `{{.Task.Name}}`)
-			handlers := New(mockService, tmpl)
+			handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024)
 
 			formData := "name=Test Task&type=" + tt.taskType + "&cron_schedule=" + tt.cronSchedule
 			req := httptest.NewRequest("POST", "/1/tasks", strings.NewReader(formData))
