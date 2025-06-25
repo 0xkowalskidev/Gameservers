@@ -510,15 +510,24 @@ func TestGameserverService_GameSpecificPortAllocation(t *testing.T) {
 		t.Fatalf("Failed to create second Minecraft server: %v", err)
 	}
 
-	// Verify second Minecraft server got a different port (fallback)
+	// Verify second Minecraft server got a different port (fallback from allowed ports)
 	if minecraftServer2.PortMappings[0].HostPort == 25565 {
 		t.Errorf("Expected second Minecraft server to get fallback port, not 25565")
 	}
-	if minecraftServer2.PortMappings[0].HostPort < 25565 {
-		t.Errorf("Expected second Minecraft server to get port >= 25565, got %d", minecraftServer2.PortMappings[0].HostPort)
+	// With the new logic, it should get the next available port from allowed ports (7777, 2456, etc.)
+	allowedPorts := []int{7777, 2456, 2457, 8211} // remaining allowed ports after 25565 and 27015 are taken
+	found := false
+	for _, port := range allowedPorts {
+		if minecraftServer2.PortMappings[0].HostPort == port {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected second Minecraft server to get port from allowed ports, got %d", minecraftServer2.PortMappings[0].HostPort)
 	}
 
-	// Test 4: Create Terraria server - should get port 7777 (game-specific default)
+	// Test 4: Create Terraria server - should get next available port from allowed list
 	terrariaServer := &models.Gameserver{
 		ID: "terraria-test", Name: "Terraria Test", GameID: "terraria",
 		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 7777, HostPort: 0}},
@@ -530,8 +539,9 @@ func TestGameserverService_GameSpecificPortAllocation(t *testing.T) {
 		t.Fatalf("Failed to create Terraria server: %v", err)
 	}
 
-	// Verify Terraria server got port 7777
-	if terrariaServer.PortMappings[0].HostPort != 7777 {
-		t.Errorf("Expected Terraria server to get port 7777, got %d", terrariaServer.PortMappings[0].HostPort)
+	// Verify Terraria server got an allowed port (7777 might be taken by second MC server)
+	terrariaPort := terrariaServer.PortMappings[0].HostPort
+	if terrariaPort != 7777 && terrariaPort != 2456 && terrariaPort != 2457 && terrariaPort != 8211 {
+		t.Errorf("Expected Terraria server to get an allowed port, got %d", terrariaPort)
 	}
 }

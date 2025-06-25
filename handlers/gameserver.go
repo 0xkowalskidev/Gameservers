@@ -9,14 +9,46 @@ import (
 	"0xkowalskidev/gameservers/models"
 )
 
-// IndexGameservers lists all gameservers
+// DashboardData represents the data for the dashboard page
+type DashboardData struct {
+	Gameservers        []*models.Gameserver
+	SystemInfo         *models.SystemInfo
+	CurrentMemoryUsage int
+	RunningServers     int
+}
+
+// IndexGameservers lists all gameservers with resource usage statistics
 func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 	gameservers, err := h.service.ListGameservers()
 	if err != nil {
 		HandleError(w, InternalError(err, "Failed to list gameservers"), "index_gameservers")
 		return
 	}
-	Render(w, r, h.tmpl, "index.html", map[string]interface{}{"Gameservers": gameservers})
+
+	// Get system information and calculate current usage from running servers only
+	systemInfo, err := models.GetSystemInfo()
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to get system information")
+	}
+
+	var currentMemoryUsage int
+	var runningServers int
+	for _, server := range gameservers {
+		// Only count memory from running/starting servers
+		if server.Status == models.StatusRunning || server.Status == models.StatusStarting {
+			currentMemoryUsage += server.MemoryMB
+			runningServers++
+		}
+	}
+
+	data := DashboardData{
+		Gameservers:        gameservers,
+		SystemInfo:         systemInfo,
+		CurrentMemoryUsage: currentMemoryUsage,
+		RunningServers:     runningServers,
+	}
+
+	Render(w, r, h.tmpl, "index.html", data)
 }
 
 // ShowGameserver displays gameserver details

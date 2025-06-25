@@ -48,6 +48,7 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 		return nil, err
 	}
 
+
 	log.Info().Msg("Database connected and migrated successfully")
 	return dm, nil
 }
@@ -200,3 +201,4 @@ func (dm *DatabaseManager) seedGames() error {
 	log.Info().Int("count", len(games)).Msg("Games seeded successfully")
 	return nil
 }
+

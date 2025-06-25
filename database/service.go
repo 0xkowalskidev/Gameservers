@@ -55,6 +55,20 @@ func (gss *GameserverService) CreateGameserver(server *models.Gameserver) error 
 		}
 	}
 
+	// Basic memory validation - ensure minimum requirements
+	if server.MemoryMB < game.MinMemoryMB {
+		return &models.DatabaseError{
+			Op:  "validate_memory",
+			Msg: fmt.Sprintf("memory (%d MB) is below game minimum (%d MB)", server.MemoryMB, game.MinMemoryMB),
+			Err: nil,
+		}
+	}
+
+	// Validate against system memory (only for creation, not updates)
+	if err := gss.validateSystemMemory(server); err != nil {
+		return err
+	}
+
 	// Initialize port mappings from game template if not already set
 	if len(server.PortMappings) == 0 {
 		server.PortMappings = make([]models.PortMapping, len(game.PortMappings))
@@ -160,6 +174,11 @@ func (gss *GameserverService) allocatePortsForServer(server *models.Gameserver) 
 func (gss *GameserverService) StartGameserver(id string) error {
 	server, err := gss.db.GetGameserver(id)
 	if err != nil {
+		return err
+	}
+
+	// Check if starting this server would exceed system memory
+	if err := gss.validateSystemMemoryForStart(server); err != nil {
 		return err
 	}
 
@@ -473,3 +492,64 @@ func (gss *GameserverService) ListGameserverBackups(gameserverID string) ([]*mod
 
 	return backups, nil
 }
+
+// validateSystemMemory checks if the server's memory requirements fit within available system memory
+func (gss *GameserverService) validateSystemMemory(server *models.Gameserver) error {
+	systemInfo, err := models.GetSystemInfo()
+	if err != nil {
+		log.Warn().Err(err).Msg("Could not get system memory info, skipping validation")
+		return nil // Don't fail if we can't get system info
+	}
+
+	if server.MemoryMB > systemInfo.TotalMemoryMB {
+		return &models.DatabaseError{
+			Op:  "validate_memory",
+			Msg: fmt.Sprintf("server memory (%d MB) exceeds total system memory (%d MB)", 
+				server.MemoryMB, systemInfo.TotalMemoryMB),
+			Err: nil,
+		}
+	}
+
+	return nil
+}
+
+// validateSystemMemoryForStart checks if starting this server would exceed available system memory
+func (gss *GameserverService) validateSystemMemoryForStart(server *models.Gameserver) error {
+	systemInfo, err := models.GetSystemInfo()
+	if err != nil {
+		log.Warn().Err(err).Msg("Could not get system memory info, skipping validation")
+		return nil // Don't fail if we can't get system info
+	}
+
+	// Get all currently running servers
+	servers, err := gss.db.ListGameservers()
+	if err != nil {
+		return &models.DatabaseError{
+			Op:  "validate_memory",
+			Msg: "failed to check existing memory usage",
+			Err: err,
+		}
+	}
+
+	// Calculate current memory usage from running servers only
+	currentMemoryUsage := 0
+	for _, existingServer := range servers {
+		// Only count running servers (starting servers will become running)
+		if existingServer.Status == models.StatusRunning || existingServer.Status == models.StatusStarting {
+			currentMemoryUsage += existingServer.MemoryMB
+		}
+	}
+
+	// Check if starting this server would exceed total system memory
+	if currentMemoryUsage+server.MemoryMB > systemInfo.TotalMemoryMB {
+		return &models.DatabaseError{
+			Op:  "validate_memory",
+			Msg: fmt.Sprintf("starting server would exceed total system memory: %d MB (running) + %d MB (new) = %d MB > %d MB total", 
+				currentMemoryUsage, server.MemoryMB, currentMemoryUsage+server.MemoryMB, systemInfo.TotalMemoryMB),
+			Err: nil,
+		}
+	}
+
+	return nil
+}
+

@@ -54,6 +54,7 @@
 
           <!-- Global actions -->
           <div class="flex items-center space-x-3">
+
             {{if .ShowCreateButton}}
             <a href="/new" hx-get="/new" hx-target="#content" hx-push-url="true"
               class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm transition-smooth">
@@ -99,7 +100,8 @@
       'files': 'Files',
       'console': 'Console',
       'edit': 'Edit',
-      'new': 'New'
+      'new': 'New',
+      'settings': 'Settings'
     };
 
     // Function to get dashboard URL and label based on segments

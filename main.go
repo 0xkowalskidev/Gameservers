@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"strconv"
 	"syscall"
 	"time"
@@ -102,6 +103,74 @@ func main() {
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"formatFileSize": formatFileSize,
 		"sub":            func(a, b int) int { return a - b },
+		"mul":            func(a, b interface{}) float64 {
+			var aVal, bVal float64
+			
+			switch v := a.(type) {
+			case int:
+				aVal = float64(v)
+			case float64:
+				aVal = v
+			default:
+				return 0
+			}
+			
+			switch v := b.(type) {
+			case int:
+				bVal = float64(v)
+			case float64:
+				bVal = v
+			default:
+				return 0
+			}
+			
+			return aVal * bVal
+		},
+		"div":            func(a, b interface{}) float64 {
+			var aVal, bVal float64
+			
+			switch v := a.(type) {
+			case int:
+				aVal = float64(v)
+			case float64:
+				aVal = v
+			default:
+				return 0
+			}
+			
+			switch v := b.(type) {
+			case int:
+				bVal = float64(v)
+			case float64:
+				bVal = v
+			default:
+				return 0
+			}
+			
+			if bVal == 0 {
+				return 0
+			}
+			return aVal / bVal
+		},
+		"gt": func(a, b interface{}) bool {
+			switch av := a.(type) {
+			case int:
+				if bv, ok := b.(int); ok {
+					return av > bv
+				}
+				if bv, ok := b.(float64); ok {
+					return float64(av) > bv
+				}
+			case float64:
+				if bv, ok := b.(float64); ok {
+					return av > bv
+				}
+				if bv, ok := b.(int); ok {
+					return av > float64(bv)
+				}
+			}
+			return false
+		},
 		"dict": func(values ...interface{}) map[string]interface{} {
 			if len(values)%2 != 0 {
 				return nil
@@ -119,7 +188,29 @@ func main() {
 		"slice": func(values ...interface{}) []interface{} {
 			return values
 		},
+		"len": func(items interface{}) int {
+			if items == nil {
+				return 0
+			}
+			v := reflect.ValueOf(items)
+			switch v.Kind() {
+			case reflect.Slice, reflect.Array:
+				return v.Len()
+			default:
+				return 0
+			}
+		},
 		"printf": fmt.Sprintf,
+		"floor": func(val interface{}) int {
+			switch v := val.(type) {
+			case float64:
+				return int(v)
+			case int:
+				return v
+			default:
+				return 0
+			}
+		},
 		"if": func(condition bool, trueVal, falseVal interface{}) interface{} {
 			if condition {
 				return trueVal
