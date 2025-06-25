@@ -34,14 +34,22 @@ func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts ma
 			if assignedPort, exists := portGroups[portName]; exists {
 				server.PortMappings[i].HostPort = assignedPort
 			} else {
-				// Find a new available port for this name
-				port, err := pa.findAvailablePort(usedPorts)
-				if err != nil {
-					return err
+				// Try to assign the container port first (game-specific default)
+				containerPort := server.PortMappings[i].ContainerPort
+				if containerPort > 0 && !usedPorts[containerPort] {
+					server.PortMappings[i].HostPort = containerPort
+					portGroups[portName] = containerPort
+					usedPorts[containerPort] = true
+				} else {
+					// Find a new available port for this name
+					port, err := pa.findAvailablePort(usedPorts)
+					if err != nil {
+						return err
+					}
+					server.PortMappings[i].HostPort = port
+					portGroups[portName] = port
+					usedPorts[port] = true
 				}
-				server.PortMappings[i].HostPort = port
-				portGroups[portName] = port
-				usedPorts[port] = true
 			}
 		}
 	}

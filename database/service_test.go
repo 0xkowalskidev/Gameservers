@@ -444,3 +444,94 @@ func TestGameserverService_ListGameservers(t *testing.T) {
 		t.Errorf("Expected 2 gameservers, got %d", len(servers))
 	}
 }
+
+func TestGameserverService_GameSpecificPortAllocation(t *testing.T) {
+	db, err := NewDatabaseManager(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	mockDocker := NewMockDockerManager()
+	svc := NewGameserverService(db, mockDocker)
+
+	// Test 1: Create Minecraft server - should get port 25565 (game-specific default)
+	minecraftServer := &models.Gameserver{
+		ID: "mc-test", Name: "Minecraft Test", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Environment:  []string{"EULA=true"},
+		Status:       models.StatusStopped,
+	}
+
+	err = svc.CreateGameserver(minecraftServer)
+	if err != nil {
+		t.Fatalf("Failed to create Minecraft server: %v", err)
+	}
+
+	// Verify Minecraft server got port 25565
+	if minecraftServer.PortMappings[0].HostPort != 25565 {
+		t.Errorf("Expected Minecraft server to get port 25565, got %d", minecraftServer.PortMappings[0].HostPort)
+	}
+
+	// Test 2: Create CS2 server - should get port 27015 (game-specific default)
+	cs2Server := &models.Gameserver{
+		ID: "cs2-test", Name: "CS2 Test", GameID: "cs2",
+		PortMappings: []models.PortMapping{
+			{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0},
+			{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
+		},
+		Environment: []string{"HOSTNAME=CS2 Server", "RCON_PASSWORD=test123"},
+		Status:      models.StatusStopped,
+	}
+
+	err = svc.CreateGameserver(cs2Server)
+	if err != nil {
+		t.Fatalf("Failed to create CS2 server: %v", err)
+	}
+
+	// Verify CS2 server got port 27015 for both TCP and UDP
+	if cs2Server.PortMappings[0].HostPort != 27015 {
+		t.Errorf("Expected CS2 server TCP to get port 27015, got %d", cs2Server.PortMappings[0].HostPort)
+	}
+	if cs2Server.PortMappings[1].HostPort != 27015 {
+		t.Errorf("Expected CS2 server UDP to get port 27015, got %d", cs2Server.PortMappings[1].HostPort)
+	}
+
+	// Test 3: Create second Minecraft server - should get fallback port (not 25565)
+	minecraftServer2 := &models.Gameserver{
+		ID: "mc-test-2", Name: "Minecraft Test 2", GameID: "minecraft",
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0}},
+		Environment:  []string{"EULA=true"},
+		Status:       models.StatusStopped,
+	}
+
+	err = svc.CreateGameserver(minecraftServer2)
+	if err != nil {
+		t.Fatalf("Failed to create second Minecraft server: %v", err)
+	}
+
+	// Verify second Minecraft server got a different port (fallback)
+	if minecraftServer2.PortMappings[0].HostPort == 25565 {
+		t.Errorf("Expected second Minecraft server to get fallback port, not 25565")
+	}
+	if minecraftServer2.PortMappings[0].HostPort < 25565 {
+		t.Errorf("Expected second Minecraft server to get port >= 25565, got %d", minecraftServer2.PortMappings[0].HostPort)
+	}
+
+	// Test 4: Create Terraria server - should get port 7777 (game-specific default)
+	terrariaServer := &models.Gameserver{
+		ID: "terraria-test", Name: "Terraria Test", GameID: "terraria",
+		PortMappings: []models.PortMapping{{Name: "game", Protocol: "tcp", ContainerPort: 7777, HostPort: 0}},
+		Status:       models.StatusStopped,
+	}
+
+	err = svc.CreateGameserver(terrariaServer)
+	if err != nil {
+		t.Fatalf("Failed to create Terraria server: %v", err)
+	}
+
+	// Verify Terraria server got port 7777
+	if terrariaServer.PortMappings[0].HostPort != 7777 {
+		t.Errorf("Expected Terraria server to get port 7777, got %d", terrariaServer.PortMappings[0].HostPort)
+	}
+}
