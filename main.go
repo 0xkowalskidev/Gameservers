@@ -198,7 +198,7 @@ func main() {
 	r.Get("/{id}/console", handlerInstance.GameserverConsole)
 	r.Get("/{id}/logs", handlerInstance.GameserverLogs)
 	r.Get("/{id}/stats", handlerInstance.GameserverStats)
-	r.Get("/{id}/status", handlerInstance.GetServerStatus)
+	r.Get("/{id}/query", handlerInstance.QueryGameserver)
 	r.Get("/{id}/tasks", handlerInstance.ListGameserverTasks)
 	r.Get("/{id}/tasks/new", handlerInstance.NewGameserverTask)
 	r.Post("/{id}/tasks", handlerInstance.CreateGameserverTask)

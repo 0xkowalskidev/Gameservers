@@ -7,8 +7,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/models"
-
-	"github.com/0xkowalskidev/gameserverquery/protocol"
 )
 
 // IndexGameservers lists all gameservers
@@ -29,28 +27,7 @@ func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get game info for query
-	game, err := h.service.GetGame(gameserver.GameID)
-	if err != nil {
-		log.Error().Err(err).Str("game_id", gameserver.GameID).Msg("Failed to get game info")
-		h.renderGameserverPageOrPartial(w, r, gameserver, "overview", "gameserver-details.html", nil)
-		return
-	}
-
-	// Query the gameserver for player info
-	var serverInfo *protocol.ServerInfo
-	if h.queryService != nil {
-		serverInfo, err = h.queryService.QueryGameserver(gameserver, game)
-		if err != nil {
-			log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to query gameserver")
-		}
-	}
-
-	data := map[string]interface{}{
-		"ServerInfo": serverInfo,
-	}
-
-	h.renderGameserverPageOrPartial(w, r, gameserver, "overview", "gameserver-details.html", data)
+	h.renderGameserverPageOrPartial(w, r, gameserver, "overview", "gameserver-details.html", nil)
 }
 
 // NewGameserver shows the create gameserver form
@@ -214,34 +191,52 @@ func (h *Handlers) GameserverRow(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetServerStatus retrieves the server query status (player count, etc)
-func (h *Handlers) GetServerStatus(w http.ResponseWriter, r *http.Request) {
+// QueryGameserver returns JSON query data for client-side polling
+func (h *Handlers) QueryGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	gameserver, ok := h.getGameserver(w, id)
 	if !ok {
+		h.jsonError(w, "Gameserver not found")
 		return
 	}
 
 	// Only query running servers
-	var serverInfo *protocol.ServerInfo
-	if gameserver.Status == models.StatusRunning && h.queryService != nil {
-		// Get game info for query
-		game, err := h.service.GetGame(gameserver.GameID)
-		if err != nil {
-			log.Error().Err(err).Str("game_id", gameserver.GameID).Msg("Failed to get game info")
-		} else {
-			serverInfo, err = h.queryService.QueryGameserver(gameserver, game)
-			if err != nil {
-				log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to query gameserver")
-			}
-		}
+	if gameserver.Status != models.StatusRunning {
+		h.jsonSuccess(w, map[string]interface{}{
+			"online": false,
+			"status": gameserver.Status,
+		})
+		return
 	}
 
-	data := map[string]interface{}{
-		"ServerInfo": serverInfo,
+	if h.queryService == nil {
+		h.jsonError(w, "Query service not available")
+		return
 	}
 
-	if err := h.tmpl.ExecuteTemplate(w, "server-status.html", data); err != nil {
-		HandleError(w, InternalError(err, "Failed to render server status"), "get_server_status")
+	// Get game info for query
+	game, err := h.service.GetGame(gameserver.GameID)
+	if err != nil {
+		log.Error().Err(err).Str("game_id", gameserver.GameID).Msg("Failed to get game info")
+		h.jsonError(w, "Failed to get game info")
+		return
 	}
+
+	serverInfo, err := h.queryService.QueryGameserver(gameserver, game)
+	if err != nil {
+		log.Debug().Err(err).Str("gameserver_id", id).Msg("Failed to query gameserver")
+		h.jsonSuccess(w, map[string]interface{}{
+			"online": false,
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	// Return the server info as JSON
+	h.jsonSuccess(w, map[string]interface{}{
+		"online":  serverInfo.Online,
+		"players": serverInfo.Players,
+		"map":     serverInfo.Map,
+		"ping":    serverInfo.Ping,
+	})
 }

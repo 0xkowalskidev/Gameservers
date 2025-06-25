@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/0xkowalskidev/gameserverquery/protocol"
 
 	"0xkowalskidev/gameservers/models"
 	"0xkowalskidev/gameservers/services"
@@ -41,11 +43,11 @@ type mockGameserverService struct {
 
 // Mock query service for testing
 type mockQueryService struct {
-	serverInfo *services.ServerInfo
+	serverInfo *protocol.ServerInfo
 	shouldFail bool
 }
 
-func (m *mockQueryService) QueryGameserver(gameserver *models.Gameserver, game *models.Game) (*services.ServerInfo, error) {
+func (m *mockQueryService) QueryGameserver(gameserver *models.Gameserver, game *models.Game) (*protocol.ServerInfo, error) {
 	if m.shouldFail {
 		return nil, nil
 	}
@@ -53,13 +55,14 @@ func (m *mockQueryService) QueryGameserver(gameserver *models.Gameserver, game *
 		return m.serverInfo, nil
 	}
 	// Default server info
-	return &services.ServerInfo{
-		Online:     true,
-		Name:       gameserver.Name,
-		Players:    5,
-		MaxPlayers: 20,
-		Map:        "de_dust2",
-		ResponseTime: 25,
+	return &protocol.ServerInfo{
+		Online: true,
+		Players: protocol.PlayerInfo{
+			Current: 5,
+			Max:     20,
+		},
+		Map:  "de_dust2",
+		Ping: 25 * time.Millisecond,
 	}, nil
 }
 

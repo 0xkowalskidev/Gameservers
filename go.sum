@@ -1,5 +1,5 @@
-github.com/0xkowalskidev/gameserverquery v0.0.0-20250625023612-abaf8eccab7d h1:GkV+vxkHDGshL2e4ahkHh8j8SGXX6qSRc6ZRcpgee9A=
-github.com/0xkowalskidev/gameserverquery v0.0.0-20250625023612-abaf8eccab7d/go.mod h1:5ksxgeTpbkcUk5mOBI52AEB9OuMTKYo7xf5yNdyxTGY=
+github.com/0xkowalskidev/gameserverquery v0.0.0-20250625040914-44c63b6697aa h1:iSlLb/yCwgRJpw2F6cMx4exaRnyoWaZGgIqPhzASW4Y=
+github.com/0xkowalskidev/gameserverquery v0.0.0-20250625040914-44c63b6697aa/go.mod h1:5ksxgeTpbkcUk5mOBI52AEB9OuMTKYo7xf5yNdyxTGY=
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEKWjV8V+WSxDXJ4NFATAsZjh8iIbsQIg=
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/Microsoft/go-winio v0.4.14 h1:+hMXMk01us9KgxGb7ftKQt2Xpf5hH/yky+TDA+qxleU=
