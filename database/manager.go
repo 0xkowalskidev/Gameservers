@@ -170,7 +170,7 @@ func (dm *DatabaseManager) seedGames() error {
 		{ID: "garrysmod", Name: "Garry's Mod", Slug: "garrys-mod", Image: "ghcr.io/0xkowalskidev/gameservers/garrysmod:latest",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0},
-				{Name: "query", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
+				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
 			},
 			ConfigVars: []models.ConfigVar{
 				{Name: "HOSTNAME", DisplayName: "Server Name", Required: false, Default: "Garry's Mod Server", Description: "Server hostname shown in browser"},
