@@ -13,7 +13,21 @@
           ${pkgs.reflex}/bin/reflex -r '\.go|\.html$' -s -- sh -c '${pkgs.tailwindcss}/bin/tailwindcss --content "./templates/*.html" -o static/tailwind.css -m && ${pkgs.go}/bin/go run .'
         '';
         test = pkgs.writeShellScriptBin "test" ''
-          ${pkgs.richgo}/bin/richgo test ./... 
+          echo "Running main application tests..."
+          ${pkgs.richgo}/bin/richgo test ./database/... ./docker/... ./handlers/... ./models/... ./services/... 
+        '';
+        test-images = pkgs.writeShellScriptBin "test-images" ''
+          echo "Running Docker image integration tests..."
+          echo "Note: These tests require Docker and take several minutes to complete."
+          ${pkgs.richgo}/bin/richgo test ./images/...
+        '';
+        test-all = pkgs.writeShellScriptBin "test-all" ''
+          echo "Running all tests (application + images)..."
+          echo "=== Application Tests ==="
+          ${self.packages.${system}.test}/bin/test
+          echo ""
+          echo "=== Docker Image Tests ==="
+          ${self.packages.${system}.test-images}/bin/test-images
         '';
       };
 
@@ -25,6 +39,14 @@
         test = {
           type = "app";
           program = "${self.packages.${system}.test}/bin/test";
+        };
+        test-images = {
+          type = "app";
+          program = "${self.packages.${system}.test-images}/bin/test-images";
+        };
+        test-all = {
+          type = "app";
+          program = "${self.packages.${system}.test-all}/bin/test-all";
         };
       };
 
@@ -38,6 +60,8 @@
           pkgs.nodejs # Needed by tailwind supposedly
           self.packages.${system}.dev
           self.packages.${system}.test
+          self.packages.${system}.test-images
+          self.packages.${system}.test-all
         ];
       };
     };
