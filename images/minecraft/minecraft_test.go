@@ -167,7 +167,7 @@ func TestMinecraftImage_BasicStartup(t *testing.T) {
 	}
 	
 	// Verify server is responding using GameserverQuery
-	serverAddress := fmt.Sprintf("localhost:%s", mappedPort.Port())
+	serverAddress := fmt.Sprintf("127.0.0.1:%s", mappedPort.Port())
 	
 	// Wait a bit for server to fully initialize
 	time.Sleep(10 * time.Second)

@@ -1,8 +1,5 @@
 FROM ubuntu:22.04
 
-LABEL author="T3 Chat"
-LABEL description="Garry's Mod Dedicated Server (Self-Contained)"
-
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies for SteamCMD, 32-bit Source Engine, and rcon-cli
