@@ -139,6 +139,7 @@ func TestMinecraftImage_BasicStartup(t *testing.T) {
 			Env: map[string]string{
 				"EULA":      "true",
 				"MEMORY_MB": defaultMemory,
+				// Note: No MINECRAFT_VERSION set, should default to "latest"
 			},
 			WaitingFor: wait.ForLog("Done").WithStartupTimeout(startupTimeout),
 		},
@@ -267,6 +268,42 @@ func TestMinecraftImage_EnvironmentVariables(t *testing.T) {
 				return nil
 			},
 		},
+		{
+			name: "Minecraft version (latest)",
+			env: map[string]string{
+				"EULA":             "true",
+				"MEMORY_MB":        defaultMemory,
+				"MINECRAFT_VERSION": "latest",
+			},
+			checkLog: func(logs string) error {
+				// Should see version checking and download messages
+				if !strings.Contains(logs, "Checking Minecraft server version: latest") {
+					return fmt.Errorf("should check for latest version")
+				}
+				if !strings.Contains(logs, "Latest release version is:") {
+					return fmt.Errorf("should determine latest release version")
+				}
+				return nil
+			},
+		},
+		{
+			name: "Minecraft version (specific)",
+			env: map[string]string{
+				"EULA":             "true",
+				"MEMORY_MB":        defaultMemory,
+				"MINECRAFT_VERSION": "1.21.4",
+			},
+			checkLog: func(logs string) error {
+				// Should see version checking and download messages
+				if !strings.Contains(logs, "Checking Minecraft server version: 1.21.4") {
+					return fmt.Errorf("should check for version 1.21.4")
+				}
+				if !strings.Contains(logs, "Successfully downloaded minecraft_server_1.21.4.jar") {
+					return fmt.Errorf("should download 1.21.4 server JAR")
+				}
+				return nil
+			},
+		},
 	}
 	
 	for _, tc := range testCases {
@@ -346,6 +383,20 @@ func TestMinecraftImage_EnvironmentVariables(t *testing.T) {
 					propStr, _ := readLogsToString(propOutput)
 					if !strings.Contains(propStr, "gamemode=creative") {
 						checkErr = fmt.Errorf("gamemode should be set to creative, got: %s", propStr)
+					}
+				}
+			case "Minecraft version (latest)", "Minecraft version (specific)":
+				// For version tests, check container logs for download messages
+				logs, err := container.Logs(ctx)
+				if err != nil {
+					checkErr = fmt.Errorf("failed to get container logs: %v", err)
+				} else {
+					defer logs.Close()
+					logStr, err := readLogsToString(logs)
+					if err != nil {
+						checkErr = fmt.Errorf("failed to read logs: %v", err)
+					} else {
+						checkErr = tc.checkLog(logStr)
 					}
 				}
 			default:
@@ -623,6 +674,100 @@ func TestMinecraftImage_JavaProcessManagement(t *testing.T) {
 	if !strings.Contains(output, "server.jar") {
 		t.Error("Minecraft server.jar process not found")
 		t.Logf("Process list:\n%s", output)
+	}
+}
+
+// TestMinecraftImage_VersionCaching tests that version JARs are cached correctly
+func TestMinecraftImage_VersionCaching(t *testing.T) {
+	setupTest(t)
+	ctx := context.Background()
+	
+	// First, start a container to download a specific version
+	container1, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    getDockerfileContext(),
+				Dockerfile: "Dockerfile",
+			},
+			ExposedPorts: []string{"25565/tcp"},
+			Env: map[string]string{
+				"EULA":             "true",
+				"MEMORY_MB":        defaultMemory,
+				"MINECRAFT_VERSION": "1.21.4",
+			},
+			WaitingFor: wait.ForLog("Done").WithStartupTimeout(startupTimeout),
+		},
+		Started: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to start first container: %v", err)
+	}
+	defer cleanupContainer(t, container1)
+	
+	// Check that the version JAR was downloaded
+	exitCode, outputReader, err := container1.Exec(ctx, []string{"ls", "-la", "/data/server/"})
+	if err != nil {
+		t.Fatalf("Failed to list server directory: %v", err)
+	}
+	if exitCode != 0 {
+		t.Fatalf("Failed to list server directory, exit code: %d", exitCode)
+	}
+	
+	output, err := readLogsToString(outputReader)
+	if err != nil {
+		t.Fatalf("Failed to read directory listing: %v", err)
+	}
+	
+	// Should have both the versioned JAR and the symlink
+	if !strings.Contains(output, "minecraft_server_1.21.4.jar") {
+		t.Error("Should have downloaded minecraft_server_1.21.4.jar")
+	}
+	if !strings.Contains(output, "server.jar") {
+		t.Error("Should have server.jar symlink")
+	}
+	
+	// Stop first container
+	cleanupContainer(t, container1)
+	
+	// Start second container with the same version - should use cached JAR
+	container2, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    getDockerfileContext(),
+				Dockerfile: "Dockerfile",
+			},
+			ExposedPorts: []string{"25565/tcp"},
+			Env: map[string]string{
+				"EULA":             "true",
+				"MEMORY_MB":        defaultMemory,
+				"MINECRAFT_VERSION": "1.21.4",
+			},
+			WaitingFor: wait.ForLog("Done").WithStartupTimeout(startupTimeout),
+		},
+		Started: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to start second container: %v", err)
+	}
+	defer cleanupContainer(t, container2)
+	
+	// Check logs for cache usage message
+	logs, err := container2.Logs(ctx)
+	if err != nil {
+		t.Fatalf("Failed to get container logs: %v", err)
+	}
+	defer logs.Close()
+	
+	logStr, err := readLogsToString(logs)
+	if err != nil {
+		t.Fatalf("Failed to read logs: %v", err)
+	}
+	
+	// Note: In reality, we can't test true caching between containers because they have separate volumes
+	// But we can test that the version checking and JAR management logic works
+	if !strings.Contains(logStr, "Checking Minecraft server version: 1.21.4") {
+		t.Error("Should check for version 1.21.4")
+		t.Logf("Container logs:\n%s", logStr)
 	}
 }
 

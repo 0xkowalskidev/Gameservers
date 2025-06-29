@@ -1,11 +1,11 @@
 FROM eclipse-temurin:21-jre
 
+# Install curl and jq for downloading server JARs and JSON parsing
+RUN apt-get update && apt-get install -y curl jq && rm -rf /var/lib/apt/lists/*
+
 # Create directory structure
 RUN mkdir -p /data/server /data/backups /data/scripts
 WORKDIR /data/server
-
-# Download vanilla Minecraft server
-RUN wget -O server.jar https://piston-data.mojang.com/v1/objects/4707d00eb834b446575d89a61a11b5d548d8c001/server.jar
 
 # Copy startup script and command script
 COPY server.properties /data/server
