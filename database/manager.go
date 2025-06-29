@@ -129,11 +129,12 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0},
 			},
 			ConfigVars: []models.ConfigVar{
+				{Name: "MINECRAFT_VERSION", DisplayName: "Minecraft Version", Required: false, Default: "latest", Description: "Server version (latest recommended, or specific version like 1.21.6 for mod compatibility)"},
 				{Name: "EULA", DisplayName: "Accept Minecraft EULA", Required: true, Default: "true", Description: "You must accept the Minecraft End User License Agreement to run a server"},
 				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: false, Default: "A Minecraft Server", Description: "The name shown in server lists"},
 				{Name: "MOTD", DisplayName: "Message of the Day", Required: false, Default: "Welcome to our server!", Description: "Message shown to players when joining"},
-				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "normal", Description: "models.Game difficulty (peaceful, easy, normal, hard)"},
-				{Name: "GAMEMODE", DisplayName: "models.Game Mode", Required: false, Default: "survival", Description: "Default game mode (survival, creative, adventure, spectator)"},
+				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "normal", Description: "Game difficulty (peaceful, easy, normal, hard)"},
+				{Name: "GAMEMODE", DisplayName: "Game Mode", Required: false, Default: "survival", Description: "Default game mode (survival, creative, adventure, spectator)"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 3072, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "cs2", Name: "Counter-Strike 2", Slug: "counter-strike-2", Image: "ghcr.io/0xkowalskidev/gameservers/cs2:latest",
 			PortMappings: []models.PortMapping{

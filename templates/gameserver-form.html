@@ -69,7 +69,8 @@
                 class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
                 <option value="">Select a game</option>
                 {{range $games}}
-                <option value="{{.ID}}" data-min-memory="{{.MinMemoryMB}}" data-rec-memory="{{.RecMemoryMB}}" {{if eq .ID "minecraft"}}selected{{end}}>{{.Name}}
+                <option value="{{.ID}}" data-min-memory="{{.MinMemoryMB}}" data-rec-memory="{{.RecMemoryMB}}" {{if eq
+                  .ID "minecraft" }}selected{{end}}>{{.Name}}
                 </option>
                 {{end}}
               </select>
@@ -79,7 +80,7 @@
         </div>
 
         <!-- Game Configuration -->
-        <div class="space-y-4" id="config-section" {{if not $isEdit}}style="display: none;" {{end}}>
+        <div class="space-y-4" id="config-section" {{if not $isEdit}}style="display: block;" {{end}}>
           <h3
             class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
             Game Configuration</h3>
@@ -97,17 +98,20 @@
           <!-- Memory Slider -->
           <div class="space-y-4">
             <div class="flex items-center justify-between">
-              <label for="memory_slider" class="text-sm font-medium text-gray-700 dark:text-gray-300">Memory (RAM)</label>
+              <label for="memory_slider" class="text-sm font-medium text-gray-700 dark:text-gray-300">Memory
+                (RAM)</label>
               <div class="flex items-center space-x-2">
-                <span id="memory-value" class="text-lg font-semibold text-blue-600 dark:text-blue-400">{{if $isEdit}}{{$gameserver.MemoryGB}}{{else}}2{{end}} GB</span>
+                <span id="memory-value" class="text-lg font-semibold text-blue-600 dark:text-blue-400">{{if
+                  $isEdit}}{{$gameserver.MemoryGB}}{{else}}2{{end}} GB</span>
                 <div id="memory-recommendation" class="text-xs text-gray-500 dark:text-gray-400"></div>
               </div>
             </div>
-            
+
             <div class="space-y-2">
-              <input type="range" id="memory_slider" min="1" max="16" step="1" {{if $isEdit}}value="{{$gameserver.MemoryGB}}"{{else}}value="2"{{end}}
-                     class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider">
-              
+              <input type="range" id="memory_slider" min="1" max="16" step="1" {{if
+                $isEdit}}value="{{$gameserver.MemoryGB}}" {{else}}value="2" {{end}}
+                class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider">
+
               <div class="flex justify-between text-xs px-2">
                 <span id="tick-1" class="text-gray-400">1</span>
                 <span id="tick-2" class="text-gray-400">2</span>
@@ -127,9 +131,10 @@
                 <span id="tick-16" class="text-gray-400">16</span>
               </div>
             </div>
-            
-            <input type="hidden" id="memory_gb" name="memory_gb" {{if $isEdit}}value="{{$gameserver.MemoryGB}}"{{else}}value="2"{{end}}>
-            
+
+            <input type="hidden" id="memory_gb" name="memory_gb" {{if $isEdit}}value="{{$gameserver.MemoryGB}}"
+              {{else}}value="2" {{end}}>
+
             <p class="text-xs text-gray-500 dark:text-gray-400">
               <span class="text-orange-500">●</span> Minimum required memory
               <span class="ml-4 text-green-500">●</span> Recommended memory for optimal performance
@@ -344,24 +349,24 @@
   {{range $games}}
   "{{.ID}}": {
     name: "{{.Name}}",
-    minMemoryMB: {{.MinMemoryMB}},
+      minMemoryMB: {{.MinMemoryMB}},
     recMemoryMB: {{.RecMemoryMB}},
     configVars: [
       {{range .ConfigVars}}
-      {
-        name: "{{.Name}}",
-        displayName: "{{.DisplayName}}",
+  {
+    name: "{{.Name}}",
+      displayName: "{{.DisplayName}}",
         required: {{.Required}},
         default: "{{.Default}}",
-        description: "{{.Description}}"
-      },
-      {{end}}
+      description: "{{.Description}}"
+  },
+  {{end}}
     ]
   },
   {{end}}
 };
 
-  const isEditMode = {{if $isEdit}}true{{else}}false{{end}};
+  const isEditMode = {{if $isEdit}}true{{else}} false{{end}};
 
   {{if $isEdit}}
   // Current environment variables from server - parse on client side
@@ -511,6 +516,22 @@
         <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
       </div>
     `;
+    } else if (configVar.name === 'MINECRAFT_VERSION') {
+      // Simple text input for Minecraft version
+      inputHtml = `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <input type="text" id="config_${configVar.name}" name="config_${configVar.name}" 
+               value="${value}" ${configVar.required ? 'required' : ''}
+               placeholder="latest"
+               class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+        <p class="text-xs text-gray-600 dark:text-gray-300">Examples: latest, 1.21.6, 1.20.4, 1.19.2</p>
+      </div>
+    `;
     } else if (configVar.name.includes('DIFFICULTY')) {
       // Game-specific difficulty options
       let options = '';
@@ -607,7 +628,7 @@
     // Color the min and rec tick marks
     const minTick = document.getElementById(`tick-${minGB}`);
     const recTick = document.getElementById(`tick-${recGB}`);
-    
+
     if (minTick) {
       minTick.className = 'text-orange-500 font-semibold';
     }
@@ -678,6 +699,7 @@
     updateMemoryRecommendations(this.value);
   });
   {{end}}
+
 
   // Initialize form
   function initializeForm() {
@@ -769,7 +791,7 @@
     if (!form) return;
 
     // Submit the form and on success, restart
-    const formEvent = new Event('submit', { bubbles: true, cancelable: true });
+    const formEvent = new Event('submit', {bubbles: true, cancelable: true});
     handleFormSubmit.call(form, formEvent);
 
     htmx.ajax('PUT', `/{{$gameserver.ID}}`, {
@@ -777,7 +799,7 @@
       swap: 'none'
     }).then(() => {
       // On successful update, restart the server
-      return htmx.ajax('POST', `/{{$gameserver.ID}}/restart`, { swap: 'none' });
+      return htmx.ajax('POST', `/{{$gameserver.ID}}/restart`, {swap: 'none'});
     }).then(() => {
       showNotification('Server updated and restarted successfully', 'success');
     }).catch(() => {
