@@ -58,11 +58,16 @@
           pkgs.richgo # Nicer go tests
           pkgs.sqlite
           pkgs.nodejs # Needed by tailwind supposedly
+          pkgs.chromium # Used by claude
           self.packages.${system}.dev
           self.packages.${system}.test
           self.packages.${system}.test-images
           self.packages.${system}.test-all
         ];
+
+        shellHook = ''
+          export PUPPETEER_EXECUTABLE_PATH=${pkgs.chromium}/bin/chromium
+        '';
       };
     };
 }
