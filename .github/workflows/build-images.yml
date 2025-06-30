@@ -22,6 +22,7 @@ jobs:
           echo "minecraft=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/minecraft/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "garrysmod=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/garrysmod/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "terraria=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/terraria/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "rust=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/rust/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -50,3 +51,9 @@ jobs:
         run: |
           docker build images/terraria --tag ghcr.io/0xkowalskidev/gameservers/terraria:latest
           docker push ghcr.io/0xkowalskidev/gameservers/terraria:latest
+
+      - name: Build and push rust
+        if: steps.changes.outputs.rust == 'true'
+        run: |
+          docker build images/rust --tag ghcr.io/0xkowalskidev/gameservers/rust:latest
+          docker push ghcr.io/0xkowalskidev/gameservers/rust:latest
