@@ -6,7 +6,6 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/server/RustDedicated_Data/Plugins:
 NAME=${NAME:-"Rust Server"}
 PASSWORD=${PASSWORD:-""}
 RCON_PASSWORD=${RCON_PASSWORD}
-RCON_PORT=${RCON_PORT:-28016}
 MAXPLAYERS=${MAXPLAYERS:-50}
 WORLDSIZE=${WORLDSIZE:-1000}
 SEED=${SEED:-12345}
@@ -19,6 +18,7 @@ SERVER_ARGS=()
 SERVER_ARGS+=("-batchmode")
 SERVER_ARGS+=("+server.hostname" "$NAME")
 SERVER_ARGS+=("+server.port" "28015")
+SERVER_ARGS+=("+server.queryport" "28017")
 SERVER_ARGS+=("+server.ip" "0.0.0.0")
 SERVER_ARGS+=("+server.maxplayers" "$MAXPLAYERS")
 SERVER_ARGS+=("+server.worldsize" "$WORLDSIZE")
@@ -33,7 +33,7 @@ fi
 
 if [[ -n "$RCON_PASSWORD" ]]; then
     SERVER_ARGS+=("+rcon.password" "$RCON_PASSWORD")
-    SERVER_ARGS+=("+rcon.port" "$RCON_PORT")
+    SERVER_ARGS+=("+rcon.port" 28016)
     SERVER_ARGS+=("+rcon.web" "1")
 fi
 
