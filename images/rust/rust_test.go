@@ -134,7 +134,7 @@ func TestRustImage_BasicStartup(t *testing.T) {
 				Context:    getDockerfileContext(),
 				Dockerfile: "Dockerfile",
 			},
-			ExposedPorts: []string{"28015/tcp"},
+			ExposedPorts: []string{"28015/udp"},
 			Env: map[string]string{
 				"WORLDSIZE": "1000", // Smaller world for faster testing
 				"SEED":      "12345",
@@ -261,10 +261,10 @@ func TestRustImage_EnvironmentVariables(t *testing.T) {
 						Context:    getDockerfileContext(),
 						Dockerfile: "Dockerfile",
 					},
-					ExposedPorts: []string{"28015/tcp"},
+					ExposedPorts: []string{"28015/udp"},
 					Env:          tc.env,
 					// Only wait for launch command to appear, not full startup
-					WaitingFor: wait.ForLog("Launching Rust server with the following command:").WithStartupTimeout(2*time.Minute),
+					WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2*time.Minute),
 				},
 				Started: true,
 			})
@@ -308,7 +308,7 @@ func TestRustImage_CommandInterface(t *testing.T) {
 				Context:    getDockerfileContext(),
 				Dockerfile: "Dockerfile",
 			},
-			ExposedPorts: []string{"28015/tcp", "28016/tcp"},
+			ExposedPorts: []string{"28015/udp", "28016/tcp"},
 			Env: map[string]string{
 				"RCON_PASSWORD": "testpass123",
 				"WORLDSIZE":     "1000", // Smaller world for faster testing
@@ -357,12 +357,12 @@ func TestRustImage_PortConfiguration(t *testing.T) {
 				Context:    getDockerfileContext(),
 				Dockerfile: "Dockerfile",
 			},
-			ExposedPorts: []string{"28015/tcp", "28016/tcp"},
+			ExposedPorts: []string{"28015/udp", "28016/tcp"},
 			Env: map[string]string{
 				"RCON_PASSWORD": "testpass123",
 				"WORLDSIZE":     "1000",
 			},
-			WaitingFor: wait.ForLog("Launching Rust server with the following command:").WithStartupTimeout(2*time.Minute),
+			WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2*time.Minute),
 		},
 		Started: true,
 	})
@@ -408,7 +408,7 @@ func TestRustImage_GracefulShutdown(t *testing.T) {
 				Context:    getDockerfileContext(),
 				Dockerfile: "Dockerfile",
 			},
-			ExposedPorts: []string{"28015/tcp"},
+			ExposedPorts: []string{"28015/udp"},
 			Env: map[string]string{
 				"WORLDSIZE": "1000", // Small world for faster testing
 			},
@@ -485,11 +485,11 @@ func TestRustImage_FileStructure(t *testing.T) {
 				Context:    getDockerfileContext(),
 				Dockerfile: "Dockerfile",
 			},
-			ExposedPorts: []string{"28015/tcp"},
+			ExposedPorts: []string{"28015/udp"},
 			Env: map[string]string{
 				"WORLDSIZE": "1000",
 			},
-			WaitingFor: wait.ForLog("Launching Rust server with the following command:").WithStartupTimeout(2*time.Minute),
+			WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2*time.Minute),
 		},
 		Started: true,
 	})
