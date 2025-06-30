@@ -16,9 +16,9 @@ import (
 
 const (
 	// Test timeouts - Rust takes much longer to start than other games
-	buildTimeout     = 15 * time.Minute // Rust server download is large
-	startupTimeout   = 10 * time.Minute // World generation can take a very long time
-	shutdownTimeout  = 2 * time.Minute  // Rust servers take time to save and shutdown
+	buildTimeout    = 15 * time.Minute // Rust server download is large
+	startupTimeout  = 10 * time.Minute // World generation can take a very long time
+	shutdownTimeout = 2 * time.Minute  // Rust servers take time to save and shutdown
 )
 
 // getDockerfileContext returns the absolute path to the rust image directory
@@ -47,25 +47,25 @@ func cleanupContainer(t *testing.T, container testcontainers.Container) {
 	if container == nil {
 		return
 	}
-	
+
 	t.Helper()
-	
+
 	// Use a separate context for cleanup to avoid cancellation issues
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	
+
 	// First try graceful termination
 	if err := container.Terminate(cleanupCtx); err != nil {
 		t.Logf("Warning: Failed to terminate container gracefully: %v", err)
-		
+
 		// If graceful termination fails, try forceful stop
 		stopTimeout := 60 * time.Second
 		if err := container.Stop(cleanupCtx, &stopTimeout); err != nil {
 			t.Logf("Warning: Failed to stop container forcefully: %v", err)
-			
+
 			// Last resort: try to get container info for debugging
 			if state, stateErr := container.State(cleanupCtx); stateErr == nil {
-				t.Logf("Container state during cleanup failure: Running=%v, Status=%s", 
+				t.Logf("Container state during cleanup failure: Running=%v, Status=%s",
 					state.Running, state.Status)
 			}
 		} else {
@@ -79,7 +79,7 @@ func cleanupContainer(t *testing.T, container testcontainers.Container) {
 // setupTest performs pre-test cleanup to ensure clean environment
 func setupTest(t *testing.T) {
 	t.Helper()
-	
+
 	// Set up test-specific cleanup that runs even if test panics
 	t.Cleanup(func() {
 		// This runs after each test regardless of outcome
@@ -90,7 +90,7 @@ func setupTest(t *testing.T) {
 // cleanupTestResources performs comprehensive cleanup of test resources
 func cleanupTestResources(t *testing.T) {
 	t.Helper()
-	
+
 	// This function can be called to clean up any leaked resources
 	// In practice, Testcontainers with Ryuk should handle most cleanup automatically
 	// But this provides a hook for additional cleanup if needed
@@ -100,7 +100,7 @@ func cleanupTestResources(t *testing.T) {
 func TestRustImage_Build(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
-	
+
 	// Build the image without starting a container
 	_, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
@@ -112,7 +112,7 @@ func TestRustImage_Build(t *testing.T) {
 		},
 		Started: false, // Just build, don't start
 	})
-	
+
 	if err != nil {
 		t.Fatalf("Failed to build Rust Docker image: %v", err)
 	}
@@ -124,10 +124,10 @@ func TestRustImage_BasicStartup(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long-running Rust startup test in short mode")
 	}
-	
+
 	setupTest(t)
 	ctx := context.Background()
-	
+
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
@@ -147,10 +147,10 @@ func TestRustImage_BasicStartup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start Rust container: %v", err)
 	}
-	
+
 	// Ensure cleanup happens regardless of test outcome
 	defer cleanupContainer(t, container)
-	
+
 	// Verify container is running
 	state, err := container.State(ctx)
 	if err != nil {
@@ -159,13 +159,13 @@ func TestRustImage_BasicStartup(t *testing.T) {
 	if !state.Running {
 		t.Fatal("Container should be running")
 	}
-	
+
 	// Get the mapped port for verification
 	mappedPort, err := container.MappedPort(ctx, "28015")
 	if err != nil {
 		t.Fatalf("Failed to get mapped port: %v", err)
 	}
-	
+
 	t.Logf("Rust server started successfully on port %s", mappedPort.Port())
 }
 
@@ -173,7 +173,7 @@ func TestRustImage_BasicStartup(t *testing.T) {
 func TestRustImage_EnvironmentVariables(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
-	
+
 	testCases := []struct {
 		name     string
 		env      map[string]string
@@ -234,7 +234,6 @@ func TestRustImage_EnvironmentVariables(t *testing.T) {
 			name: "RCON configuration",
 			env: map[string]string{
 				"RCON_PASSWORD": "testpassword123",
-				"RCON_PORT":     "28017",
 				"WORLDSIZE":     "1000",
 			},
 			checkLog: func(logs string) error {
@@ -251,7 +250,7 @@ func TestRustImage_EnvironmentVariables(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Start container but don't wait for full startup - just check launch command
@@ -264,7 +263,7 @@ func TestRustImage_EnvironmentVariables(t *testing.T) {
 					ExposedPorts: []string{"28015/udp"},
 					Env:          tc.env,
 					// Only wait for launch command to appear, not full startup
-					WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2*time.Minute),
+					WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2 * time.Minute),
 				},
 				Started: true,
 			})
@@ -272,19 +271,19 @@ func TestRustImage_EnvironmentVariables(t *testing.T) {
 				t.Fatalf("Failed to start container: %v", err)
 			}
 			defer cleanupContainer(t, container)
-			
+
 			// Get logs to check launch command
 			logs, err := container.Logs(ctx)
 			if err != nil {
 				t.Fatalf("Failed to get container logs: %v", err)
 			}
 			defer logs.Close()
-			
+
 			logStr, err := readLogsToString(logs)
 			if err != nil {
 				t.Fatalf("Failed to read logs: %v", err)
 			}
-			
+
 			if err := tc.checkLog(logStr); err != nil {
 				t.Errorf("Environment variable test failed: %v", err)
 				t.Logf("Container logs:\n%s", logStr)
@@ -298,10 +297,10 @@ func TestRustImage_CommandInterface(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long-running Rust command interface test in short mode")
 	}
-	
+
 	setupTest(t)
 	ctx := context.Background()
-	
+
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
@@ -321,7 +320,7 @@ func TestRustImage_CommandInterface(t *testing.T) {
 		t.Fatalf("Failed to start container: %v", err)
 	}
 	defer cleanupContainer(t, container)
-	
+
 	// Test sending a command through RCON
 	exitCode, outputReader, err := container.Exec(ctx, []string{
 		"bash", "-c", "RCON_PASSWORD=testpass123 /data/scripts/send-command.sh 'status'",
@@ -333,13 +332,13 @@ func TestRustImage_CommandInterface(t *testing.T) {
 		output, _ := readLogsToString(outputReader)
 		t.Fatalf("Failed to send RCON command, exit code: %d, output: %s", exitCode, output)
 	}
-	
+
 	// Read command output
 	output, err := readLogsToString(outputReader)
 	if err != nil {
 		t.Fatalf("Failed to read command output: %v", err)
 	}
-	
+
 	// RCON status command should return server information
 	if !strings.Contains(output, "hostname") || !strings.Contains(output, "players") {
 		t.Errorf("RCON status command should return server information, got: %s", output)
@@ -350,7 +349,7 @@ func TestRustImage_CommandInterface(t *testing.T) {
 func TestRustImage_PortConfiguration(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
-	
+
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
@@ -362,7 +361,7 @@ func TestRustImage_PortConfiguration(t *testing.T) {
 				"RCON_PASSWORD": "testpass123",
 				"WORLDSIZE":     "1000",
 			},
-			WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2*time.Minute),
+			WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2 * time.Minute),
 		},
 		Started: true,
 	})
@@ -370,24 +369,24 @@ func TestRustImage_PortConfiguration(t *testing.T) {
 		t.Fatalf("Failed to start container: %v", err)
 	}
 	defer cleanupContainer(t, container)
-	
+
 	// Get logs to verify port configuration
 	logs, err := container.Logs(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get container logs: %v", err)
 	}
 	defer logs.Close()
-	
+
 	logStr, err := readLogsToString(logs)
 	if err != nil {
 		t.Fatalf("Failed to read logs: %v", err)
 	}
-	
+
 	// Check that server is configured with correct ports
 	if !strings.Contains(logStr, "+server.port 28015") {
 		t.Error("Server should be configured with port 28015")
 	}
-	
+
 	if !strings.Contains(logStr, "+rcon.port 28016") {
 		t.Error("RCON should be configured with port 28016")
 	}
@@ -398,10 +397,10 @@ func TestRustImage_GracefulShutdown(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long-running Rust shutdown test in short mode")
 	}
-	
+
 	setupTest(t)
 	ctx := context.Background()
-	
+
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
@@ -419,33 +418,33 @@ func TestRustImage_GracefulShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start container: %v", err)
 	}
-	
+
 	// Send SIGTERM to the container (graceful shutdown)
 	stopTimeout := shutdownTimeout
 	if err := container.Stop(ctx, &stopTimeout); err != nil {
 		t.Fatalf("Failed to stop container gracefully: %v", err)
 	}
-	
+
 	// Get final logs to check for graceful shutdown messages
 	logs, err := container.Logs(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get logs: %v", err)
 	}
 	defer logs.Close()
-	
+
 	// Read logs into string
 	logStr, err := readLogsToString(logs)
 	if err != nil {
 		t.Fatalf("Failed to read logs: %v", err)
 	}
-	
+
 	// Check for graceful shutdown indicators
 	gracefulShutdownPatterns := []string{
 		"Received SIGTERM",
 		"stopping Rust server gracefully",
 		"Rust server stopped",
 	}
-	
+
 	found := false
 	for _, pattern := range gracefulShutdownPatterns {
 		if strings.Contains(logStr, pattern) {
@@ -453,12 +452,12 @@ func TestRustImage_GracefulShutdown(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("Expected at least one graceful shutdown message in logs")
 		t.Logf("Container logs:\n%s", logStr)
 	}
-	
+
 	// Verify container actually stopped
 	state, err := container.State(ctx)
 	if err != nil {
@@ -467,7 +466,7 @@ func TestRustImage_GracefulShutdown(t *testing.T) {
 	if state.Running {
 		t.Error("Container should have stopped after SIGTERM")
 	}
-	
+
 	// Cleanup
 	if err := container.Terminate(ctx); err != nil {
 		t.Logf("Failed to terminate container: %v", err)
@@ -478,7 +477,7 @@ func TestRustImage_GracefulShutdown(t *testing.T) {
 func TestRustImage_FileStructure(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
-	
+
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
@@ -489,7 +488,7 @@ func TestRustImage_FileStructure(t *testing.T) {
 			Env: map[string]string{
 				"WORLDSIZE": "1000",
 			},
-			WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2*time.Minute),
+			WaitingFor: wait.ForLog("Launching Rust server with arguments:").WithStartupTimeout(2 * time.Minute),
 		},
 		Started: true,
 	})
@@ -497,7 +496,7 @@ func TestRustImage_FileStructure(t *testing.T) {
 		t.Fatalf("Failed to start container: %v", err)
 	}
 	defer cleanupContainer(t, container)
-	
+
 	// Check required files and directories exist
 	requiredPaths := []string{
 		"/data/server/RustDedicated",
@@ -506,7 +505,7 @@ func TestRustImage_FileStructure(t *testing.T) {
 		"/data/steamcmd/steamcmd.sh",
 		"/data/backups",
 	}
-	
+
 	for _, path := range requiredPaths {
 		exitCode, outputReader, err := container.Exec(ctx, []string{"ls", "-la", path})
 		if err != nil {
@@ -517,13 +516,13 @@ func TestRustImage_FileStructure(t *testing.T) {
 			t.Errorf("Required path %s not found, exit code: %d, output: %s", path, exitCode, output)
 		}
 	}
-	
+
 	// Check that scripts are executable
 	executableScripts := []string{
 		"/data/scripts/start.sh",
 		"/data/scripts/send-command.sh",
 	}
-	
+
 	for _, script := range executableScripts {
 		exitCode, outputReader, err := container.Exec(ctx, []string{"test", "-x", script})
 		if err != nil {
@@ -534,7 +533,7 @@ func TestRustImage_FileStructure(t *testing.T) {
 			t.Errorf("Script %s should be executable, exit code: %d, output: %s", script, exitCode, output)
 		}
 	}
-	
+
 	// Verify rcon-cli is available
 	exitCode, outputReader, err := container.Exec(ctx, []string{"which", "rcon-cli"})
 	if err != nil {
@@ -545,3 +544,4 @@ func TestRustImage_FileStructure(t *testing.T) {
 		t.Errorf("rcon-cli should be available, exit code: %d, output: %s", exitCode, output)
 	}
 }
+

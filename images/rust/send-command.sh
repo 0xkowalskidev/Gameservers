@@ -2,7 +2,6 @@
 
 # RCON configuration
 RCON_HOST="localhost"
-RCON_PORT="28016"
 RCON_PASSWORD="${RCON_PASSWORD}"
 COMMAND="$1"
 
@@ -20,4 +19,4 @@ if [[ -z "$COMMAND" ]]; then
 fi
 
 # Send command using rcon-cli
-rcon-cli -a "$RCON_HOST:$RCON_PORT" -p "$RCON_PASSWORD" "$COMMAND"
+rcon-cli -a "$RCON_HOST:28016" -p "$RCON_PASSWORD" "$COMMAND"
