@@ -48,7 +48,6 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 		return nil, err
 	}
 
-
 	log.Info().Msg("Database connected and migrated successfully")
 	return dm, nil
 }
@@ -190,6 +189,24 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "ADMIN_PASSWORD", DisplayName: "Admin Password", Required: false, Default: "", Description: "Password for admin access"},
 			}, MinMemoryMB: 8192, RecMemoryMB: 16384, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{ID: "rust", Name: "Rust", Slug: "rust", Image: "ghcr.io/0xkowalskidev/gameservers/rust:latest",
+			PortMappings: []models.PortMapping{
+				{Name: "game", Protocol: "udp", ContainerPort: 28015, HostPort: 0},
+				{Name: "rcon", Protocol: "tcp", ContainerPort: 28016, HostPort: 0},
+				{Name: "rcon", Protocol: "udp", ContainerPort: 28016, HostPort: 0},
+				{Name: "query", Protocol: "udp", ContainerPort: 28017, HostPort: 0},
+			},
+			ConfigVars: []models.ConfigVar{
+				{Name: "NAME", DisplayName: "Server Name", Required: false, Default: "Rust Server", Description: "The name of your Rust server"},
+				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "50", Description: "Maximum number of players"},
+				{Name: "WORLDSIZE", DisplayName: "World Size", Required: false, Default: "3000", Description: "Size of the world map (1000-4000)"},
+				{Name: "SEED", DisplayName: "World Seed", Required: false, Default: "12345", Description: "Seed for world generation (numeric value)"},
+				{Name: "PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
+				{Name: "RCON_PASSWORD", DisplayName: "RCON Password", Required: false, Default: "", Description: "Password for remote console access"},
+				{Name: "TICKRATE", DisplayName: "Tick Rate", Required: false, Default: "30", Description: "Server tick rate (10-30, higher = better performance)"},
+				{Name: "SAVEINTERVAL", DisplayName: "Save Interval", Required: false, Default: "300", Description: "How often to save the world (in seconds)"},
+				{Name: "UPDATE_ON_START", DisplayName: "Update on Start", Required: false, Default: "false", Description: "Update server files on container start"},
+			}, MinMemoryMB: 4096, RecMemoryMB: 8192, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 	}
 
 	for _, game := range games {
@@ -202,4 +219,3 @@ func (dm *DatabaseManager) seedGames() error {
 	log.Info().Int("count", len(games)).Msg("Games seeded successfully")
 	return nil
 }
-

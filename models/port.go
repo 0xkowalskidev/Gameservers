@@ -1,9 +1,10 @@
 package models
 
 import (
+	"fmt"
+	"net"
 	"os"
 	"strconv"
-	"strings"
 )
 
 type PortMapping struct {
@@ -15,67 +16,61 @@ type PortMapping struct {
 
 // PortAllocator manages port assignments for gameservers
 type PortAllocator struct {
-	portRangeStart int
-	portRangeEnd   int
-	allowedPorts   []int
+	minPort int
+	maxPort int
 }
 
 func NewPortAllocator() *PortAllocator {
-	// Default port range (Kubernetes style)
-	portRangeStart := 30000
-	portRangeEnd := 32767
-	var allowedPorts []int
+	// Default port range - allow most ports but stay away from system ports
+	minPort := 1024
+	maxPort := 65535
 
-	// Read from environment variables
+	// Read from environment variables if set
 	if startEnv := os.Getenv("PORT_RANGE_START"); startEnv != "" {
 		if start, err := strconv.Atoi(startEnv); err == nil && start >= 1024 && start <= 65535 {
-			portRangeStart = start
+			minPort = start
 		}
 	}
 
 	if endEnv := os.Getenv("PORT_RANGE_END"); endEnv != "" {
-		if end, err := strconv.Atoi(endEnv); err == nil && end >= 1024 && end <= 65535 && end > portRangeStart {
-			portRangeEnd = end
+		if end, err := strconv.Atoi(endEnv); err == nil && end >= 1024 && end <= 65535 && end > minPort {
+			maxPort = end
 		}
-	}
-
-	// Parse allowed ports (e.g., "25565,27015,7777")
-	if allowedEnv := os.Getenv("ALLOWED_PORTS"); allowedEnv != "" {
-		portStrs := strings.Split(allowedEnv, ",")
-		for _, portStr := range portStrs {
-			portStr = strings.TrimSpace(portStr)
-			if portStr == "" {
-				continue
-			}
-			if port, err := strconv.Atoi(portStr); err == nil && port >= 1 && port <= 65535 {
-				allowedPorts = append(allowedPorts, port)
-			}
-		}
-	}
-
-	// Default allowed ports for common games
-	if len(allowedPorts) == 0 {
-		allowedPorts = []int{25565, 27015, 7777, 8211, 2456}
 	}
 
 	return &PortAllocator{
-		portRangeStart: portRangeStart,
-		portRangeEnd:   portRangeEnd,
-		allowedPorts:   allowedPorts,
+		minPort: minPort,
+		maxPort: maxPort,
 	}
 }
 
-// isPortAllowed checks if a port is allowed for allocation
-func (pa *PortAllocator) isPortAllowed(port int) bool {
-	// Check if port is in allowed ports list
-	for _, allowedPort := range pa.allowedPorts {
-		if port == allowedPort {
-			return true
-		}
+// isPortAvailable checks if a port is available on the system
+func (pa *PortAllocator) isPortAvailable(port int, protocol string) bool {
+	if port < pa.minPort || port > pa.maxPort {
+		return false
 	}
 
-	// Check if port is in range
-	return port >= pa.portRangeStart && port <= pa.portRangeEnd
+	// Try to bind to the port to see if it's available
+	address := fmt.Sprintf(":%d", port)
+	
+	switch protocol {
+	case "tcp":
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			return false
+		}
+		listener.Close()
+		return true
+	case "udp":
+		conn, err := net.ListenPacket("udp", address)
+		if err != nil {
+			return false
+		}
+		conn.Close()
+		return true
+	default:
+		return false
+	}
 }
 
 // AllocatePortsForServer assigns available ports to all zero-valued port mappings
@@ -87,51 +82,61 @@ func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts ma
 	for i := range server.PortMappings {
 		if server.PortMappings[i].HostPort == 0 {
 			portName := server.PortMappings[i].Name
+			protocol := server.PortMappings[i].Protocol
 
 			// Check if we already assigned a port for this name
 			if assignedPort, exists := portGroups[portName]; exists {
 				server.PortMappings[i].HostPort = assignedPort
-			} else {
-				// Try to assign the container port first (game-specific default)
-				containerPort := server.PortMappings[i].ContainerPort
-				if containerPort > 0 && !usedPorts[containerPort] && pa.isPortAllowed(containerPort) {
-					server.PortMappings[i].HostPort = containerPort
-					portGroups[portName] = containerPort
-					usedPorts[containerPort] = true
-				} else {
-					// Find a new available port for this name
-					port, err := pa.findAvailablePort(usedPorts)
-					if err != nil {
-						return err
-					}
-					server.PortMappings[i].HostPort = port
-					portGroups[portName] = port
-					usedPorts[port] = true
-				}
+				continue
 			}
+
+			// Try container port first (preferred approach)
+			containerPort := server.PortMappings[i].ContainerPort
+			if containerPort > 0 && !usedPorts[containerPort] && pa.isPortAvailable(containerPort, protocol) {
+				server.PortMappings[i].HostPort = containerPort
+				portGroups[portName] = containerPort
+				usedPorts[containerPort] = true
+				continue
+			}
+
+			// Container port not available, find next available port starting from container port + 1
+			port, err := pa.findAvailablePort(containerPort+1, protocol, usedPorts)
+			if err != nil {
+				return err
+			}
+			
+			server.PortMappings[i].HostPort = port
+			portGroups[portName] = port
+			usedPorts[port] = true
 		}
 	}
 	return nil
 }
 
-func (pa *PortAllocator) findAvailablePort(usedPorts map[int]bool) (int, error) {
-	// Check allowed ports first
-	for _, port := range pa.allowedPorts {
-		if !usedPorts[port] {
+// findAvailablePort finds the next available port starting from the given startPort
+func (pa *PortAllocator) findAvailablePort(startPort int, protocol string, usedPorts map[int]bool) (int, error) {
+	// Ensure we start within our valid range
+	if startPort < pa.minPort {
+		startPort = pa.minPort
+	}
+
+	// Search from startPort to maxPort
+	for port := startPort; port <= pa.maxPort; port++ {
+		if !usedPorts[port] && pa.isPortAvailable(port, protocol) {
 			return port, nil
 		}
 	}
-	
-	// Then check the port range
-	for port := pa.portRangeStart; port <= pa.portRangeEnd; port++ {
-		if !usedPorts[port] {
+
+	// If we didn't find anything above startPort, search from minPort to startPort-1
+	for port := pa.minPort; port < startPort; port++ {
+		if !usedPorts[port] && pa.isPortAvailable(port, protocol) {
 			return port, nil
 		}
 	}
-	
+
 	return 0, &DatabaseError{
 		Op:  "allocate_port",
-		Msg: "no available ports in configured range or allowed ports",
+		Msg: fmt.Sprintf("no available %s ports in range %d-%d", protocol, pa.minPort, pa.maxPort),
 		Err: nil,
 	}
 }
