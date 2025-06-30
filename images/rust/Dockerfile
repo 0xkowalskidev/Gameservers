@@ -46,7 +46,7 @@ USER steam
 
 # Expose Rust server ports
 # 28015/tcp - Game port
-# 28016/tcp - RCON port (if enabled)
+# 28016/tcp - RCON port 
 EXPOSE 28015 28016
 
 CMD ["/data/scripts/start.sh"]
