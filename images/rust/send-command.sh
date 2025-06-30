@@ -2,7 +2,7 @@
 
 # RCON configuration
 RCON_HOST="localhost"
-RCON_PORT="${RCON_PORT:-28016}"
+RCON_PORT="28016"
 RCON_PASSWORD="${RCON_PASSWORD}"
 COMMAND="$1"
 
