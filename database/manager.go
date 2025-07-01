@@ -152,10 +152,10 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "query", Protocol: "udp", ContainerPort: 2457, HostPort: 0},
 			},
 			ConfigVars: []models.ConfigVar{
-				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: true, Default: "My Valheim Server", Description: "The name of your Valheim server"},
-				{Name: "WORLD_NAME", DisplayName: "World Name", Required: true, Default: "Dedicated", Description: "The name of the world to create/load"},
-				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
-				{Name: "PUBLIC", DisplayName: "Public Server", Required: false, Default: "true", Description: "Whether to list server publicly"},
+				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: false, Default: "My Valheim Server", Description: "The name of your Valheim server"},
+				{Name: "PASSWORD", DisplayName: "Server Password", Required: true, Default: "valheim123", Description: "Password to join server (minimum 5 characters required)"},
+				{Name: "PUBLIC", DisplayName: "Public Server", Required: false, Default: "1", Description: "Whether to list server publicly (1 for yes, 0 for no)"},
+				{Name: "CROSSPLAY", DisplayName: "Enable Crossplay", Required: false, Default: "1", Description: "Enable crossplay between Steam and Xbox (1 for yes, 0 for no)"},
 			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "terraria", Name: "Terraria", Slug: "terraria", Image: "ghcr.io/0xkowalskidev/gameservers/terraria:latest",
 			PortMappings: []models.PortMapping{

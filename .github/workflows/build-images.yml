@@ -23,6 +23,7 @@ jobs:
           echo "garrysmod=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/garrysmod/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "terraria=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/terraria/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "rust=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/rust/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "valheim=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/valheim/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -57,3 +58,9 @@ jobs:
         run: |
           docker build images/rust --tag ghcr.io/0xkowalskidev/gameservers/rust:latest
           docker push ghcr.io/0xkowalskidev/gameservers/rust:latest
+
+      - name: Build and push valheim
+        if: steps.changes.outputs.valheim == 'true'
+        run: |
+          docker build images/valheim --tag ghcr.io/0xkowalskidev/gameservers/valheim:latest
+          docker push ghcr.io/0xkowalskidev/gameservers/valheim:latest
