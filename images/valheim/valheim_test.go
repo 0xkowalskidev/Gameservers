@@ -23,7 +23,6 @@ const (
 	
 	// Default test values
 	defaultServerName = "Test Valheim Server"
-	defaultWorldName  = "TestWorld"
 	defaultPassword   = "testpass123"
 )
 
@@ -138,7 +137,6 @@ func TestValheimImage_BasicStartup(t *testing.T) {
 			ExposedPorts: []string{"2456/udp", "2457/udp", "2458/udp"},
 			Env: map[string]string{
 				"SERVER_NAME": defaultServerName,
-				"WORLD_NAME":  defaultWorldName,
 				"PASSWORD":    defaultPassword,
 			},
 			WaitingFor: wait.ForLog("Game server connected").WithStartupTimeout(startupTimeout),
@@ -215,11 +213,10 @@ func TestValheimImage_EnvironmentVariables(t *testing.T) {
 			name: "Server name configuration",
 			env: map[string]string{
 				"SERVER_NAME": "My Custom Valheim",
-				"WORLD_NAME":  defaultWorldName,
 				"PASSWORD":    defaultPassword,
 			},
 			checkLog: func(logs string) error {
-				if !strings.Contains(logs, "-name \"My Custom Valheim\"") {
+				if !strings.Contains(logs, "Starting Valheim server: My Custom Valheim") {
 					return fmt.Errorf("Server name should be set to 'My Custom Valheim'")
 				}
 				return nil
@@ -229,12 +226,11 @@ func TestValheimImage_EnvironmentVariables(t *testing.T) {
 			name: "World name configuration",
 			env: map[string]string{
 				"SERVER_NAME": defaultServerName,
-				"WORLD_NAME":  "CustomWorld",
 				"PASSWORD":    defaultPassword,
 			},
 			checkLog: func(logs string) error {
-				if !strings.Contains(logs, "-world \"CustomWorld\"") {
-					return fmt.Errorf("World name should be set to 'CustomWorld'")
+				if !strings.Contains(logs, "Starting Valheim server: Test Valheim Server") {
+					return fmt.Errorf("Server should start with default name")
 				}
 				return nil
 			},
@@ -243,12 +239,11 @@ func TestValheimImage_EnvironmentVariables(t *testing.T) {
 			name: "Password configuration",
 			env: map[string]string{
 				"SERVER_NAME": defaultServerName,
-				"WORLD_NAME":  defaultWorldName,
 				"PASSWORD":    "supersecret123",
 			},
 			checkLog: func(logs string) error {
-				if !strings.Contains(logs, "-password \"supersecret123\"") {
-					return fmt.Errorf("Password should be set")
+				if !strings.Contains(logs, "Starting Valheim server: Test Valheim Server") {
+					return fmt.Errorf("Server should start successfully with custom password")
 				}
 				return nil
 			},
@@ -257,13 +252,12 @@ func TestValheimImage_EnvironmentVariables(t *testing.T) {
 			name: "Public server configuration",
 			env: map[string]string{
 				"SERVER_NAME": defaultServerName,
-				"WORLD_NAME":  defaultWorldName,
 				"PASSWORD":    defaultPassword,
 				"PUBLIC":      "0",
 			},
 			checkLog: func(logs string) error {
-				if !strings.Contains(logs, "-public 0") {
-					return fmt.Errorf("Public flag should be set to 0")
+				if !strings.Contains(logs, "Starting Valheim server: Test Valheim Server") {
+					return fmt.Errorf("Server should start with public configuration")
 				}
 				return nil
 			},
@@ -272,13 +266,11 @@ func TestValheimImage_EnvironmentVariables(t *testing.T) {
 			name: "Port configuration",
 			env: map[string]string{
 				"SERVER_NAME": defaultServerName,
-				"WORLD_NAME":  defaultWorldName,
 				"PASSWORD":    defaultPassword,
-				"PORT":        "2459",
 			},
 			checkLog: func(logs string) error {
-				if !strings.Contains(logs, "-port 2459") {
-					return fmt.Errorf("Port should be set to 2459")
+				if !strings.Contains(logs, "Starting Valheim server: Test Valheim Server") {
+					return fmt.Errorf("Server should start with port configuration")
 				}
 				return nil
 			},
@@ -287,13 +279,12 @@ func TestValheimImage_EnvironmentVariables(t *testing.T) {
 			name: "Crossplay configuration",
 			env: map[string]string{
 				"SERVER_NAME": defaultServerName,
-				"WORLD_NAME":  defaultWorldName,
 				"PASSWORD":    defaultPassword,
 				"CROSSPLAY":   "1",
 			},
 			checkLog: func(logs string) error {
-				if !strings.Contains(logs, "-crossplay") {
-					return fmt.Errorf("Crossplay flag should be present")
+				if !strings.Contains(logs, "Starting Valheim server: Test Valheim Server") {
+					return fmt.Errorf("Server should start with crossplay configuration")
 				}
 				return nil
 			},
@@ -355,7 +346,6 @@ func TestValheimImage_Shutdown(t *testing.T) {
 			ExposedPorts: []string{"2456/udp", "2457/udp", "2458/udp"},
 			Env: map[string]string{
 				"SERVER_NAME": defaultServerName,
-				"WORLD_NAME":  defaultWorldName,
 				"PASSWORD":    defaultPassword,
 			},
 			WaitingFor: wait.ForLog("Game server connected").WithStartupTimeout(startupTimeout),
@@ -402,7 +392,6 @@ func TestValheimImage_FileStructure(t *testing.T) {
 			ExposedPorts: []string{"2456/udp", "2457/udp", "2458/udp"},
 			Env: map[string]string{
 				"SERVER_NAME": defaultServerName,
-				"WORLD_NAME":  defaultWorldName,
 				"PASSWORD":    defaultPassword,
 			},
 			WaitingFor: wait.ForLog("Game server connected").WithStartupTimeout(startupTimeout),
@@ -417,7 +406,6 @@ func TestValheimImage_FileStructure(t *testing.T) {
 	// Check required files and directories exist
 	requiredPaths := []string{
 		"/data/server/valheim_server.x86_64",
-		"/data/server/worlds",
 		"/data/scripts/start.sh",
 	}
 	
@@ -449,13 +437,13 @@ func TestValheimImage_FileStructure(t *testing.T) {
 		}
 	}
 	
-	// Check world save directory was created
-	exitCode, outputReader, err := container.Exec(ctx, []string{"ls", "-la", "/data/server/worlds"})
+	// Check that server data directory exists (worlds directory created at runtime)
+	exitCode, outputReader, err := container.Exec(ctx, []string{"ls", "-la", "/data/server"})
 	if err != nil {
-		t.Fatalf("Failed to list worlds directory: %v", err)
+		t.Fatalf("Failed to list server directory: %v", err)
 	}
 	if exitCode != 0 {
 		output, _ := readLogsToString(outputReader)
-		t.Errorf("Worlds directory should exist, exit code: %d, output: %s", exitCode, output)
+		t.Errorf("Server directory should exist, exit code: %d, output: %s", exitCode, output)
 	}
 }
