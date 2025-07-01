@@ -3,7 +3,7 @@ module 0xkowalskidev/gameservers
 go 1.24.3
 
 require (
-	github.com/0xkowalskidev/gameserverquery v0.0.0-20250625040914-44c63b6697aa
+	github.com/0xkowalskidev/gameserverquery v0.0.0-20250630145058-9562d139c44e
 	github.com/docker/docker v28.2.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/go-chi/chi/v5 v5.2.2
