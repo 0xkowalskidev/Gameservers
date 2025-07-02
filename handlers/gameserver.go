@@ -21,7 +21,7 @@ type DashboardData struct {
 func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 	gameservers, err := h.service.ListGameservers()
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to list gameservers"), "index_gameservers")
+		h.handleServiceError(w, err, "index_gameservers")
 		return
 	}
 
@@ -54,8 +54,8 @@ func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 // ShowGameserver displays gameserver details
 func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) NewGameserver(w http.ResponseWriter, r *http.Request) {
 	games, err := h.service.ListGames()
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to list games"), "new_gameserver")
+		h.handleError(w, err, "new_gameserver", "Failed to list games")
 		return
 	}
 	Render(w, r, h.tmpl, "new-gameserver.html", map[string]interface{}{"Games": games})
@@ -75,14 +75,14 @@ func (h *Handlers) NewGameserver(w http.ResponseWriter, r *http.Request) {
 // EditGameserver shows the edit gameserver form
 func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
 	games, err := h.service.ListGames()
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to list games"), "edit_gameserver")
+		h.handleServiceError(w, err, "edit_gameserver")
 		return
 	}
 
@@ -93,12 +93,10 @@ func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
 
 	// If HTMX request, render just the template content
 	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "edit-gameserver.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render edit gameserver template"), "edit_gameserver")
-		}
+		h.handleError(w, h.tmpl.ExecuteTemplate(w, "edit-gameserver.html", data), "edit_gameserver", "Failed to render edit gameserver template")
 	} else {
 		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "edit", "edit-gameserver.html", data)
+		h.renderContentWithWrapper(w, r, gameserver, "edit", "edit-gameserver.html", data)
 	}
 }
 
@@ -123,7 +121,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Int("memory_mb", formData.MemoryMB).Float64("cpu_cores", formData.CPUCores).Msg("Creating gameserver")
 
 	if err := h.service.CreateGameserver(server); err != nil {
-		HandleError(w, InternalError(err, "Failed to create gameserver"), "create_gameserver")
+		h.handleServiceError(w, err, "create_gameserver")
 		return
 	}
 
@@ -144,7 +142,7 @@ func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 	// Get existing gameserver to preserve port mappings
 	existingServer, err := h.service.GetGameserver(id)
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to get existing gameserver"), "update_gameserver")
+		h.handleServiceError(w, err, "update_gameserver")
 		return
 	}
 
@@ -162,7 +160,7 @@ func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Int("memory_mb", formData.MemoryMB).Float64("cpu_cores", formData.CPUCores).Msg("Updating gameserver")
 
 	if err := h.service.UpdateGameserver(server); err != nil {
-		HandleError(w, InternalError(err, "Failed to update gameserver"), "update_gameserver")
+		h.handleServiceError(w, err, "update_gameserver")
 		return
 	}
 
@@ -175,7 +173,7 @@ func (h *Handlers) StartGameserver(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("gameserver_id", id).Msg("Starting gameserver")
 
 	if err := h.service.StartGameserver(id); err != nil {
-		HandleError(w, InternalError(err, "Failed to start gameserver"), "start_gameserver")
+		h.handleServiceError(w, err, "start_gameserver")
 		return
 	}
 
@@ -186,7 +184,7 @@ func (h *Handlers) StartGameserver(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) StopGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.service.StopGameserver(id); err != nil {
-		HandleError(w, InternalError(err, "Failed to stop gameserver"), "stop_gameserver")
+		h.handleServiceError(w, err, "stop_gameserver")
 		return
 	}
 	h.GameserverRow(w, r)
@@ -196,7 +194,7 @@ func (h *Handlers) StopGameserver(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) RestartGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.service.RestartGameserver(id); err != nil {
-		HandleError(w, InternalError(err, "Failed to restart gameserver"), "restart_gameserver")
+		h.handleServiceError(w, err, "restart_gameserver")
 		return
 	}
 	h.GameserverRow(w, r)
@@ -206,7 +204,7 @@ func (h *Handlers) RestartGameserver(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) DestroyGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.service.DeleteGameserver(id); err != nil {
-		HandleError(w, InternalError(err, "Failed to delete gameserver"), "destroy_gameserver")
+		h.handleServiceError(w, err, "destroy_gameserver")
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -215,21 +213,21 @@ func (h *Handlers) DestroyGameserver(w http.ResponseWriter, r *http.Request) {
 // GameserverRow renders a single gameserver row (for HTMX updates)
 func (h *Handlers) GameserverRow(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
 	if err := h.tmpl.ExecuteTemplate(w, "gameserver-row.html", gameserver); err != nil {
-		HandleError(w, InternalError(err, "Failed to render gameserver row"), "gameserver_row")
+		h.handleError(w, err, "gameserver_row", "Failed to render gameserver row")
 	}
 }
 
 // QueryGameserver returns JSON query data for client-side polling
 func (h *Handlers) QueryGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		h.jsonError(w, "Gameserver not found")
 		return
 	}

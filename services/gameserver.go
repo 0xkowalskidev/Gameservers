@@ -12,31 +12,31 @@ import (
 	"0xkowalskidev/gameservers/models"
 )
 
-// HTTPError represents an HTTP error with status code
-type HTTPError struct {
+// Local error types for services package
+type serviceError struct {
 	Status  int
 	Message string
 	Cause   error
 }
 
-func (e *HTTPError) Error() string {
+func (e *serviceError) Error() string {
 	if e.Cause != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.Cause)
 	}
 	return e.Message
 }
 
-// Error helpers
-func BadRequest(format string, args ...interface{}) error {
-	return &HTTPError{Status: 400, Message: fmt.Sprintf(format, args...)}
+// Local error helpers
+func badRequest(format string, args ...interface{}) error {
+	return &serviceError{Status: 400, Message: fmt.Sprintf(format, args...)}
 }
 
-func NotFound(resource string) error {
-	return &HTTPError{Status: 404, Message: fmt.Sprintf("%s not found", resource)}
+func notFound(resource string) error {
+	return &serviceError{Status: 404, Message: fmt.Sprintf("%s not found", resource)}
 }
 
-func InternalError(cause error, message string) error {
-	return &HTTPError{Status: 500, Message: message, Cause: cause}
+func internalError(cause error, message string) error {
+	return &serviceError{Status: 500, Message: message, Cause: cause}
 }
 
 // GameserverServiceInterface defines the business logic layer for gameserver operations
@@ -85,7 +85,7 @@ func NewGameserverService(db models.GameserverServiceInterface, docker models.Do
 func (s *GameserverService) getGameserverOrError(id string) (*models.Gameserver, error) {
 	gs, err := s.db.GetGameserver(id)
 	if err != nil {
-		return nil, NotFound("gameserver")
+		return nil, notFound("gameserver")
 	}
 	return gs, nil
 }
@@ -94,13 +94,13 @@ func (s *GameserverService) getGameserverOrError(id string) (*models.Gameserver,
 func (s *GameserverService) CreateGameserver(ctx context.Context, req CreateGameserverRequest) (*models.Gameserver, error) {
 	// Validate input
 	if req.Name == "" || req.GameID == "" {
-		return nil, BadRequest("Name and Game ID are required")
+		return nil, badRequest("Name and Game ID are required")
 	}
 
 	// Get game configuration
 	game, err := s.db.GetGame(req.GameID)
 	if err != nil {
-		return nil, NotFound("game")
+		return nil, notFound("game")
 	}
 
 	// Create database record with port mappings from game template
@@ -124,14 +124,14 @@ func (s *GameserverService) CreateGameserver(ctx context.Context, req CreateGame
 
 	// Create gameserver record
 	if err = s.db.CreateGameserver(gs); err != nil {
-		return nil, InternalError(err, "Failed to create gameserver")
+		return nil, internalError(err, "Failed to create gameserver")
 	}
 
 	// Create Docker container
 	if err = s.docker.CreateContainer(gs); err != nil {
 		// Rollback database changes
 		s.db.DeleteGameserver(gs.ID)
-		return nil, InternalError(err, "Failed to create container")
+		return nil, internalError(err, "Failed to create container")
 	}
 
 	log.Info().Str("name", gs.Name).Str("game", gs.GameID).Msg("Gameserver created")
@@ -148,7 +148,7 @@ func (s *GameserverService) updateGameserverStatus(gs *models.Gameserver, status
 	gs.Status = status
 	gs.UpdatedAt = time.Now()
 	if err := s.db.UpdateGameserver(gs); err != nil {
-		return InternalError(err, "Failed to update status")
+		return internalError(err, "Failed to update status")
 	}
 	log.Info().Str("id", gs.ID).Str("name", gs.Name).Msgf("Gameserver %s", action)
 	return nil
@@ -162,7 +162,7 @@ func (s *GameserverService) StartGameserver(ctx context.Context, id string) erro
 	}
 
 	if err := s.docker.StartContainer(gs.ContainerID); err != nil {
-		return InternalError(err, "Failed to start container")
+		return internalError(err, "Failed to start container")
 	}
 
 	return s.updateGameserverStatus(gs, models.StatusRunning, "started")
@@ -176,7 +176,7 @@ func (s *GameserverService) StopGameserver(ctx context.Context, id string) error
 	}
 
 	if err := s.docker.StopContainer(gs.ContainerID); err != nil {
-		return InternalError(err, "Failed to stop container")
+		return internalError(err, "Failed to stop container")
 	}
 
 	return s.updateGameserverStatus(gs, models.StatusStopped, "stopped")
@@ -210,7 +210,7 @@ func (s *GameserverService) DeleteGameserver(ctx context.Context, id string) err
 
 	// Delete from database
 	if err := s.db.DeleteGameserver(id); err != nil {
-		return InternalError(err, "Failed to delete gameserver")
+		return internalError(err, "Failed to delete gameserver")
 	}
 
 	log.Info().Str("id", id).Str("name", gs.Name).Msg("Gameserver deleted")
@@ -235,7 +235,7 @@ func (s *GameserverService) UpdateGameserver(ctx context.Context, id string, req
 	gs.UpdatedAt = time.Now()
 
 	if err := s.db.UpdateGameserver(gs); err != nil {
-		return InternalError(err, "Failed to update gameserver")
+		return internalError(err, "Failed to update gameserver")
 	}
 
 	return nil
@@ -272,7 +272,7 @@ func (s *GameserverService) ExecuteScheduledTask(ctx context.Context, task *mode
 		return s.CreateBackup(ctx, task.GameserverID, "")
 
 	default:
-		return BadRequest("Unknown task type: %s", string(task.Type))
+		return badRequest("Unknown task type: %s", string(task.Type))
 	}
 }
 
@@ -291,7 +291,7 @@ func (s *GameserverService) CreateBackup(ctx context.Context, gameserverID strin
 
 	// Create backup
 	if err := s.docker.CreateBackup(gameserverID, backupPath); err != nil {
-		return InternalError(err, "Failed to create backup")
+		return internalError(err, "Failed to create backup")
 	}
 
 	log.Info().Str("gameserver", gameserverID).Str("name", name).Msg("Backup created")
@@ -308,12 +308,12 @@ func (s *GameserverService) FileOperation(ctx context.Context, gameserverID stri
 	// Validate and clean path
 	cleanPath := filepath.Clean(path)
 	if strings.Contains(cleanPath, "..") {
-		return BadRequest("Invalid path")
+		return badRequest("Invalid path")
 	}
 
 	// Execute operation
 	if err := op(gs.ContainerID, cleanPath); err != nil {
-		return InternalError(err, "File operation failed")
+		return internalError(err, "File operation failed")
 	}
 
 	return nil

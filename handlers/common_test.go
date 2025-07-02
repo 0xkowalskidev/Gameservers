@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -12,8 +13,21 @@ import (
 	"github.com/0xkowalskidev/gameserverquery/protocol"
 
 	"0xkowalskidev/gameservers/models"
-	"0xkowalskidev/gameservers/services"
 )
+
+// Mock error types for testing
+type mockError struct {
+	Status  int
+	Message string
+}
+
+func (e mockError) Error() string {
+	return e.Message
+}
+
+func mockBadRequest(format string, args ...interface{}) error {
+	return mockError{Status: 400, Message: fmt.Sprintf(format, args...)}
+}
 
 // Helper function to create test templates with all required templates
 func createTestTemplate(contentTemplate string, contentParsing string) *template.Template {
@@ -62,7 +76,7 @@ func (m *mockQueryService) QueryGameserver(gameserver *models.Gameserver, game *
 			Max:     20,
 		},
 		Map:  "de_dust2",
-		Ping: 25 * time.Millisecond,
+		Ping: int(25 * time.Millisecond),
 	}, nil
 }
 
@@ -74,7 +88,7 @@ func (m *mockGameserverService) GetGameserver(id string) (*models.Gameserver, er
 			return gs, nil
 		}
 	}
-	return nil, &services.HTTPError{Status: 404, Message: "gameserver not found"}
+	return nil, mockError{Status: 404, Message: "gameserver not found"}
 }
 
 func (m *mockGameserverService) UpdateGameserver(server *models.Gameserver) error { return nil }
@@ -93,7 +107,7 @@ func (m *mockGameserverService) GetGame(id string) (*models.Game, error) {
 			return game, nil
 		}
 	}
-	return nil, &services.HTTPError{Status: 404, Message: "game not found"}
+	return nil, mockError{Status: 404, Message: "game not found"}
 }
 func (m *mockGameserverService) CreateGame(game *models.Game) error                    { return nil }
 func (m *mockGameserverService) SendGameserverCommand(id string, command string) error { return nil }
@@ -111,7 +125,7 @@ func (m *mockGameserverService) GetScheduledTask(id string) (*models.ScheduledTa
 			return task, nil
 		}
 	}
-	return nil, &services.HTTPError{Status: 404, Message: "task not found"}
+	return nil, mockError{Status: 404, Message: "task not found"}
 }
 func (m *mockGameserverService) UpdateScheduledTask(task *models.ScheduledTask) error { return nil }
 func (m *mockGameserverService) DeleteScheduledTask(id string) error {
@@ -121,7 +135,7 @@ func (m *mockGameserverService) DeleteScheduledTask(id string) error {
 			return nil // Task found, delete successful
 		}
 	}
-	return &services.HTTPError{Status: 404, Message: "task not found"}
+	return mockError{Status: 404, Message: "task not found"}
 }
 func (m *mockGameserverService) ListScheduledTasksForGameserver(gameserverID string) ([]*models.ScheduledTask, error) {
 	return m.tasks, nil
@@ -188,7 +202,7 @@ func (m *mockGameserverService) DownloadGameserverFile(gameserverID, path string
 
 // Mock error handler functions
 func mockHandleError(w http.ResponseWriter, err error, context string) {
-	if httpErr, ok := err.(*services.HTTPError); ok {
+	if httpErr, ok := err.(mockError); ok {
 		http.Error(w, httpErr.Message, httpErr.Status)
 	} else {
 		http.Error(w, "Internal Server Error", 500)
@@ -196,15 +210,11 @@ func mockHandleError(w http.ResponseWriter, err error, context string) {
 }
 
 func mockNotFound(resource string) error {
-	return &services.HTTPError{Status: 404, Message: resource + " not found"}
-}
-
-func mockBadRequest(format string, args ...interface{}) error {
-	return services.BadRequest(format, args...)
+	return mockError{Status: 404, Message: resource + " not found"}
 }
 
 func mockInternalError(err error, message string) error {
-	return &services.HTTPError{Status: 500, Message: message, Cause: err}
+	return mockError{Status: 500, Message: message}
 }
 
 func mockParseForm(r *http.Request) error {
@@ -213,7 +223,7 @@ func mockParseForm(r *http.Request) error {
 
 func mockRequireMethod(r *http.Request, method string) error {
 	if r.Method != method {
-		return &services.HTTPError{Status: 405, Message: "Method Not Allowed"}
+		return mockError{Status: 405, Message: "Method Not Allowed"}
 	}
 	return nil
 }

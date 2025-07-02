@@ -11,14 +11,14 @@ import (
 // ListGameserverTasks displays all scheduled tasks for a gameserver
 func (h *Handlers) ListGameserverTasks(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
 	tasks, err := h.service.ListScheduledTasksForGameserver(id)
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to list scheduled tasks"), "list_tasks")
+		h.handleServiceError(w, err, "list_tasks")
 		return
 	}
 
@@ -29,8 +29,8 @@ func (h *Handlers) ListGameserverTasks(w http.ResponseWriter, r *http.Request) {
 // NewGameserverTask shows the create task form
 func (h *Handlers) NewGameserverTask(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 	h.renderGameserverPageOrPartial(w, r, gameserver, "tasks", "new-task.html", nil)
@@ -48,7 +48,7 @@ func (h *Handlers) CreateGameserverTask(w http.ResponseWriter, r *http.Request) 
 	log.Info().Str("gameserver_id", id).Str("task_name", task.Name).Str("type", string(task.Type)).Str("cron", task.CronSchedule).Msg("Creating scheduled task")
 
 	if err := h.service.CreateScheduledTask(task); err != nil {
-		HandleError(w, InternalError(err, "Failed to create scheduled task"), "create_task")
+		h.handleServiceError(w, err, "create_task")
 		return
 	}
 	h.htmxRedirect(w, fmt.Sprintf("/%s/tasks", id))
@@ -59,8 +59,8 @@ func (h *Handlers) EditGameserverTask(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	taskID := chi.URLParam(r, "taskId")
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *Handlers) UpdateGameserverTask(w http.ResponseWriter, r *http.Request) 
 	log.Info().Str("task_id", taskID).Str("task_name", task.Name).Msg("Updating scheduled task")
 
 	if err := h.service.UpdateScheduledTask(task); err != nil {
-		HandleError(w, InternalError(err, "Failed to update scheduled task"), "update_task")
+		h.handleServiceError(w, err, "update_task")
 		return
 	}
 

@@ -7,12 +7,12 @@ import (
 func TestDockerError(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *DockerError
+		err      *dockerError
 		expected string
 	}{
 		{
 			name: "error without underlying error",
-			err: &DockerError{
+			err: &dockerError{
 				Op:  "create",
 				Msg: "failed to create container",
 			},
@@ -20,10 +20,10 @@ func TestDockerError(t *testing.T) {
 		},
 		{
 			name: "error with underlying error",
-			err: &DockerError{
+			err: &dockerError{
 				Op:  "start",
 				Msg: "failed to start container",
-				Err: &DockerError{Op: "connect", Msg: "connection refused"},
+				Err: &dockerError{Op: "connect", Msg: "connection refused"},
 			},
 			expected: "docker start: failed to start container: docker connect: connection refused",
 		},
@@ -32,7 +32,7 @@ func TestDockerError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.err.Error(); got != tt.expected {
-				t.Errorf("DockerError.Error() = %v, want %v", got, tt.expected)
+				t.Errorf("dockerError.Error() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
@@ -54,24 +54,24 @@ func TestNewDockerManager(t *testing.T) {
 }
 
 func TestDockerError_Error(t *testing.T) {
-	err := &DockerError{
+	err := &dockerError{
 		Op:  "test_operation",
 		Msg: "test error message",
 	}
 
 	expected := "docker test_operation: test error message"
 	if got := err.Error(); got != expected {
-		t.Errorf("DockerError.Error() = %q, want %q", got, expected)
+		t.Errorf("dockerError.Error() = %q, want %q", got, expected)
 	}
 }
 
 func TestDockerError_WithCause(t *testing.T) {
-	causeErr := &DockerError{
+	causeErr := &dockerError{
 		Op:  "underlying",
 		Msg: "underlying error",
 	}
 
-	err := &DockerError{
+	err := &dockerError{
 		Op:  "wrapper",
 		Msg: "wrapper error",
 		Err: causeErr,
@@ -79,6 +79,6 @@ func TestDockerError_WithCause(t *testing.T) {
 
 	expected := "docker wrapper: wrapper error: docker underlying: underlying error"
 	if got := err.Error(); got != expected {
-		t.Errorf("DockerError.Error() = %q, want %q", got, expected)
+		t.Errorf("dockerError.Error() = %q, want %q", got, expected)
 	}
 }

@@ -15,8 +15,8 @@ import (
 // GameserverConsole displays the console interface
 func (h *Handlers) GameserverConsole(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 	h.renderGameserverPageOrPartial(w, r, gameserver, "console", "gameserver-console.html", nil)

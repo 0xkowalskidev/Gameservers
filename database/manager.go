@@ -24,14 +24,14 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 	})
 	if err != nil {
 		log.Error().Err(err).Str("db_path", dbPath).Msg("Failed to open database")
-		return nil, &models.DatabaseError{Op: "db", Msg: "failed to open database", Err: err}
+		return nil, &databaseError{Op: "db", Msg: "failed to open database", Err: err}
 	}
 
 	// Get underlying SQL DB for configuration
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get underlying SQL DB")
-		return nil, &models.DatabaseError{Op: "db", Msg: "failed to get underlying SQL DB", Err: err}
+		return nil, &databaseError{Op: "db", Msg: "failed to get underlying SQL DB", Err: err}
 	}
 
 	// Configure connection pool
@@ -41,7 +41,7 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 	// Enable foreign key constraints
 	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
 		log.Error().Err(err).Msg("Failed to enable foreign key constraints")
-		return nil, &models.DatabaseError{Op: "db", Msg: "failed to enable foreign key constraints", Err: err}
+		return nil, &databaseError{Op: "db", Msg: "failed to enable foreign key constraints", Err: err}
 	}
 
 	dm := &DatabaseManager{db: db}
@@ -81,7 +81,7 @@ func (dm *DatabaseManager) migrate() error {
 		&models.ScheduledTask{},
 	)
 	if err != nil {
-		return &models.DatabaseError{Op: "db", Msg: "failed to auto-migrate", Err: err}
+		return &databaseError{Op: "db", Msg: "failed to auto-migrate", Err: err}
 	}
 
 	return nil
@@ -92,7 +92,7 @@ func (dm *DatabaseManager) seedGames() error {
 	// Check if games already exist
 	var count int64
 	if err := dm.db.Model(&models.Game{}).Count(&count).Error; err != nil {
-		return &models.DatabaseError{Op: "db", Msg: "failed to count games", Err: err}
+		return &databaseError{Op: "db", Msg: "failed to count games", Err: err}
 	}
 	if count > 0 {
 		return nil // Games already seeded
@@ -184,7 +184,7 @@ func (dm *DatabaseManager) seedGames() error {
 	for _, game := range games {
 		if err := dm.db.Create(game).Error; err != nil {
 			log.Error().Err(err).Str("game_id", game.ID).Msg("Failed to seed game")
-			return &models.DatabaseError{Op: "db", Msg: "failed to create game", Err: err}
+			return &databaseError{Op: "db", Msg: "failed to create game", Err: err}
 		}
 	}
 

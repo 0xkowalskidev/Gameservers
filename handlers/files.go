@@ -18,8 +18,8 @@ import (
 // GameserverFiles displays the file manager interface
 func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -42,22 +42,19 @@ func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request)
 	}
 	path = sanitizePath(path)
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
 	files, err := h.service.ListFiles(gameserver.ContainerID, path)
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to list files"), "browse_files")
+		h.handleError(w, err, "browse_files", "Failed to list files")
 		return
 	}
 
-	data := map[string]interface{}{"Files": files, "CurrentPath": path}
-	data["Gameserver"] = gameserver
-	if err := h.tmpl.ExecuteTemplate(w, "file-browser.html", data); err != nil {
-		HandleError(w, InternalError(err, "Failed to render file browser"), "browse_files")
-	}
+	data := map[string]interface{}{"Files": files, "CurrentPath": path, "Gameserver": gameserver}
+	h.handleError(w, h.tmpl.ExecuteTemplate(w, "file-browser.html", data), "browse_files", "Failed to render file browser")
 }
 
 // GameserverFileContent returns file content for editing (JSON API)
@@ -68,20 +65,14 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 	// Get gameserver ID
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"Supported": false,
-			"Error":     "Missing gameserver ID",
-		})
+		h.jsonError(w, "Missing gameserver ID")
 		return
 	}
 
 	// Get file path
 	path := r.URL.Query().Get("path")
 	if path == "" {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"Supported": false,
-			"Error":     "Missing file path",
-		})
+		h.jsonError(w, "Missing file path")
 		return
 	}
 
@@ -275,8 +266,8 @@ func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request
 	// Sanitize path
 	path = sanitizePath(path)
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -330,8 +321,8 @@ func (h *Handlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) 
 	path = sanitizePath(path)
 	fullPath := filepath.Join(path, name)
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -364,8 +355,8 @@ func (h *Handlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) 
 	// Sanitize path
 	path = sanitizePath(path)
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -392,8 +383,8 @@ func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) 
 	oldPath = sanitizePath(oldPath)
 	newPath := sanitizePath(filepath.Join(filepath.Dir(oldPath), newName))
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -437,8 +428,8 @@ func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 

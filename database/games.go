@@ -9,7 +9,7 @@ import (
 // CreateGame inserts a new game into the database
 func (dm *DatabaseManager) CreateGame(game *models.Game) error {
 	if err := dm.db.Create(game).Error; err != nil {
-		return &models.DatabaseError{Op: "create_game", Msg: fmt.Sprintf("failed to insert game %s", game.Name), Err: err}
+		return &databaseError{Op: "create_game", Msg: fmt.Sprintf("failed to insert game %s", game.Name), Err: err}
 	}
 	return nil
 }
@@ -18,7 +18,7 @@ func (dm *DatabaseManager) CreateGame(game *models.Game) error {
 func (dm *DatabaseManager) GetGame(id string) (*models.Game, error) {
 	var game models.Game
 	if err := dm.db.First(&game, "id = ?", id).Error; err != nil {
-		return nil, &models.DatabaseError{Op: "get_game", Msg: fmt.Sprintf("failed to get game %s", id), Err: err}
+		return nil, &databaseError{Op: "get_game", Msg: fmt.Sprintf("failed to get game %s", id), Err: err}
 	}
 	return &game, nil
 }
@@ -27,7 +27,7 @@ func (dm *DatabaseManager) GetGame(id string) (*models.Game, error) {
 func (dm *DatabaseManager) ListGames() ([]*models.Game, error) {
 	var games []*models.Game
 	if err := dm.db.Order("name").Find(&games).Error; err != nil {
-		return nil, &models.DatabaseError{Op: "list_games", Msg: "failed to query games", Err: err}
+		return nil, &databaseError{Op: "list_games", Msg: "failed to query games", Err: err}
 	}
 	return games, nil
 }
@@ -35,7 +35,7 @@ func (dm *DatabaseManager) ListGames() ([]*models.Game, error) {
 // UpdateGame updates an existing game
 func (dm *DatabaseManager) UpdateGame(game *models.Game) error {
 	if err := dm.db.Save(game).Error; err != nil {
-		return &models.DatabaseError{Op: "update_game", Msg: fmt.Sprintf("failed to update game %s", game.ID), Err: err}
+		return &databaseError{Op: "update_game", Msg: fmt.Sprintf("failed to update game %s", game.ID), Err: err}
 	}
 	return nil
 }
@@ -43,7 +43,7 @@ func (dm *DatabaseManager) UpdateGame(game *models.Game) error {
 // DeleteGame deletes a game by ID
 func (dm *DatabaseManager) DeleteGame(id string) error {
 	if err := dm.db.Delete(&models.Game{}, "id = ?", id).Error; err != nil {
-		return &models.DatabaseError{Op: "delete_game", Msg: fmt.Sprintf("failed to delete game %s", id), Err: err}
+		return &databaseError{Op: "delete_game", Msg: fmt.Sprintf("failed to delete game %s", id), Err: err}
 	}
 	return nil
 }

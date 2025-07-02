@@ -7,19 +7,29 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// HTTPError represents an HTTP error with status code and message
-type HTTPError struct {
-	Status  int
-	Message string
-	Err     error
+// AppError represents a unified error type with context, status, and error chaining
+type AppError struct {
+	Op      string // Operation context (e.g., "create_gameserver", "list_files")
+	Status  int    // HTTP status code
+	Message string // User-friendly message
+	Err     error  // Wrapped error
 }
 
-func (e HTTPError) Error() string {
+func (e AppError) Error() string {
 	if e.Err != nil {
+		if e.Op != "" {
+			return fmt.Sprintf("%s: %s: %v", e.Op, e.Message, e.Err)
+		}
 		return fmt.Sprintf("%s: %v", e.Message, e.Err)
+	}
+	if e.Op != "" {
+		return fmt.Sprintf("%s: %s", e.Op, e.Message)
 	}
 	return e.Message
 }
+
+// HTTPError is an alias for backward compatibility
+type HTTPError = AppError
 
 // Common HTTP errors
 var (
@@ -35,22 +45,28 @@ func HandleError(w http.ResponseWriter, err error, context string) {
 		return
 	}
 
-	httpErr, ok := err.(HTTPError)
+	appErr, ok := err.(AppError)
 	if !ok {
-		httpErr = HTTPError{
+		appErr = AppError{
+			Op:      context,
 			Status:  http.StatusInternalServerError,
 			Message: "Internal server error",
 			Err:     err,
 		}
 	}
 
-	log.Error().
-		Err(httpErr.Err).
-		Str("context", context).
-		Int("status", httpErr.Status).
-		Msg(httpErr.Message)
+	// Use context if Op is not set
+	if appErr.Op == "" {
+		appErr.Op = context
+	}
 
-	http.Error(w, httpErr.Message, httpErr.Status)
+	log.Error().
+		Err(appErr.Err).
+		Str("context", appErr.Op).
+		Int("status", appErr.Status).
+		Msg(appErr.Message)
+
+	http.Error(w, appErr.Message, appErr.Status)
 }
 
 // WrapError wraps an error with HTTP status and message
@@ -67,7 +83,7 @@ func WrapError(err error, status int, message string) error {
 
 // BadRequest creates a bad request error
 func BadRequest(format string, args ...interface{}) error {
-	return HTTPError{
+	return AppError{
 		Status:  http.StatusBadRequest,
 		Message: fmt.Sprintf(format, args...),
 	}
@@ -75,7 +91,7 @@ func BadRequest(format string, args ...interface{}) error {
 
 // NotFound creates a not found error
 func NotFound(resource string) error {
-	return HTTPError{
+	return AppError{
 		Status:  http.StatusNotFound,
 		Message: fmt.Sprintf("%s not found", resource),
 	}
@@ -83,7 +99,37 @@ func NotFound(resource string) error {
 
 // InternalError wraps an internal error
 func InternalError(err error, message string) error {
-	return HTTPError{
+	return AppError{
+		Status:  http.StatusInternalServerError,
+		Message: message,
+		Err:     err,
+	}
+}
+
+// NewError creates a new AppError with operation context
+func NewError(op string, status int, message string, err error) error {
+	return AppError{
+		Op:      op,
+		Status:  status,
+		Message: message,
+		Err:     err,
+	}
+}
+
+// DatabaseError creates a database operation error
+func DatabaseError(op, message string, err error) error {
+	return AppError{
+		Op:      op,
+		Status:  http.StatusInternalServerError,
+		Message: message,
+		Err:     err,
+	}
+}
+
+// DockerError creates a docker operation error  
+func DockerError(op, message string, err error) error {
+	return AppError{
+		Op:      "docker_" + op,
 		Status:  http.StatusInternalServerError,
 		Message: message,
 		Err:     err,

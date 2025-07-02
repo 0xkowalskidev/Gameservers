@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"0xkowalskidev/gameservers/services"
 )
 
 func TestHandlers_GameserverConsole(t *testing.T) {
@@ -115,7 +113,7 @@ func TestHandlers_SendGameserverCommand_ServiceError(t *testing.T) {
 	// Create a mock service that returns an error for SendGameserverCommand
 	mockService := &mockGameserverServiceWithErrors{
 		mockGameserverService: createMockService(),
-		sendCommandError:      &services.HTTPError{Status: 500, Message: "Command failed"},
+		sendCommandError:      &mockError{Status: 500, Message: "Command failed"},
 	}
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
 	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
@@ -163,7 +161,7 @@ func TestHandlers_GameserverLogs_ServiceError(t *testing.T) {
 	// Create a mock service that returns an error for StreamGameserverLogs
 	mockService := &mockGameserverServiceWithErrors{
 		mockGameserverService: createMockService(),
-		streamLogsError:       &services.HTTPError{Status: 500, Message: "Stream failed"},
+		streamLogsError:       &mockError{Status: 500, Message: "Stream failed"},
 	}
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
 	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})
@@ -214,7 +212,7 @@ func TestHandlers_GameserverStats_ServiceError(t *testing.T) {
 	// Create a mock service that returns an error for StreamGameserverStats
 	mockService := &mockGameserverServiceWithErrors{
 		mockGameserverService: createMockService(),
-		streamStatsError:      &services.HTTPError{Status: 500, Message: "Stats failed"},
+		streamStatsError:      &mockError{Status: 500, Message: "Stats failed"},
 	}
 	tmpl := createTestTemplate("gameserver-console.html", `Console`)
 	handlers := New(mockService, tmpl, 1024*1024, 10*1024*1024, &mockQueryService{})

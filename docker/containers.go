@@ -58,7 +58,7 @@ func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
 	for _, portMapping := range server.PortMappings {
 		port := nat.Port(fmt.Sprintf("%d/%s", portMapping.ContainerPort, portMapping.Protocol))
 		if portMapping.HostPort == 0 {
-			return &DockerError{
+			return &dockerError{
 				Op:  "create",
 				Msg: fmt.Sprintf("port mapping for %s:%d has no assigned host port", portMapping.Protocol, portMapping.ContainerPort),
 				Err: nil,
@@ -124,7 +124,7 @@ func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
 	)
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", server.ID).Str("name", server.Name).Msg("Failed to create Docker container")
-		return &DockerError{
+		return &dockerError{
 			Op:  "create",
 			Msg: fmt.Sprintf("failed to create container for server %s", server.Name),
 			Err: err,
@@ -150,7 +150,7 @@ func (d *DockerManager) StartContainer(containerID string) error {
 
 	err := d.client.ContainerStart(ctx, containerID, container.StartOptions{})
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "start",
 			Msg: fmt.Sprintf("failed to start container %s", containerID),
 			Err: err,
@@ -169,7 +169,7 @@ func (d *DockerManager) StopContainer(containerID string) error {
 		Timeout: &timeout,
 	})
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "stop",
 			Msg: fmt.Sprintf("failed to stop container %s", containerID),
 			Err: err,
@@ -187,7 +187,7 @@ func (d *DockerManager) RemoveContainer(containerID string) error {
 		Force: true,
 	})
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "remove",
 			Msg: fmt.Sprintf("failed to remove container %s", containerID),
 			Err: err,
@@ -203,7 +203,7 @@ func (d *DockerManager) GetContainerStatus(containerID string) (models.Gameserve
 
 	inspect, err := d.client.ContainerInspect(ctx, containerID)
 	if err != nil {
-		return models.StatusError, &DockerError{
+		return models.StatusError, &dockerError{
 			Op:  "inspect",
 			Msg: fmt.Sprintf("failed to inspect container %s", containerID),
 			Err: err,
@@ -236,7 +236,7 @@ func (d *DockerManager) ListContainers() ([]string, error) {
 		Filters: filter,
 	})
 	if err != nil {
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "list",
 			Msg: "failed to list containers",
 			Err: err,

@@ -17,8 +17,8 @@ func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -49,8 +49,8 @@ func (h *Handlers) CreateGameserverBackup(w http.ResponseWriter, r *http.Request
 // ListGameserverBackups displays all backups for a gameserver
 func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 
@@ -82,7 +82,7 @@ func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request)
 		}
 	} else {
 		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "backups", "gameserver-backups.html", data)
+		h.renderGameserverPageOrPartial(w, r, gameserver, "backups", "gameserver-backups.html", data)
 	}
 }
 
@@ -95,8 +95,8 @@ func (h *Handlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
+	gameserver := h.requireGameserver(w, id)
+	if gameserver == nil {
 		return
 	}
 

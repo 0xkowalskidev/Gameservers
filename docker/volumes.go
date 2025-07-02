@@ -31,7 +31,7 @@ func (d *DockerManager) CreateVolume(volumeName string) error {
 		},
 	})
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "create_volume",
 			Msg: fmt.Sprintf("failed to create volume %s", volumeName),
 			Err: err,
@@ -50,7 +50,7 @@ func (d *DockerManager) RemoveVolume(volumeName string) error {
 
 	err := d.client.VolumeRemove(ctx, volumeName, true) // force=true
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "remove_volume",
 			Msg: fmt.Sprintf("failed to remove volume %s", volumeName),
 			Err: err,
@@ -72,7 +72,7 @@ func (d *DockerManager) GetVolumeInfo(volumeName string) (*models.VolumeInfo, er
 
 	vol, err := d.client.VolumeInspect(ctx, volumeName)
 	if err != nil {
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "inspect_volume",
 			Msg: fmt.Sprintf("failed to inspect volume %s", volumeName),
 			Err: err,

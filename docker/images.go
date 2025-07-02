@@ -101,7 +101,7 @@ func (d *DockerManager) pullImage(ctx context.Context, imageName string) error {
 		RegistryAuth: encodedAuth,
 	})
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "pull",
 			Msg: fmt.Sprintf("failed to pull image %s", imageName),
 			Err: err,

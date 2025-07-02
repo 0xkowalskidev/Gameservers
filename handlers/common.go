@@ -64,20 +64,73 @@ func New(service models.GameserverServiceInterface, tmpl *template.Template, max
 	return &Handlers{BaseHandler: NewBaseHandler(service, tmpl, maxFileEditSize, maxUploadSize, queryService)}
 }
 
-// Helper function to get gameserver with error handling
-func (h *BaseHandler) getGameserver(w http.ResponseWriter, id string) (*models.Gameserver, bool) {
+// Error handling helpers
+func (h *BaseHandler) handleDBError(w http.ResponseWriter, err error, context string) {
+	if err != nil {
+		HandleError(w, InternalError(err, "Database operation failed"), context)
+	}
+}
+
+func (h *BaseHandler) handleServiceError(w http.ResponseWriter, err error, operation string) {
+	if err != nil {
+		HandleError(w, InternalError(err, "Service operation failed"), operation)
+	}
+}
+
+func (h *BaseHandler) handleError(w http.ResponseWriter, err error, context, message string) {
+	if err != nil {
+		HandleError(w, InternalError(err, message), context)
+	}
+}
+
+// requireGameserver gets a gameserver and handles error automatically, returns nil if error occurred
+func (h *BaseHandler) requireGameserver(w http.ResponseWriter, id string) *models.Gameserver {
 	gameserver, err := h.service.GetGameserver(id)
 	if err != nil {
 		HandleError(w, NotFound("Gameserver"), "get_gameserver")
-		return nil, false
+		return nil
 	}
-	return gameserver, true
+	return gameserver
 }
+
 
 // Helper function to handle redirects with HTMX
 func (h *BaseHandler) htmxRedirect(w http.ResponseWriter, url string) {
 	w.Header().Set("HX-Redirect", url)
 	w.WriteHeader(http.StatusOK)
+}
+
+// Form parsing helpers
+func (h *BaseHandler) getFormValue(r *http.Request, key string, required bool) (string, error) {
+	value := strings.TrimSpace(r.FormValue(key))
+	if required && value == "" {
+		return "", BadRequest("Field '%s' is required", key)
+	}
+	return value, nil
+}
+
+func (h *BaseHandler) parseIntForm(r *http.Request, key string, defaultVal int) (int, error) {
+	value := strings.TrimSpace(r.FormValue(key))
+	if value == "" {
+		return defaultVal, nil
+	}
+	result, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, BadRequest("Field '%s' must be a valid integer", key)
+	}
+	return result, nil
+}
+
+func (h *BaseHandler) parseFloatForm(r *http.Request, key string, defaultVal float64) (float64, error) {
+	value := strings.TrimSpace(r.FormValue(key))
+	if value == "" {
+		return defaultVal, nil
+	}
+	result, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return 0, BadRequest("Field '%s' must be a valid number", key)
+	}
+	return result, nil
 }
 
 // renderGameserverPageOrPartial handles the common HTMX vs full page rendering pattern
@@ -86,13 +139,14 @@ func (h *BaseHandler) renderGameserverPageOrPartial(w http.ResponseWriter, r *ht
 		data = make(map[string]interface{})
 	}
 	data["Gameserver"] = gameserver
+	data["CurrentPage"] = currentPage
 
 	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render template"), "render_template")
-		}
+		// HTMX request - render template directly
+		h.handleError(w, h.tmpl.ExecuteTemplate(w, templateName, data), "render_template", "Failed to render template")
 	} else {
-		h.renderGameserverPage(w, r, gameserver, currentPage, templateName, data)
+		// Full page request - render with wrapper
+		h.renderContentWithWrapper(w, r, gameserver, currentPage, templateName, data)
 	}
 }
 
@@ -108,26 +162,31 @@ type GameserverFormData struct {
 
 // parseGameserverForm parses and validates gameserver form data
 func (h *BaseHandler) parseGameserverForm(r *http.Request) (*GameserverFormData, error) {
-	if err := ParseForm(r); err != nil {
+	name, err := h.getFormValue(r, "name", true)
+	if err != nil {
+		return nil, err
+	}
+	gameID, err := h.getFormValue(r, "game_id", true)
+	if err != nil {
 		return nil, err
 	}
 
-	name := strings.TrimSpace(r.FormValue("name"))
-	gameID := strings.TrimSpace(r.FormValue("game_id"))
-	if name == "" || gameID == "" {
-		return nil, BadRequest("name and game_id are required")
+	memoryGB, err := h.parseFloatForm(r, "memory_gb", 1.0)
+	if err != nil {
+		return nil, err
 	}
-
-	memoryGB, _ := strconv.ParseFloat(r.FormValue("memory_gb"), 64)
-	cpuCores, _ := strconv.ParseFloat(r.FormValue("cpu_cores"), 64)
-	maxBackups, _ := strconv.Atoi(r.FormValue("max_backups"))
+	cpuCores, err := h.parseFloatForm(r, "cpu_cores", 0.0)
+	if err != nil {
+		return nil, err
+	}
+	maxBackups, err := h.parseIntForm(r, "max_backups", 7)
+	if err != nil {
+		return nil, err
+	}
 
 	memoryMB := int(memoryGB * 1024)
 	if memoryMB <= 0 {
 		memoryMB = 1024
-	}
-	if maxBackups <= 0 {
-		maxBackups = 7
 	}
 
 	// Parse environment variables
@@ -147,16 +206,17 @@ func (h *BaseHandler) parseGameserverForm(r *http.Request) (*GameserverFormData,
 
 // parseScheduledTaskForm parses and validates scheduled task form data
 func (h *BaseHandler) parseScheduledTaskForm(r *http.Request, gameserverID string) (*models.ScheduledTask, error) {
-	if err := ParseForm(r); err != nil {
+	name, err := h.getFormValue(r, "name", true)
+	if err != nil {
 		return nil, err
 	}
-
-	name := strings.TrimSpace(r.FormValue("name"))
-	taskType := strings.TrimSpace(r.FormValue("type"))
-	cronSchedule := strings.TrimSpace(r.FormValue("cron_schedule"))
-
-	if name == "" || taskType == "" || cronSchedule == "" {
-		return nil, BadRequest("name, type and cron_schedule are required")
+	taskType, err := h.getFormValue(r, "type", true)
+	if err != nil {
+		return nil, err
+	}
+	cronSchedule, err := h.getFormValue(r, "cron_schedule", true)
+	if err != nil {
+		return nil, err
 	}
 
 	parsedType := models.TaskType(taskType)
@@ -176,10 +236,10 @@ func (h *BaseHandler) updateTaskFromForm(task *models.ScheduledTask, r *http.Req
 		return err
 	}
 
-	name := strings.TrimSpace(r.FormValue("name"))
-	taskType := strings.TrimSpace(r.FormValue("type"))
-	status := strings.TrimSpace(r.FormValue("status"))
-	cronSchedule := strings.TrimSpace(r.FormValue("cron_schedule"))
+	name, _ := h.getFormValue(r, "name", false)
+	taskType, _ := h.getFormValue(r, "type", false)
+	status, _ := h.getFormValue(r, "status", false)
+	cronSchedule, _ := h.getFormValue(r, "cron_schedule", false)
 
 	if taskType != "" {
 		parsedType := models.TaskType(taskType)
@@ -214,81 +274,47 @@ func (h *BaseHandler) requireQueryParam(r *http.Request, param string) (string, 
 	return "", BadRequest("%s parameter required", param)
 }
 
-// validateFormFields validates required form fields
-func (h *BaseHandler) validateFormFields(r *http.Request, fields ...string) error {
+
+// getRequiredFormValues gets multiple required form values with validation
+func (h *BaseHandler) getRequiredFormValues(r *http.Request, fields ...string) (map[string]string, error) {
 	if err := ParseForm(r); err != nil {
-		return err
+		return nil, err
 	}
+	result := make(map[string]string)
 	for _, field := range fields {
-		if r.FormValue(field) == "" {
-			return BadRequest("%s is required", field)
+		value := strings.TrimSpace(r.FormValue(field))
+		if value == "" {
+			return nil, BadRequest("%s is required", field)
 		}
+		result[field] = value
 	}
-	return nil
+	return result, nil
 }
 
-// renderGameserverPage is a helper that combines renderWithGameserverContext for the most common use case
-func (h *BaseHandler) renderGameserverPage(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, contentTemplate string, data map[string]interface{}) {
-	h.renderWithGameserverContext(w, r, gameserver, currentPage, contentTemplate, data)
+// validateFormFields validates required form fields (keeping for backward compatibility)
+func (h *BaseHandler) validateFormFields(r *http.Request, fields ...string) error {
+	_, err := h.getRequiredFormValues(r, fields...)
+	return err
 }
 
-// renderWithGameserverContext handles the standard gameserver page layout with navigation
-func (h *BaseHandler) renderWithGameserverContext(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, templateName string, data map[string]interface{}) {
-	// Set up page data with gameserver context
-	pageData := map[string]interface{}{
-		"Gameserver":  gameserver,
-		"CurrentPage": currentPage,
-	}
-
-	// Merge any additional data
-	for k, v := range data {
-		pageData[k] = v
-	}
-
-	// Always render the layout for full page requests
-	if r.Header.Get("HX-Request") != "true" {
-		// For full page requests, we need to render the content template first,
-		// then wrap it in the gameserver-wrapper, then in the layout
-		var contentBuf bytes.Buffer
-		err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, pageData)
-		if err != nil {
-			HandleError(w, err, "render_content_template")
-			return
-		}
-
-		// Create wrapper data with the rendered content
-		wrapperData := map[string]interface{}{
-			"Gameserver":  gameserver,
-			"CurrentPage": currentPage,
-			"Content":     template.HTML(contentBuf.String()),
-		}
-
-		// Use the Render function to wrap in layout
-		Render(w, r, h.tmpl, "gameserver-wrapper.html", wrapperData)
-		return
-	}
-
-	// For HTMX requests, render the gameserver-wrapper which includes navigation
-	// First render the content template
+// renderContentWithWrapper renders content inside gameserver wrapper layout
+func (h *BaseHandler) renderContentWithWrapper(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage, templateName string, data map[string]interface{}) {
+	// Render content template to buffer
 	var contentBuf bytes.Buffer
-	err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, pageData)
-	if err != nil {
-		HandleError(w, err, "render_content_template")
+	if err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, data); err != nil {
+		h.handleError(w, err, "render_content_template", "Failed to render content template")
 		return
 	}
 
-	// Create wrapper data with the rendered content
+	// Prepare wrapper data
 	wrapperData := map[string]interface{}{
 		"Gameserver":  gameserver,
 		"CurrentPage": currentPage,
 		"Content":     template.HTML(contentBuf.String()),
 	}
 
-	// Render the wrapper template
-	err = h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData)
-	if err != nil {
-		HandleError(w, err, "render_wrapper_template")
-	}
+	// Render with full layout
+	Render(w, r, h.tmpl, "gameserver-wrapper.html", wrapperData)
 }
 
 // generateID generates a unique ID for entities
@@ -311,17 +337,19 @@ func formatFileSize(size int64) string {
 }
 
 // JSON response helpers
-func (h *BaseHandler) jsonError(w http.ResponseWriter, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"Supported": false, "Error": message})
-}
-
-func (h *BaseHandler) jsonSuccess(w http.ResponseWriter, data map[string]interface{}) {
+func (h *BaseHandler) jsonResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
 }
 
+func (h *BaseHandler) jsonError(w http.ResponseWriter, message string) {
+	h.jsonResponse(w, map[string]interface{}{"Supported": false, "Error": message})
+}
+
+func (h *BaseHandler) jsonSuccess(w http.ResponseWriter, data map[string]interface{}) {
+	h.jsonResponse(w, data)
+}
+
 func (h *BaseHandler) jsonStatus(w http.ResponseWriter, status, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": status, "message": message})
+	h.jsonResponse(w, map[string]string{"status": status, "message": message})
 }

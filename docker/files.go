@@ -36,7 +36,7 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 	// Create exec instance
 	execID, err := d.client.ContainerExecCreate(ctx, containerID, execConfig)
 	if err != nil {
-		return "", &DockerError{
+		return "", &dockerError{
 			Op:  "exec_create",
 			Msg: fmt.Sprintf("failed to create exec for container %s", containerID),
 			Err: err,
@@ -46,7 +46,7 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 	// Attach to the exec instance
 	resp, err := d.client.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
 	if err != nil {
-		return "", &DockerError{
+		return "", &dockerError{
 			Op:  "exec_attach",
 			Msg: fmt.Sprintf("failed to attach to exec for container %s", containerID),
 			Err: err,
@@ -57,7 +57,7 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 	// Start the exec instance
 	err = d.client.ContainerExecStart(ctx, execID.ID, container.ExecStartOptions{})
 	if err != nil {
-		return "", &DockerError{
+		return "", &dockerError{
 			Op:  "exec_start",
 			Msg: fmt.Sprintf("failed to start exec for container %s", containerID),
 			Err: err,
@@ -76,14 +76,14 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 	select {
 	case err := <-done:
 		if err != nil {
-			return "", &DockerError{
+			return "", &dockerError{
 				Op:  "exec_read",
 				Msg: fmt.Sprintf("failed to read exec output for container %s", containerID),
 				Err: err,
 			}
 		}
 	case <-ctx.Done():
-		return "", &DockerError{
+		return "", &dockerError{
 			Op:  "exec_timeout",
 			Msg: fmt.Sprintf("exec timed out for container %s", containerID),
 			Err: ctx.Err(),
@@ -93,7 +93,7 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 	// Check exec exit code
 	inspectResp, err := d.client.ContainerExecInspect(ctx, execID.ID)
 	if err != nil {
-		return "", &DockerError{
+		return "", &dockerError{
 			Op:  "exec_inspect",
 			Msg: fmt.Sprintf("failed to inspect exec for container %s", containerID),
 			Err: err,
@@ -101,7 +101,7 @@ func (d *DockerManager) ExecCommand(containerID string, cmd []string) (string, e
 	}
 
 	if inspectResp.ExitCode != 0 {
-		return "", &DockerError{
+		return "", &dockerError{
 			Op:  "exec_failed",
 			Msg: fmt.Sprintf("command failed with exit code %d: %s", inspectResp.ExitCode, string(output)),
 			Err: nil,
@@ -125,7 +125,7 @@ func (d *DockerManager) StreamContainerLogs(containerID string) (io.ReadCloser, 
 
 	logs, err := d.client.ContainerLogs(ctx, containerID, options)
 	if err != nil {
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "stream_logs",
 			Msg: fmt.Sprintf("failed to stream logs for container %s", containerID),
 			Err: err,
@@ -141,7 +141,7 @@ func (d *DockerManager) StreamContainerStats(containerID string) (io.ReadCloser,
 
 	stats, err := d.client.ContainerStats(ctx, containerID, true)
 	if err != nil {
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "stream_stats",
 			Msg: fmt.Sprintf("failed to stream stats for container %s", containerID),
 			Err: err,
@@ -186,7 +186,7 @@ func (d *DockerManager) validatePath(path string, validation pathValidation) (st
 		return validation.defaultPath, nil
 	}
 
-	return "", &DockerError{
+	return "", &dockerError{
 		Op:  "validate_path",
 		Msg: fmt.Sprintf("access denied: path must be within %v", validation.allowedPrefixes),
 		Err: nil,
@@ -197,7 +197,7 @@ func (d *DockerManager) validatePath(path string, validation pathValidation) (st
 func (d *DockerManager) execCommandSimple(containerID string, cmd []string, operation string) error {
 	_, err := d.ExecCommand(containerID, cmd)
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  operation,
 			Msg: fmt.Sprintf("failed to %s in container %s", operation, containerID),
 			Err: err,
@@ -243,7 +243,7 @@ func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error
 	tarReader := tar.NewReader(reader)
 	header, err := tarReader.Next()
 	if err != nil {
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "read_tar_header",
 			Msg: fmt.Sprintf("failed to read tar header for file %s", path),
 			Err: err,
@@ -253,7 +253,7 @@ func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error
 	// Enforce size limit (10MB)
 	const maxSize = 10 * 1024 * 1024
 	if header.Size > maxSize {
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "read_file",
 			Msg: fmt.Sprintf("file %s is too large (%d bytes, max %d bytes)", path, header.Size, maxSize),
 			Err: fmt.Errorf("file too large"),
@@ -264,7 +264,7 @@ func (d *DockerManager) ReadFile(containerID string, path string) ([]byte, error
 	content := make([]byte, header.Size)
 	n, err := io.ReadFull(tarReader, content)
 	if err != nil && err != io.ErrUnexpectedEOF {
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "read_file_content",
 			Msg: fmt.Sprintf("failed to read file content for %s", path),
 			Err: err,
@@ -294,7 +294,7 @@ func (d *DockerManager) copyToContainer(containerID string, path string, content
 	// Create a tar archive with the file
 	tarContent, err := createTarArchive(filepath.Base(path), content)
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "create_tar",
 			Msg: fmt.Sprintf("failed to create tar archive for file %s", path),
 			Err: err,
@@ -304,7 +304,7 @@ func (d *DockerManager) copyToContainer(containerID string, path string, content
 	// Copy to container
 	err = d.client.CopyToContainer(ctx, containerID, filepath.Dir(path), tarContent, container.CopyToContainerOptions{})
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "copy_to_container",
 			Msg: fmt.Sprintf("failed to copy file to container %s", containerID),
 			Err: err,
@@ -335,7 +335,7 @@ func (d *DockerManager) DeletePath(containerID string, path string) error {
 
 	// Don't allow deleting root directories
 	if path == "/data/server" || path == "/data/backups" {
-		return &DockerError{
+		return &dockerError{
 			Op:  "delete_path",
 			Msg: "cannot delete root directories",
 			Err: nil,
@@ -371,7 +371,7 @@ func (d *DockerManager) copyFromContainer(containerID string, path string) (io.R
 	reader, _, err := d.client.CopyFromContainer(ctx, containerID, dockerPath)
 	if err != nil {
 		log.Error().Err(err).Str("docker_path", dockerPath).Str("container_id", containerID).Msg("Docker copy from container failed")
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "copy_from_container",
 			Msg: fmt.Sprintf("failed to copy file from container %s: %s", containerID, err.Error()),
 			Err: err,
@@ -396,7 +396,7 @@ func (d *DockerManager) UploadFile(containerID string, destPath string, reader i
 	// Copy to container
 	err = d.client.CopyToContainer(ctx, containerID, destPath, reader, container.CopyToContainerOptions{})
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "upload_file",
 			Msg: fmt.Sprintf("failed to upload file to container %s", containerID),
 			Err: err,

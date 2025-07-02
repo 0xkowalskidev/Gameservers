@@ -134,9 +134,5 @@ func (pa *PortAllocator) findAvailablePort(startPort int, protocol string, usedP
 		}
 	}
 
-	return 0, &DatabaseError{
-		Op:  "allocate_port",
-		Msg: fmt.Sprintf("no available %s ports in range %d-%d", protocol, pa.minPort, pa.maxPort),
-		Err: nil,
-	}
+	return 0, fmt.Errorf("allocate_port: no available %s ports in range %d-%d", protocol, pa.minPort, pa.maxPort)
 }

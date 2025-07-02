@@ -42,7 +42,7 @@ func (m *MockImageManager) GetPullHistory() []string {
 // Mock implementation of shouldPullImage logic
 func (m *MockImageManager) shouldPullImage(ctx context.Context, imageName string) (bool, error) {
 	if m.shouldFail["check_image"] {
-		return false, &DockerError{Op: "check_image", Msg: "mock check image error"}
+		return false, &dockerError{Op: "check_image", Msg: "mock check image error"}
 	}
 
 	localDigest, hasLocal := m.localImages[imageName]
@@ -67,7 +67,7 @@ func (m *MockImageManager) shouldPullImage(ctx context.Context, imageName string
 // Mock implementation of pullImage
 func (m *MockImageManager) pullImage(ctx context.Context, imageName string) error {
 	if m.shouldFail["pull_image"] {
-		return &DockerError{Op: "pull_image", Msg: "mock pull image error"}
+		return &dockerError{Op: "pull_image", Msg: "mock pull image error"}
 	}
 
 	m.pullHistory = append(m.pullHistory, imageName)

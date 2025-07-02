@@ -48,7 +48,7 @@ func (gss *GameserverService) CreateGameserver(server *models.Gameserver) error 
 	// Validate required configuration variables
 	missingConfigs := game.ValidateEnvironment(server.Environment)
 	if len(missingConfigs) > 0 {
-		return &models.DatabaseError{
+		return &databaseError{
 			Op:  "validate_config",
 			Msg: fmt.Sprintf("missing required configuration: %v", missingConfigs),
 			Err: nil,
@@ -57,7 +57,7 @@ func (gss *GameserverService) CreateGameserver(server *models.Gameserver) error 
 
 	// Basic memory validation - ensure minimum requirements
 	if server.MemoryMB < game.MinMemoryMB {
-		return &models.DatabaseError{
+		return &databaseError{
 			Op:  "validate_memory",
 			Msg: fmt.Sprintf("memory (%d MB) is below game minimum (%d MB)", server.MemoryMB, game.MinMemoryMB),
 			Err: nil,
@@ -242,7 +242,7 @@ func (gss *GameserverService) SendGameserverCommand(id string, command string) e
 	}
 
 	if server.ContainerID == "" {
-		return &models.DatabaseError{
+		return &databaseError{
 			Op:  "send_command",
 			Msg: "gameserver has no container",
 			Err: nil,
@@ -250,7 +250,7 @@ func (gss *GameserverService) SendGameserverCommand(id string, command string) e
 	}
 
 	if server.Status != models.StatusRunning {
-		return &models.DatabaseError{
+		return &databaseError{
 			Op:  "send_command",
 			Msg: "gameserver is not running",
 			Err: nil,
@@ -322,7 +322,7 @@ func (gss *GameserverService) StreamGameserverLogs(id string) (io.ReadCloser, er
 		return nil, err
 	}
 	if server.ContainerID == "" {
-		return nil, &models.DatabaseError{Op: "stream_logs", Msg: "container not created yet", Err: nil}
+		return nil, &databaseError{Op: "stream_logs", Msg: "container not created yet", Err: nil}
 	}
 	return gss.docker.StreamContainerLogs(server.ContainerID)
 }
@@ -334,7 +334,7 @@ func (gss *GameserverService) StreamGameserverStats(id string) (io.ReadCloser, e
 		return nil, err
 	}
 	if server.ContainerID == "" {
-		return nil, &models.DatabaseError{Op: "stream_stats", Msg: "container not created yet", Err: nil}
+		return nil, &databaseError{Op: "stream_stats", Msg: "container not created yet", Err: nil}
 	}
 	return gss.docker.StreamContainerStats(server.ContainerID)
 }
@@ -503,7 +503,7 @@ func (gss *GameserverService) validateSystemMemory(server *models.Gameserver) er
 	}
 
 	if server.MemoryMB > systemInfo.TotalMemoryMB {
-		return &models.DatabaseError{
+		return &databaseError{
 			Op:  "validate_memory",
 			Msg: fmt.Sprintf("server memory (%d MB) exceeds total system memory (%d MB)", 
 				server.MemoryMB, systemInfo.TotalMemoryMB),
@@ -525,7 +525,7 @@ func (gss *GameserverService) validateSystemMemoryForStart(server *models.Gamese
 	// Get all currently running servers
 	servers, err := gss.db.ListGameservers()
 	if err != nil {
-		return &models.DatabaseError{
+		return &databaseError{
 			Op:  "validate_memory",
 			Msg: "failed to check existing memory usage",
 			Err: err,
@@ -543,7 +543,7 @@ func (gss *GameserverService) validateSystemMemoryForStart(server *models.Gamese
 
 	// Check if starting this server would exceed total system memory
 	if currentMemoryUsage+server.MemoryMB > systemInfo.TotalMemoryMB {
-		return &models.DatabaseError{
+		return &databaseError{
 			Op:  "validate_memory",
 			Msg: fmt.Sprintf("starting server would exceed total system memory: %d MB (running) + %d MB (new) = %d MB > %d MB total", 
 				currentMemoryUsage, server.MemoryMB, currentMemoryUsage+server.MemoryMB, systemInfo.TotalMemoryMB),

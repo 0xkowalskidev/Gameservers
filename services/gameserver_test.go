@@ -32,7 +32,7 @@ func (db *mockDB) GetGame(id string) (*models.Game, error) {
 	if game, ok := db.games[id]; ok {
 		return game, nil
 	}
-	return nil, NotFound("game")
+	return nil, notFound("game")
 }
 
 func (db *mockDB) CreateGameserver(gs *models.Gameserver) error {
@@ -47,12 +47,12 @@ func (db *mockDB) GetGameserver(id string) (*models.Gameserver, error) {
 	if gs, ok := db.gameservers[id]; ok {
 		return gs, nil
 	}
-	return nil, NotFound("gameserver")
+	return nil, notFound("gameserver")
 }
 
 func (db *mockDB) UpdateGameserver(gs *models.Gameserver) error {
 	if _, ok := db.gameservers[gs.ID]; !ok {
-		return NotFound("gameserver")
+		return notFound("gameserver")
 	}
 	db.gameservers[gs.ID] = gs
 	return nil
@@ -60,7 +60,7 @@ func (db *mockDB) UpdateGameserver(gs *models.Gameserver) error {
 
 func (db *mockDB) DeleteGameserver(id string) error {
 	if _, ok := db.gameservers[id]; !ok {
-		return NotFound("gameserver")
+		return notFound("gameserver")
 	}
 	delete(db.gameservers, id)
 	return nil

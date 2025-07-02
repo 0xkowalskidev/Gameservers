@@ -10,14 +10,14 @@ import (
 	"0xkowalskidev/gameservers/models"
 )
 
-// DockerError represents an error that occurred during a Docker operation
-type DockerError struct {
+// dockerError represents a local Docker operation error (simplified local version)
+type dockerError struct {
 	Op  string
 	Msg string
 	Err error
 }
 
-func (e *DockerError) Error() string {
+func (e *dockerError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("docker %s: %s: %v", e.Op, e.Msg, e.Err)
 	}
@@ -49,7 +49,7 @@ func NewDockerManager(dockerSocket, namespace string, stopTimeout time.Duration)
 	cli, err := client.NewClientWithOpts(opts...)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create Docker client")
-		return nil, &DockerError{
+		return nil, &dockerError{
 			Op:  "connect",
 			Msg: "failed to create Docker client",
 			Err: err,

@@ -46,7 +46,7 @@ func (d *DockerManager) CleanupOldBackups(containerID string, maxBackups int) er
 	cmd := []string{"sh", "-c", "find /data/backups -name '*.tar.gz' -type f -printf '%T@ %p\\n' | sort -nr | cut -d' ' -f2-"}
 	output, err := d.ExecCommand(containerID, cmd)
 	if err != nil {
-		return &DockerError{
+		return &dockerError{
 			Op:  "list_backups",
 			Msg: fmt.Sprintf("failed to list backups for cleanup in container %s", containerID),
 			Err: err,
