@@ -36,11 +36,47 @@
     <!-- Form content -->
     <form {{if $isEdit}}hx-put="/{{$gameserver.ID}}" {{else}}hx-post="/" {{end}} hx-indicator="#form-loading"
       hx-swap="none"
-      hx-on::after-request="if(event.detail.successful) { showNotification('Server {{if $isEdit}}updated{{else}}created{{end}} successfully', 'success'); } else { showNotification('Failed to {{if $isEdit}}update{{else}}create{{end}} server', 'error'); }">
+      hx-on::after-request="if(event.detail.successful) { {{if $isEdit}}showNotification('Server updated successfully', 'success');{{else}}window.location.href = '/' + event.detail.xhr.getResponseHeader('X-Server-ID');{{end}} } else { showNotification('Failed to {{if $isEdit}}update{{else}}create{{end}} server', 'error'); }">
       <div class="p-6 space-y-8">
+        {{if not $isEdit}}
+        <!-- Game Selection -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Select Game
+          </h3>
+          
+          <input type="hidden" id="game_id" name="game_id" value="" required>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {{range $games}}
+            <div class="game-card relative group cursor-pointer" data-game-id="{{.ID}}" onclick="selectGame('{{.ID}}')">
+              <div class="relative overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 transform hover:-translate-y-1 hover:shadow-lg">
+                {{if .GridImagePath}}
+                  <img src="{{.GridImagePath}}" alt="{{.Name}}" class="w-full h-auto">
+                {{else}}
+                  <div class="aspect-video w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                    <span class="text-lg font-medium text-gray-600 dark:text-gray-300">{{.Name}}</span>
+                  </div>
+                {{end}}
+                
+                <!-- Selected overlay -->
+                <div class="selected-overlay absolute inset-0 bg-blue-600 bg-opacity-90 hidden flex items-center justify-center">
+                  <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="mt-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300">{{.Name}}</p>
+            </div>
+            {{end}}
+          </div>
+          
+          <p id="game-selection-error" class="text-red-500 text-sm mt-2 hidden">Please select a game to continue</p>
+        </div>
+        {{end}}
 
         <!-- Basic Information -->
-        <div class="space-y-4">
+        <div class="space-y-4" {{if not $isEdit}}id="basic-info-section" style="display: none;"{{end}}>
           <h3
             class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
             Basic Information</h3>
@@ -54,33 +90,14 @@
                 placeholder="My Awesome Server">
             </div>
 
-            <div>
-              {{if $isEdit}}
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Game Type</label>
-              <div
-                class="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-500 dark:text-gray-400">
-                {{$gameserver.GameType}} (Cannot be changed)
-              </div>
-              <input type="hidden" id="game_id" name="game_id" value="{{$gameserver.GameID}}">
-              {{else}}
-              <label for="game_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Game
-                Type</label>
-              <select id="game_id" name="game_id" required
-                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
-                <option value="">Select a game</option>
-                {{range $games}}
-                <option value="{{.ID}}" data-min-memory="{{.MinMemoryMB}}" data-rec-memory="{{.RecMemoryMB}}" {{if eq
-                  .ID "minecraft" }}selected{{end}}>{{.Name}}
-                </option>
-                {{end}}
-              </select>
-              {{end}}
-            </div>
+            {{if $isEdit}}
+            <input type="hidden" id="game_id" name="game_id" value="{{$gameserver.GameID}}">
+            {{end}}
           </div>
         </div>
 
         <!-- Game Configuration -->
-        <div class="space-y-4" id="config-section" {{if not $isEdit}}style="display: block;" {{end}}>
+        <div class="space-y-4" id="config-section" {{if not $isEdit}}style="display: none;" {{else}}style="display: block;" {{end}}>
           <h3
             class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
             Game Configuration</h3>
@@ -90,7 +107,7 @@
         </div>
 
         <!-- Resource Allocation -->
-        <div class="space-y-6">
+        <div class="space-y-6" {{if not $isEdit}}id="resource-section" style="display: none;"{{end}}>
           <h3
             class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
             Resource Allocation</h3>
@@ -166,7 +183,7 @@
         </div>
 
         <!-- Advanced Settings (Collapsible) -->
-        <div class="space-y-4">
+        <div class="space-y-4" {{if not $isEdit}}id="advanced-section" style="display: none;"{{end}}>
           <button type="button" id="advanced-toggle"
             class="flex items-center justify-between w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-smooth"
             onclick="toggleAdvancedSettings()">
@@ -279,7 +296,7 @@
           </button>
           {{else}}
           <!-- Create button -->
-          <button type="submit"
+          <button type="submit" id="create-button" {{if not $isEdit}}disabled{{end}}
             class="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-smooth disabled:opacity-50 disabled:cursor-not-allowed shadow-lg">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -341,6 +358,16 @@
     border-radius: 4px;
     background: linear-gradient(to right, #fbbf24 0%, #10b981 50%, #3b82f6 100%);
   }
+  
+  /* Selected game card styles */
+  .game-card.selected .border-gray-200,
+  .game-card.selected .dark\:border-gray-700 {
+    border-color: rgb(59 130 246) !important;
+  }
+  
+  .game-card.selected .selected-overlay {
+    display: flex !important;
+  }
 </style>
 
 <script>
@@ -367,6 +394,7 @@
 };
 
   const isEditMode = {{if $isEdit}}true{{else}} false{{end}};
+  let selectedGameId = {{if $isEdit}}"{{$gameserver.GameID}}"{{else}}null{{end}};
 
   {{if $isEdit}}
   // Current environment variables from server - parse on client side
@@ -385,6 +413,39 @@
       currentEnv[key] = value;
     }
   });
+  {{end}}
+
+  {{if not $isEdit}}
+  // Select a game (only for new gameservers)
+  function selectGame(gameId) {
+    // Update selected state
+    selectedGameId = gameId;
+    document.getElementById('game_id').value = gameId;
+    
+    // Update UI
+    document.querySelectorAll('.game-card').forEach(card => {
+      card.classList.remove('selected');
+    });
+    document.querySelector(`[data-game-id="${gameId}"]`).classList.add('selected');
+    
+    // Hide error message
+    const errorEl = document.getElementById('game-selection-error');
+    if (errorEl) errorEl.classList.add('hidden');
+    
+    // Show other sections
+    const sections = ['basic-info-section', 'resource-section', 'advanced-section'];
+    sections.forEach(sectionId => {
+      const section = document.getElementById(sectionId);
+      if (section) section.style.display = 'block';
+    });
+    
+    // Enable create button
+    const createButton = document.getElementById('create-button');
+    if (createButton) createButton.disabled = false;
+    
+    // Load game configuration
+    loadGameConfiguration(gameId);
+  }
   {{end}}
 
   // Toggle advanced settings
@@ -416,7 +477,7 @@
       memoryHidden.value = value;
 
       // Update recommendation text based on current game
-      const gameId = document.getElementById('game_id').value;
+      const gameId = selectedGameId || document.getElementById('game_id').value;
       if (gameId && gameConfigs[gameId]) {
         const game = gameConfigs[gameId];
         const minGB = Math.ceil(game.minMemoryMB / 1024);
