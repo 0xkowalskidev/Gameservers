@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type GameserverStatus string
@@ -15,28 +17,32 @@ const (
 )
 
 type Gameserver struct {
-	ID           string           `json:"id"`
-	Name         string           `json:"name"`
-	GameID       string           `json:"game_id"`
-	ContainerID  string           `json:"container_id,omitempty"`
-	Status       GameserverStatus `json:"status"`
-	PortMappings []PortMapping    `json:"port_mappings"`
-	MemoryMB     int              `json:"memory_mb"`   // Memory limit in MB
-	CPUCores     float64          `json:"cpu_cores"`   // CPU cores (0 = unlimited)
-	MaxBackups   int              `json:"max_backups"` // Maximum number of backups to keep (0 = unlimited)
-	Environment  []string         `json:"environment,omitempty"`
-	Volumes      []string         `json:"volumes,omitempty"`
+	ID           string           `json:"id" gorm:"primaryKey;type:varchar(50)"`
+	Name         string           `json:"name" gorm:"type:varchar(200);not null"`
+	GameID       string           `json:"game_id" gorm:"type:varchar(50);not null;index"`
+	ContainerID  string           `json:"container_id,omitempty" gorm:"type:varchar(100)"`
+	Status       GameserverStatus `json:"status" gorm:"type:varchar(20);not null;default:'stopped'"`
+	PortMappings []PortMapping    `json:"port_mappings" gorm:"serializer:json"`
+	MemoryMB     int              `json:"memory_mb" gorm:"not null;default:1024"`   // Memory limit in MB
+	CPUCores     float64          `json:"cpu_cores" gorm:"not null;default:0"`      // CPU cores (0 = unlimited)
+	MaxBackups   int              `json:"max_backups" gorm:"not null;default:10"`   // Maximum number of backups to keep (0 = unlimited)
+	Environment  []string         `json:"environment,omitempty" gorm:"serializer:json"`
+	Volumes      []string         `json:"volumes,omitempty" gorm:"serializer:json"`
 	CreatedAt    time.Time        `json:"created_at"`
 	UpdatedAt    time.Time        `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt   `json:"deleted_at,omitempty" gorm:"index"`
+
+	// Relations (removed foreign key constraint to avoid migration issues)
+	Game *Game `json:"game,omitempty" gorm:"-"`
 
 	// Derived fields (not stored in DB)
-	GameType string  `json:"game_type"` // From Game.Name
-	Image    string  `json:"image"`     // From Game.Image
-	IconPath string  `json:"icon_path"` // From Game.IconPath
-	MemoryGB float64 `json:"memory_gb"` // MemoryMB converted to GB for display
+	GameType string  `json:"game_type" gorm:"-"` // From Game.Name
+	Image    string  `json:"image" gorm:"-"`     // From Game.Image
+	IconPath string  `json:"icon_path" gorm:"-"` // From Game.IconPath
+	MemoryGB float64 `json:"memory_gb" gorm:"-"` // MemoryMB converted to GB for display
 
 	// Volume info (derived field)
-	VolumeInfo *VolumeInfo `json:"volume_info,omitempty"`
+	VolumeInfo *VolumeInfo `json:"volume_info,omitempty" gorm:"-"`
 }
 
 // GetGamePort returns the primary game connection port

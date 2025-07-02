@@ -1,38 +1,45 @@
 package database
 
 import (
-	"database/sql"
-	"strings"
-	"time"
-
-	_ "github.com/mattn/go-sqlite3"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/models"
 )
 
-// DatabaseManager manages SQLite database operations
+// DatabaseManager manages GORM database operations
 type DatabaseManager struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
 // NewDatabaseManager creates a new database manager and performs migrations
 func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 	log.Info().Str("db_path", dbPath).Msg("Connecting to database")
 
-	db, err := sql.Open("sqlite3", dbPath)
+	// Configure GORM with SQLite driver
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent), // Use silent mode to avoid double logging
+	})
 	if err != nil {
 		log.Error().Err(err).Str("db_path", dbPath).Msg("Failed to open database")
 		return nil, &models.DatabaseError{Op: "db", Msg: "failed to open database", Err: err}
 	}
 
-	if err := db.Ping(); err != nil {
-		log.Error().Err(err).Msg("Failed to ping database")
-		return nil, &models.DatabaseError{Op: "db", Msg: "failed to ping database", Err: err}
+	// Get underlying SQL DB for configuration
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get underlying SQL DB")
+		return nil, &models.DatabaseError{Op: "db", Msg: "failed to get underlying SQL DB", Err: err}
 	}
 
+	// Configure connection pool
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+
 	// Enable foreign key constraints
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
 		log.Error().Err(err).Msg("Failed to enable foreign key constraints")
 		return nil, &models.DatabaseError{Op: "db", Msg: "failed to enable foreign key constraints", Err: err}
 	}
@@ -54,62 +61,27 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 
 // Close closes the database connection
 func (dm *DatabaseManager) Close() error {
-	return dm.db.Close()
+	sqlDB, err := dm.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
 }
 
-// migrate creates the database schema
+// DB returns the GORM DB instance
+func (dm *DatabaseManager) DB() *gorm.DB {
+	return dm.db
+}
+
+// migrate performs auto-migration of models
 func (dm *DatabaseManager) migrate() error {
-	schema := `
-	CREATE TABLE IF NOT EXISTS games (
-		id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, slug TEXT NOT NULL DEFAULT '', image TEXT NOT NULL,
-		icon_path TEXT NOT NULL DEFAULT '', grid_image_path TEXT NOT NULL DEFAULT '',
-		port_mappings TEXT NOT NULL, config_vars TEXT NOT NULL DEFAULT '[]', 
-		min_memory_mb INTEGER NOT NULL DEFAULT 512, rec_memory_mb INTEGER NOT NULL DEFAULT 2048,
-		created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL
-	);
-	CREATE TABLE IF NOT EXISTS gameservers (
-		id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, game_id TEXT NOT NULL,
-		container_id TEXT, status TEXT NOT NULL DEFAULT 'stopped',
-		port_mappings TEXT NOT NULL,
-		memory_mb INTEGER NOT NULL DEFAULT 1024, cpu_cores REAL NOT NULL DEFAULT 0,
-		environment TEXT, volumes TEXT, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
-		FOREIGN KEY (game_id) REFERENCES games(id)
-	);
-	CREATE TABLE IF NOT EXISTS scheduled_tasks (
-		id TEXT PRIMARY KEY, gameserver_id TEXT NOT NULL, name TEXT NOT NULL,
-		type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', cron_schedule TEXT NOT NULL,
-		created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
-		last_run DATETIME, next_run DATETIME,
-		FOREIGN KEY (gameserver_id) REFERENCES gameservers(id) ON DELETE CASCADE
-	);
-	CREATE INDEX IF NOT EXISTS idx_gameservers_status ON gameservers(status);
-	CREATE INDEX IF NOT EXISTS idx_gameservers_game_id ON gameservers(game_id);
-	CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_gameserver_id ON scheduled_tasks(gameserver_id);
-	CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status);`
-
-	_, err := dm.db.Exec(schema)
+	err := dm.db.AutoMigrate(
+		&models.Game{},
+		&models.Gameserver{},
+		&models.ScheduledTask{},
+	)
 	if err != nil {
-		return &models.DatabaseError{Op: "db", Msg: "failed to create schema", Err: err}
-	}
-
-	// Add new columns if they don't exist (for existing databases)
-	alterQueries := []string{
-		`ALTER TABLE gameservers ADD COLUMN memory_mb INTEGER DEFAULT 1024`,
-		`ALTER TABLE gameservers ADD COLUMN cpu_cores REAL DEFAULT 0`,
-		`ALTER TABLE gameservers ADD COLUMN max_backups INTEGER DEFAULT 7`,
-		`ALTER TABLE games ADD COLUMN port_mappings TEXT DEFAULT '[]'`,
-		`ALTER TABLE gameservers ADD COLUMN port_mappings TEXT DEFAULT '[]'`,
-		`ALTER TABLE games ADD COLUMN slug TEXT DEFAULT ''`,
-		`ALTER TABLE games ADD COLUMN icon_path TEXT DEFAULT ''`,
-		`ALTER TABLE games ADD COLUMN grid_image_path TEXT DEFAULT ''`,
-	}
-
-	for _, query := range alterQueries {
-		_, err := dm.db.Exec(query)
-		// Ignore errors for columns that already exist
-		if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
-			log.Warn().Err(err).Str("query", query).Msg("Failed to add column, may already exist")
-		}
+		return &models.DatabaseError{Op: "db", Msg: "failed to auto-migrate", Err: err}
 	}
 
 	return nil
@@ -118,9 +90,10 @@ func (dm *DatabaseManager) migrate() error {
 // seedGames adds default game configurations to the database
 func (dm *DatabaseManager) seedGames() error {
 	// Check if games already exist
-	count := 0
-	row := dm.db.QueryRow("SELECT COUNT(*) FROM games")
-	row.Scan(&count)
+	var count int64
+	if err := dm.db.Model(&models.Game{}).Count(&count).Error; err != nil {
+		return &models.DatabaseError{Op: "db", Msg: "failed to count games", Err: err}
+	}
 	if count > 0 {
 		return nil // Games already seeded
 	}
@@ -138,7 +111,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "MOTD", DisplayName: "Message of the Day", Required: false, Default: "Welcome to our server!", Description: "Message shown to players when joining"},
 				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "normal", Description: "Game difficulty (peaceful, easy, normal, hard)"},
 				{Name: "GAMEMODE", DisplayName: "Game Mode", Required: false, Default: "survival", Description: "Default game mode (survival, creative, adventure, spectator)"},
-			}, MinMemoryMB: 1024, RecMemoryMB: 3072, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			}, MinMemoryMB: 1024, RecMemoryMB: 3072},
 		{ID: "valheim", Name: "Valheim", Slug: "valheim", Image: "ghcr.io/0xkowalskidev/gameservers/valheim:latest",
 			IconPath: "/static/games/valheim/valheim-icon.ico", GridImagePath: "/static/games/valheim/valheim-grid.png",
 			PortMappings: []models.PortMapping{
@@ -150,7 +123,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "PASSWORD", DisplayName: "Server Password", Required: true, Default: "valheim123", Description: "Password to join server (minimum 5 characters required)"},
 				{Name: "PUBLIC", DisplayName: "Public Server", Required: false, Default: "1", Description: "Whether to list server publicly (1 for yes, 0 for no)"},
 				{Name: "CROSSPLAY", DisplayName: "Enable Crossplay", Required: false, Default: "1", Description: "Enable crossplay between Steam and Xbox (1 for yes, 0 for no)"},
-			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			}, MinMemoryMB: 2048, RecMemoryMB: 4096},
 		{ID: "terraria", Name: "Terraria", Slug: "terraria", Image: "ghcr.io/0xkowalskidev/gameservers/terraria:latest",
 			IconPath: "/static/games/terraria/terraria-icon.ico", GridImagePath: "/static/games/terraria/terraria-grid.png",
 			PortMappings: []models.PortMapping{
@@ -161,7 +134,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "MAX_PLAYERS", DisplayName: "Max Players", Required: false, Default: "8", Description: "Maximum number of players"},
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "1", Description: "World difficulty (0=Classic, 1=Expert, 2=Master)"},
-			}, MinMemoryMB: 1024, RecMemoryMB: 2048, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			}, MinMemoryMB: 1024, RecMemoryMB: 2048},
 		{ID: "garrysmod", Name: "Garry's Mod", Slug: "garrys-mod", Image: "ghcr.io/0xkowalskidev/gameservers/garrysmod:latest",
 			IconPath: "/static/games/garrysmod/garrys-mod-icon.ico", GridImagePath: "/static/games/garrysmod/garrys-mod-grid.png",
 			PortMappings: []models.PortMapping{
@@ -174,7 +147,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "MAP", DisplayName: "Starting Map", Required: false, Default: "gm_flatgrass", Description: "The map to load on server start"},
 				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "16", Description: "Maximum number of players"},
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
-			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			}, MinMemoryMB: 2048, RecMemoryMB: 4096},
 		{ID: "palworld", Name: "Palworld", Slug: "palworld", Image: "ghcr.io/0xkowalskidev/gameservers/palworld:latest",
 			IconPath: "/static/games/palworld/palworld-icon.ico", GridImagePath: "/static/games/palworld/palworld-grid.png",
 			PortMappings: []models.PortMapping{
@@ -186,7 +159,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "MAX_PLAYERS", DisplayName: "Max Players", Required: false, Default: "32", Description: "Maximum number of players"},
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "ADMIN_PASSWORD", DisplayName: "Admin Password", Required: false, Default: "", Description: "Password for admin access"},
-			}, MinMemoryMB: 8192, RecMemoryMB: 16384, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			}, MinMemoryMB: 8192, RecMemoryMB: 16384},
 		{ID: "rust", Name: "Rust", Slug: "rust", Image: "ghcr.io/0xkowalskidev/gameservers/rust:latest",
 			IconPath: "/static/games/rust/rust-icon.ico", GridImagePath: "/static/games/rust/rust-grid.png",
 			PortMappings: []models.PortMapping{
@@ -205,13 +178,13 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "TICKRATE", DisplayName: "Tick Rate", Required: false, Default: "30", Description: "Server tick rate (10-30, higher = better performance)"},
 				{Name: "SAVEINTERVAL", DisplayName: "Save Interval", Required: false, Default: "300", Description: "How often to save the world (in seconds)"},
 				{Name: "UPDATE_ON_START", DisplayName: "Update on Start", Required: false, Default: "false", Description: "Update server files on container start"},
-			}, MinMemoryMB: 4096, RecMemoryMB: 8192, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			}, MinMemoryMB: 4096, RecMemoryMB: 8192},
 	}
 
 	for _, game := range games {
-		if err := dm.CreateGame(game); err != nil {
+		if err := dm.db.Create(game).Error; err != nil {
 			log.Error().Err(err).Str("game_id", game.ID).Msg("Failed to seed game")
-			return err
+			return &models.DatabaseError{Op: "db", Msg: "failed to create game", Err: err}
 		}
 	}
 
