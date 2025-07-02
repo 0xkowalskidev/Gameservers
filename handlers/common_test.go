@@ -31,7 +31,37 @@ func mockBadRequest(format string, args ...interface{}) error {
 
 // Helper function to create test templates with all required templates
 func createTestTemplate(contentTemplate string, contentParsing string) *template.Template {
-	tmpl := template.Must(template.New(contentTemplate).Parse(contentParsing))
+	tmpl := template.Must(template.New(contentTemplate).Funcs(template.FuncMap{
+		"div": func(a, b interface{}) float64 {
+			var aVal, bVal float64
+			
+			switch v := a.(type) {
+			case int:
+				aVal = float64(v)
+			case float64:
+				aVal = v
+			default:
+				return 0
+			}
+			
+			switch v := b.(type) {
+			case int:
+				bVal = float64(v)
+			case float64:
+				bVal = v
+			default:
+				return 0
+			}
+			
+			if bVal == 0 {
+				return 0
+			}
+			return aVal / bVal
+		},
+		"upper": func(s string) string {
+			return strings.ToUpper(s)
+		},
+	}).Parse(contentParsing))
 	template.Must(tmpl.New("layout.html").Parse(`{{.Content}}`))
 	template.Must(tmpl.New("gameserver-wrapper.html").Parse(`{{.Content}}`))
 	template.Must(tmpl.New("backup-list.html").Parse(`{{range .Backups}}{{.Name}}{{end}}`))
@@ -44,6 +74,12 @@ func createTestTemplate(contentTemplate string, contentParsing string) *template
 	if contentTemplate != "gameserver-backups.html" {
 		template.Must(tmpl.New("gameserver-backups.html").Parse(`{{range .Backups}}{{.Name}}{{end}}`))
 	}
+	// Add games templates
+	template.Must(tmpl.New("games-list.html").Parse(`{{range .Games}}{{.Name}}{{end}}`))
+	template.Must(tmpl.New("game-details.html").Parse(`{{.Game.Name}}`))
+	template.Must(tmpl.New("game-form.html").Parse(`{{.Game.Name}}`))
+	template.Must(tmpl.New("new-game.html").Parse(`{{template "game-form.html" .}}`))
+	template.Must(tmpl.New("edit-game.html").Parse(`{{template "game-form.html" .}}`))
 	return tmpl
 }
 
@@ -110,6 +146,8 @@ func (m *mockGameserverService) GetGame(id string) (*models.Game, error) {
 	return nil, mockError{Status: 404, Message: "game not found"}
 }
 func (m *mockGameserverService) CreateGame(game *models.Game) error                    { return nil }
+func (m *mockGameserverService) UpdateGame(game *models.Game) error                    { return nil }
+func (m *mockGameserverService) DeleteGame(id string) error                           { return nil }
 func (m *mockGameserverService) SendGameserverCommand(id string, command string) error { return nil }
 func (m *mockGameserverService) StreamGameserverLogs(id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("log content")), nil

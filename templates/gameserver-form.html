@@ -394,7 +394,7 @@
 };
 
   const isEditMode = {{if $isEdit}}true{{else}} false{{end}};
-  let selectedGameId = {{if $isEdit}}"{{$gameserver.GameID}}"{{else}}null{{end}};
+  let selectedGameId = {{if $isEdit}}"{{$gameserver.GameID}}"{{else if .SelectedGameID}}"{{.SelectedGameID}}"{{else}}null{{end}};
 
   {{if $isEdit}}
   // Current environment variables from server - parse on client side
@@ -773,8 +773,12 @@
     // Load configuration for edit mode
     loadGameConfiguration('{{$gameserver.GameID}}');
     {{else}}
-    // Load Minecraft configuration by default for new servers
-    loadGameConfiguration('minecraft');
+    // Auto-select game if one was pre-selected via URL parameter
+    {{if .SelectedGameID}}
+    if (selectedGameId) {
+      selectGame(selectedGameId);
+    }
+    {{end}}
     {{end}}
 
     // Initialize slider values

@@ -5,11 +5,15 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 // SystemInfo holds system resource information
 type SystemInfo struct {
 	TotalMemoryMB int
+	UsedDiskMB    int
+	TotalDiskMB   int
+	MountPoint    string
 }
 
 // GetSystemInfo retrieves system resource information
@@ -19,8 +23,16 @@ func GetSystemInfo() (*SystemInfo, error) {
 		return nil, err
 	}
 
+	diskInfo, err := getDiskInfo()
+	if err != nil {
+		return nil, err
+	}
+
 	return &SystemInfo{
 		TotalMemoryMB: memInfo,
+		UsedDiskMB:    diskInfo.UsedMB,
+		TotalDiskMB:   diskInfo.TotalMB,
+		MountPoint:    diskInfo.MountPoint,
 	}, nil
 }
 
@@ -49,4 +61,35 @@ func getMemoryInfo() (int, error) {
 	}
 
 	return 0, scanner.Err()
+}
+
+// diskInfo holds disk usage information
+type diskInfo struct {
+	UsedMB     int
+	TotalMB    int
+	MountPoint string
+}
+
+// getDiskInfo gets disk usage information for the root filesystem
+func getDiskInfo() (*diskInfo, error) {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs("/", &stat)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate disk usage in MB
+	blockSize := uint64(stat.Bsize)
+	totalBytes := stat.Blocks * blockSize
+	freeBytes := stat.Bavail * blockSize
+	usedBytes := totalBytes - freeBytes
+
+	totalMB := int(totalBytes / (1024 * 1024))
+	usedMB := int(usedBytes / (1024 * 1024))
+
+	return &diskInfo{
+		UsedMB:     usedMB,
+		TotalMB:    totalMB,
+		MountPoint: "/",
+	}, nil
 }

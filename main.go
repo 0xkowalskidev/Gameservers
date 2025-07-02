@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"0xkowalskidev/gameservers/database"
 	"0xkowalskidev/gameservers/docker"
@@ -103,6 +106,8 @@ func main() {
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"formatFileSize": formatFileSize,
 		"sub":            func(a, b int) int { return a - b },
+		"add":            func(a, b int) int { return a + b },
+		"lt":             func(a, b int) bool { return a < b },
 		"mul":            func(a, b interface{}) float64 {
 			var aVal, bVal float64
 			
@@ -217,6 +222,12 @@ func main() {
 			}
 			return falseVal
 		},
+		"upper": func(s string) string {
+			return strings.ToUpper(s)
+		},
+		"title": func(s string) string {
+			return cases.Title(language.English).String(s)
+		},
 	}).ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to parse templates")
@@ -274,43 +285,55 @@ func main() {
 	// Static
 	r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(http.FS(staticFS))))
 
-	// Routes
-	r.Get("/", handlerInstance.IndexGameservers)
-	r.Post("/", handlerInstance.CreateGameserver)
-	r.Get("/new", handlerInstance.NewGameserver)
-	r.Get("/{id}", handlerInstance.ShowGameserver)
-	r.Get("/{id}/edit", handlerInstance.EditGameserver)
-	r.Put("/{id}", handlerInstance.UpdateGameserver)
-	r.Post("/{id}/start", handlerInstance.StartGameserver)
-	r.Post("/{id}/stop", handlerInstance.StopGameserver)
-	r.Post("/{id}/restart", handlerInstance.RestartGameserver)
-	r.Post("/{id}/console", handlerInstance.SendGameserverCommand)
-	r.Delete("/{id}", handlerInstance.DestroyGameserver)
-	r.Get("/{id}/console", handlerInstance.GameserverConsole)
-	r.Get("/{id}/logs", handlerInstance.GameserverLogs)
-	r.Get("/{id}/stats", handlerInstance.GameserverStats)
-	r.Get("/{id}/query", handlerInstance.QueryGameserver)
-	r.Get("/{id}/tasks", handlerInstance.ListGameserverTasks)
-	r.Get("/{id}/tasks/new", handlerInstance.NewGameserverTask)
-	r.Post("/{id}/tasks", handlerInstance.CreateGameserverTask)
-	r.Get("/{id}/tasks/{taskId}/edit", handlerInstance.EditGameserverTask)
-	r.Put("/{id}/tasks/{taskId}", handlerInstance.UpdateGameserverTask)
-	r.Delete("/{id}/tasks/{taskId}", handlerInstance.DeleteGameserverTask)
-	r.Post("/{id}/restore", handlerInstance.RestoreGameserverBackup)
-	r.Post("/{id}/backup", handlerInstance.CreateGameserverBackup)
-	r.Get("/{id}/backups", handlerInstance.ListGameserverBackups)
-	r.Delete("/{id}/backups/delete", handlerInstance.DeleteGameserverBackup)
+	// Games management routes
+	r.Get("/games", handlerInstance.IndexGames)
+	r.Get("/games/new", handlerInstance.NewGame)
+	r.Post("/games", handlerInstance.CreateGame)
+	r.Get("/games/{id}", handlerInstance.ShowGame)
+	r.Get("/games/{id}/edit", handlerInstance.EditGame)
+	r.Put("/games/{id}", handlerInstance.UpdateGame)
+	r.Delete("/games/{id}", handlerInstance.DestroyGame)
+
+	// Dashboard route
+	r.Get("/", handlerInstance.IndexDashboard)
+	
+	// Gameservers routes
+	r.Get("/gameservers", handlerInstance.IndexGameservers)
+	r.Post("/gameservers", handlerInstance.CreateGameserver)
+	r.Get("/gameservers/new", handlerInstance.NewGameserver)
+	r.Get("/gameservers/{id}", handlerInstance.ShowGameserver)
+	r.Get("/gameservers/{id}/edit", handlerInstance.EditGameserver)
+	r.Put("/gameservers/{id}", handlerInstance.UpdateGameserver)
+	r.Post("/gameservers/{id}/start", handlerInstance.StartGameserver)
+	r.Post("/gameservers/{id}/stop", handlerInstance.StopGameserver)
+	r.Post("/gameservers/{id}/restart", handlerInstance.RestartGameserver)
+	r.Post("/gameservers/{id}/console", handlerInstance.SendGameserverCommand)
+	r.Delete("/gameservers/{id}", handlerInstance.DestroyGameserver)
+	r.Get("/gameservers/{id}/console", handlerInstance.GameserverConsole)
+	r.Get("/gameservers/{id}/logs", handlerInstance.GameserverLogs)
+	r.Get("/gameservers/{id}/stats", handlerInstance.GameserverStats)
+	r.Get("/gameservers/{id}/query", handlerInstance.QueryGameserver)
+	r.Get("/gameservers/{id}/tasks", handlerInstance.ListGameserverTasks)
+	r.Get("/gameservers/{id}/tasks/new", handlerInstance.NewGameserverTask)
+	r.Post("/gameservers/{id}/tasks", handlerInstance.CreateGameserverTask)
+	r.Get("/gameservers/{id}/tasks/{taskId}/edit", handlerInstance.EditGameserverTask)
+	r.Put("/gameservers/{id}/tasks/{taskId}", handlerInstance.UpdateGameserverTask)
+	r.Delete("/gameservers/{id}/tasks/{taskId}", handlerInstance.DeleteGameserverTask)
+	r.Post("/gameservers/{id}/restore", handlerInstance.RestoreGameserverBackup)
+	r.Post("/gameservers/{id}/backup", handlerInstance.CreateGameserverBackup)
+	r.Get("/gameservers/{id}/backups", handlerInstance.ListGameserverBackups)
+	r.Delete("/gameservers/{id}/backups/delete", handlerInstance.DeleteGameserverBackup)
 
 	// File manager routes
-	r.Get("/{id}/files", handlerInstance.GameserverFiles)
-	r.Get("/{id}/files/browse", handlerInstance.BrowseGameserverFiles)
-	r.Get("/{id}/files/content", handlerInstance.GameserverFileContent)
-	r.Post("/{id}/files/save", handlerInstance.SaveGameserverFile)
-	r.Get("/{id}/files/download", handlerInstance.DownloadGameserverFile)
-	r.Post("/{id}/files/create", handlerInstance.CreateGameserverFile)
-	r.Delete("/{id}/files/delete", handlerInstance.DeleteGameserverFile)
-	r.Post("/{id}/files/rename", handlerInstance.RenameGameserverFile)
-	r.Post("/{id}/files/upload", handlerInstance.UploadGameserverFile)
+	r.Get("/gameservers/{id}/files", handlerInstance.GameserverFiles)
+	r.Get("/gameservers/{id}/files/browse", handlerInstance.BrowseGameserverFiles)
+	r.Get("/gameservers/{id}/files/content", handlerInstance.GameserverFileContent)
+	r.Post("/gameservers/{id}/files/save", handlerInstance.SaveGameserverFile)
+	r.Get("/gameservers/{id}/files/download", handlerInstance.DownloadGameserverFile)
+	r.Post("/gameservers/{id}/files/create", handlerInstance.CreateGameserverFile)
+	r.Delete("/gameservers/{id}/files/delete", handlerInstance.DeleteGameserverFile)
+	r.Post("/gameservers/{id}/files/rename", handlerInstance.RenameGameserverFile)
+	r.Post("/gameservers/{id}/files/upload", handlerInstance.UploadGameserverFile)
 
 	// Setup HTTP server with graceful shutdown
 	srv := &http.Server{
@@ -385,13 +408,36 @@ func generateLayoutData(r *http.Request, content template.HTML) LayoutData {
 		ShowCreateButton: false,
 	}
 
-	// Simple title generation
+	// Enhanced title generation and create button logic
 	switch {
 	case path == "/":
 		layout.Title = "Dashboard"
 		layout.ShowCreateButton = true
-	case path == "/new":
+	case path == "/gameservers":
+		layout.Title = "Gameservers"
+		layout.ShowCreateButton = true
+	case path == "/gameservers/new":
 		layout.Title = "Create Server"
+	case path == "/games":
+		layout.Title = "Games Management"
+	case strings.HasPrefix(path, "/games/") && strings.HasSuffix(path, "/new"):
+		layout.Title = "Create Game"
+	case strings.HasPrefix(path, "/games/") && strings.HasSuffix(path, "/edit"):
+		layout.Title = "Edit Game"
+	case strings.HasPrefix(path, "/games/"):
+		layout.Title = "Game Details"
+	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/edit"):
+		layout.Title = "Edit Server"
+	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/tasks"):
+		layout.Title = "Server Tasks"
+	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/files"):
+		layout.Title = "Server Files"
+	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/console"):
+		layout.Title = "Server Console"
+	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/backups"):
+		layout.Title = "Server Backups"
+	case strings.HasPrefix(path, "/gameservers/"):
+		layout.Title = "Server Details"
 	default:
 		layout.Title = "Gameserver Control Panel"
 	}

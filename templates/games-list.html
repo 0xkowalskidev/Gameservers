@@ -1,0 +1,104 @@
+<!-- Games grid -->
+<div>
+        {{if .Games}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {{range .Games}}
+          <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow">
+            <!-- Game image -->
+            <div class="w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
+              {{if .GridImagePath}}
+                <img src="{{.GridImagePath}}" alt="{{.Name}}" class="w-full h-auto object-contain">
+              {{else}}
+                <div class="w-full aspect-video flex items-center justify-center">
+                  <span class="text-lg font-medium text-gray-600 dark:text-gray-300">{{.Name}}</span>
+                </div>
+              {{end}}
+            </div>
+            
+            <!-- Game info -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{.Name}}</h3>
+                {{if .IconPath}}
+                  <img src="{{.IconPath}}" alt="{{.Name}} icon" class="w-6 h-6">
+                {{end}}
+              </div>
+              
+              <div class="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+                <div class="flex justify-between">
+                  <span>ID:</span>
+                  <span class="font-mono text-xs">{{.ID}}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Min Memory:</span>
+                  <span>{{div .MinMemoryMB 1024}} GB</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Recommended:</span>
+                  <span>{{div .RecMemoryMB 1024}} GB</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Ports:</span>
+                  <span>{{len .PortMappings}} configured</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Config Vars:</span>
+                  <span>{{len .ConfigVars}} variables</span>
+                </div>
+              </div>
+              
+              <!-- Actions -->
+              <div class="mt-4 space-y-2">
+                <!-- Primary action - Create Server -->
+                <a href="/gameservers/new?game={{.ID}}" hx-get="/gameservers/new?game={{.ID}}" hx-target="#content" hx-push-url="true"
+                   class="w-full inline-flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-smooth">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                  </svg>
+                  Create Server
+                </a>
+                
+                <!-- Secondary actions -->
+                <div class="flex space-x-2">
+                  <a href="/games/{{.ID}}" hx-get="/games/{{.ID}}" hx-target="#content" hx-push-url="true"
+                     class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                    View
+                  </a>
+                  <a href="/games/{{.ID}}/edit" hx-get="/games/{{.ID}}/edit" hx-target="#content" hx-push-url="true"
+                     class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    Edit
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          {{end}}
+        </div>
+        {{else}}
+        <div class="text-center py-12">
+          <div class="mx-auto max-w-md">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No games configured</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by adding your first game configuration.</p>
+            <div class="mt-6">
+              <a href="/games/new" hx-get="/games/new" hx-target="#content" hx-push-url="true"
+                 class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Game
+              </a>
+            </div>
+          </div>
+        </div>
+        {{end}}
+</div>

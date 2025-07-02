@@ -31,7 +31,9 @@
     <!-- Console content -->
     <div class="flex flex-col" style="height: 600px;">
       <!-- Log output area -->
-      <div class="flex-1 bg-black text-green-400 font-mono text-sm p-4 overflow-y-auto" id="console-output">
+      <div class="flex-1 bg-black text-green-400 font-mono text-sm p-4 overflow-y-auto" 
+           id="console-output"
+           hx-on::htmx:afterSwap="this.scrollTop = this.scrollHeight">
         {{if eq .Gameserver.Status "running"}}
           <div class="text-gray-500 mb-2">[INFO] Console connected - logs will appear below</div>
         {{else}}
@@ -42,7 +44,7 @@
       <!-- Command input area -->
       {{if eq .Gameserver.Status "running"}}
       <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
-        <form hx-post="/{{.Gameserver.ID}}/console" hx-swap="none" hx-on::after-request="if(event.detail.successful) { document.getElementById('command-input').value = ''; } else { showNotification('Failed to send command', 'error'); }">
+        <form hx-post="/gameservers/{{.Gameserver.ID}}/console" hx-swap="none" hx-on::after-request="if(event.detail.successful) { document.getElementById('command-input').value = ''; } else { showNotification('Failed to send command', 'error'); }">
           <div class="flex space-x-3">
             <div class="flex-1">
               <label for="command-input" class="sr-only">Command</label>
@@ -51,6 +53,10 @@
                   <span class="text-gray-500 dark:text-gray-400 font-mono text-sm">></span>
                 </div>
                 <input type="text" id="command-input" name="command" 
+                       hx-trigger="keyup[key=='Enter'] from:this"
+                       hx-post="/gameservers/{{.Gameserver.ID}}/console"
+                       hx-swap="none"
+                       hx-on::after-request="if(event.detail.successful) { this.value = ''; } else { showNotification('Failed to send command', 'error'); }"
                        class="block w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
                        placeholder="Enter server command..." autocomplete="off">
               </div>
@@ -106,7 +112,7 @@
 {{if eq .Gameserver.Status "running"}}
 <script>
 // Connect to log stream
-const logSource = new EventSource('/{{.Gameserver.ID}}/logs');
+const logSource = new EventSource('/gameservers/{{.Gameserver.ID}}/logs');
 const output = document.getElementById('console-output');
 let autoScroll = true;
 

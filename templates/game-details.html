@@ -1,0 +1,207 @@
+<!-- Game header -->
+<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
+  <div class="px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <div class="flex-shrink-0">
+          {{if .Game.IconPath}}
+            <img src="{{.Game.IconPath}}" alt="{{.Game.Name}} icon" class="w-12 h-12">
+          {{else}}
+            <div class="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+              <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+              </svg>
+            </div>
+          {{end}}
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Game Details</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Game ID: <span class="font-mono">{{.Game.ID}}</span></p>
+        </div>
+      </div>
+      <div class="flex space-x-3">
+        <!-- Primary Action - Create Server -->
+        <a href="/gameservers/new?game={{.Game.ID}}" hx-get="/gameservers/new?game={{.Game.ID}}" hx-target="#content" hx-push-url="true"
+           class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-smooth">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Create Server
+        </a>
+        
+        <!-- Secondary Actions -->
+        <a href="/games/{{.Game.ID}}/edit" hx-get="/games/{{.Game.ID}}/edit" hx-target="#content" hx-push-url="true"
+           class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+          </svg>
+          Edit Game
+        </a>
+        <button type="button" onclick="if(confirm('Are you sure you want to delete this game?')) { fetch('/games/{{.Game.ID}}', { method: 'DELETE' }).then(() => window.location.href = '/games'); }"
+                class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-smooth">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          Delete Game
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Game details grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <!-- Basic Information -->
+  <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Basic Information</h3>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <div class="flex justify-between">
+        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Name:</span>
+        <span class="text-sm text-gray-900 dark:text-gray-100">{{.Game.Name}}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Slug:</span>
+        <span class="text-sm text-gray-900 dark:text-gray-100">{{.Game.Slug}}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Docker Image:</span>
+        <span class="text-sm text-gray-900 dark:text-gray-100 font-mono">{{.Game.Image}}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Icon Path:</span>
+        <span class="text-sm text-gray-900 dark:text-gray-100">{{if .Game.IconPath}}{{.Game.IconPath}}{{else}}Not set{{end}}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Grid Image Path:</span>
+        <span class="text-sm text-gray-900 dark:text-gray-100">{{if .Game.GridImagePath}}{{.Game.GridImagePath}}{{else}}Not set{{end}}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Memory Requirements -->
+  <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Memory Requirements</h3>
+    </div>
+    <div class="px-6 py-4 space-y-6">
+      <div>
+        <div class="flex justify-between mb-2">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Minimum Memory:</span>
+          <span class="text-sm text-gray-900 dark:text-gray-100">{{.Game.MinMemoryMB}} MB ({{printf "%.1f" (div .Game.MinMemoryMB 1024.0)}} GB)</span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div class="bg-yellow-500 h-2 rounded-full" style="width: {{div (mul .Game.MinMemoryMB 100) .Game.RecMemoryMB}}%"></div>
+        </div>
+      </div>
+      <div>
+        <div class="flex justify-between mb-2">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Recommended Memory:</span>
+          <span class="text-sm text-gray-900 dark:text-gray-100">{{.Game.RecMemoryMB}} MB ({{printf "%.1f" (div .Game.RecMemoryMB 1024.0)}} GB)</span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div class="bg-green-500 h-2 rounded-full" style="width: 100%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Port Mappings -->
+<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
+  <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Port Mappings</h3>
+  </div>
+  <div class="px-6 py-4">
+    {{if .Game.PortMappings}}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Protocol</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Container Port</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            {{range .Game.PortMappings}}
+            <tr>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{.Name}}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{.Protocol | upper}}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{.ContainerPort}}</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    {{else}}
+      <p class="text-sm text-gray-500 dark:text-gray-400">No port mappings configured.</p>
+    {{end}}
+  </div>
+</div>
+
+<!-- Configuration Variables -->
+<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
+  <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Configuration Variables</h3>
+  </div>
+  <div class="px-6 py-4">
+    {{if .Game.ConfigVars}}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Variable Name</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Display Name</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Required</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Default Value</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Description</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            {{range .Game.ConfigVars}}
+            <tr>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-gray-100">{{.Name}}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{.DisplayName}}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                {{if .Required}}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                    Required
+                  </span>
+                {{else}}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                    Optional
+                  </span>
+                {{end}}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                {{if .Default}}{{.Default}}{{else}}<span class="text-gray-400">None</span>{{end}}
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                {{if .Description}}{{.Description}}{{else}}<span class="text-gray-400">No description</span>{{end}}
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    {{else}}
+      <p class="text-sm text-gray-500 dark:text-gray-400">No configuration variables defined.</p>
+    {{end}}
+  </div>
+</div>
+
+<!-- Grid Image Preview -->
+{{if .Game.GridImagePath}}
+<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
+  <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Grid Image Preview</h3>
+  </div>
+  <div class="px-6 py-4">
+    <div class="max-w-sm">
+      <img src="{{.Game.GridImagePath}}" alt="{{.Game.Name}} grid image" class="w-full rounded-lg shadow-sm">
+    </div>
+  </div>
+</div>
+{{end}}

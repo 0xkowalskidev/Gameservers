@@ -1,25 +1,4 @@
-<!-- Dashboard Header -->
-<div class="mb-8">
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage your game servers and monitor system resources</p>
-    </div>
-    <div class="flex items-center space-x-4">
-      <!-- Quick stats -->
-      <div class="hidden sm:flex items-center space-x-6 text-sm">
-        <div class="text-center">
-          <div class="text-lg font-semibold text-gray-900 dark:text-white">{{len .Gameservers}}</div>
-          <div class="text-gray-500 dark:text-gray-400">Total</div>
-        </div>
-        <div class="text-center">
-          <div class="text-lg font-semibold text-green-600 dark:text-green-400">{{.RunningServers}}</div>
-          <div class="text-gray-500 dark:text-gray-400">Running</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+
 
 {{if .SystemInfo}}
 <!-- System Overview Cards -->
@@ -194,7 +173,7 @@
       You don't have any game servers yet. Create your first server to get started with hosting games for your community.
     </p>
     <div class="space-y-4">
-      <a href="/new" hx-get="/new" hx-target="#content" hx-push-url="true"
+      <a href="/gameservers/new" hx-get="/gameservers/new" hx-target="#content" hx-push-url="true"
          class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>

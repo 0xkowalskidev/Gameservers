@@ -12,9 +12,50 @@ import (
 // DashboardData represents the data for the dashboard page
 type DashboardData struct {
 	Gameservers        []*models.Gameserver
+	Games              []*models.Game
 	SystemInfo         *models.SystemInfo
 	CurrentMemoryUsage int
 	RunningServers     int
+}
+
+// IndexDashboard shows the main dashboard with overview stats
+func (h *Handlers) IndexDashboard(w http.ResponseWriter, r *http.Request) {
+	gameservers, err := h.service.ListGameservers()
+	if err != nil {
+		h.handleServiceError(w, err, "index_dashboard")
+		return
+	}
+
+	games, err := h.service.ListGames()
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to get games for dashboard")
+	}
+
+	// Get system information and calculate current usage from running servers only
+	systemInfo, err := models.GetSystemInfo()
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to get system information")
+	}
+
+	var currentMemoryUsage int
+	var runningServers int
+	for _, server := range gameservers {
+		// Only count memory from running/starting servers
+		if server.Status == models.StatusRunning || server.Status == models.StatusStarting {
+			currentMemoryUsage += server.MemoryMB
+			runningServers++
+		}
+	}
+
+	data := DashboardData{
+		Gameservers:        gameservers,
+		Games:              games,
+		SystemInfo:         systemInfo,
+		CurrentMemoryUsage: currentMemoryUsage,
+		RunningServers:     runningServers,
+	}
+
+	Render(w, r, h.tmpl, "dashboard.html", data)
 }
 
 // IndexGameservers lists all gameservers with resource usage statistics
@@ -48,7 +89,7 @@ func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 		RunningServers:     runningServers,
 	}
 
-	Render(w, r, h.tmpl, "index.html", data)
+	Render(w, r, h.tmpl, "gameservers-list.html", data)
 }
 
 // ShowGameserver displays gameserver details
@@ -69,7 +110,15 @@ func (h *Handlers) NewGameserver(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, err, "new_gameserver", "Failed to list games")
 		return
 	}
-	Render(w, r, h.tmpl, "new-gameserver.html", map[string]interface{}{"Games": games})
+	
+	// Get pre-selected game from query parameter
+	selectedGameID := r.URL.Query().Get("game")
+	
+	data := map[string]interface{}{
+		"Games":          games,
+		"SelectedGameID": selectedGameID,
+	}
+	Render(w, r, h.tmpl, "new-gameserver.html", data)
 }
 
 // EditGameserver shows the edit gameserver form
@@ -234,15 +283,20 @@ func (h *Handlers) QueryGameserver(w http.ResponseWriter, r *http.Request) {
 
 	// Only query running servers
 	if gameserver.Status != models.StatusRunning {
-		h.jsonSuccess(w, map[string]interface{}{
+		data := map[string]interface{}{
 			"online": false,
 			"status": gameserver.Status,
-		})
+		}
+		Render(w, r, h.tmpl, "server-query.html", data)
 		return
 	}
 
 	if h.queryService == nil {
-		h.jsonError(w, "Query service not available")
+		data := map[string]interface{}{
+			"online": false,
+			"error":  "Query service not available",
+		}
+		Render(w, r, h.tmpl, "server-query.html", data)
 		return
 	}
 
@@ -250,25 +304,31 @@ func (h *Handlers) QueryGameserver(w http.ResponseWriter, r *http.Request) {
 	game, err := h.service.GetGame(gameserver.GameID)
 	if err != nil {
 		log.Error().Err(err).Str("game_id", gameserver.GameID).Msg("Failed to get game info")
-		h.jsonError(w, "Failed to get game info")
+		data := map[string]interface{}{
+			"online": false,
+			"error":  "Failed to get game info",
+		}
+		Render(w, r, h.tmpl, "server-query.html", data)
 		return
 	}
 
 	serverInfo, err := h.queryService.QueryGameserver(gameserver, game)
 	if err != nil {
 		log.Debug().Err(err).Str("gameserver_id", id).Msg("Failed to query gameserver")
-		h.jsonSuccess(w, map[string]interface{}{
+		data := map[string]interface{}{
 			"online": false,
 			"error":  err.Error(),
-		})
+		}
+		Render(w, r, h.tmpl, "server-query.html", data)
 		return
 	}
 
-	// Return the server info as JSON
-	h.jsonSuccess(w, map[string]interface{}{
+	// Return the server info as formatted HTML
+	data := map[string]interface{}{
 		"online":  serverInfo.Online,
 		"players": serverInfo.Players,
 		"map":     serverInfo.Map,
 		"ping":    serverInfo.Ping,
-	})
+	}
+	Render(w, r, h.tmpl, "server-query.html", data)
 }

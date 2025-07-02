@@ -356,6 +356,17 @@ func (gss *GameserverService) CreateGame(game *models.Game) error {
 	return gss.db.CreateGame(game)
 }
 
+// UpdateGame updates an existing game configuration
+func (gss *GameserverService) UpdateGame(game *models.Game) error {
+	game.UpdatedAt = time.Now()
+	return gss.db.UpdateGame(game)
+}
+
+// DeleteGame deletes a game configuration
+func (gss *GameserverService) DeleteGame(id string) error {
+	return gss.db.DeleteGame(id)
+}
+
 // Scheduled Task Service Operations
 
 // CreateScheduledTask creates a new scheduled task

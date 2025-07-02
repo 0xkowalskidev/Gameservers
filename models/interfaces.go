@@ -46,6 +46,8 @@ type GameserverServiceInterface interface {
 	ListGames() ([]*Game, error)
 	GetGame(id string) (*Game, error)
 	CreateGame(game *Game) error
+	UpdateGame(game *Game) error
+	DeleteGame(id string) error
 	CreateScheduledTask(task *ScheduledTask) error
 	GetScheduledTask(id string) (*ScheduledTask, error)
 	UpdateScheduledTask(task *ScheduledTask) error

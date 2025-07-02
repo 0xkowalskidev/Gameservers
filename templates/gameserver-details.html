@@ -77,10 +77,12 @@
       <div id="server-status"
         class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Server Status</h3>
-        <div id="server-query-data">
+        <div id="server-query-data"
+             hx-get="/gameservers/{{.Gameserver.ID}}/query"
+             hx-trigger="load, every 30s"
+             hx-swap="innerHTML">
           <div class="text-center py-4">
-            <div
-              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+            <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
               Loading...
             </div>
           </div>
@@ -118,7 +120,7 @@
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
         <div class="space-y-3">
-          <a href="/{{.Gameserver.ID}}/tasks" hx-get="/{{.Gameserver.ID}}/tasks" hx-target="#main-content"
+          <a href="/gameservers/{{.Gameserver.ID}}/tasks" hx-get="/gameservers/{{.Gameserver.ID}}/tasks" hx-target="#content"
             hx-push-url="true"
             class="w-full inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +129,7 @@
             </svg>
             Manage Scheduled Tasks
           </a>
-          <a href="/{{.Gameserver.ID}}/files" hx-get="/{{.Gameserver.ID}}/files" hx-target="#main-content"
+          <a href="/gameservers/{{.Gameserver.ID}}/files" hx-get="/gameservers/{{.Gameserver.ID}}/files" hx-target="#content"
             hx-push-url="true"
             class="w-full inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +138,7 @@
             </svg>
             Open File Manager
           </a>
-          <button hx-post="/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none"
+          <button hx-post="/gameservers/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none"
             hx-on::after-request="if(event.detail.successful) { showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
             class="w-full inline-flex items-center justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,7 +156,7 @@
 {{if eq .Gameserver.Status "running"}}
 <script>
   // Stats monitoring
-  const statsSource = new EventSource('/{{.Gameserver.ID}}/stats');
+  const statsSource = new EventSource('/gameservers/{{.Gameserver.ID}}/stats');
 
   statsSource.addEventListener('stats', function (e) {
     const stats = JSON.parse(e.data);
@@ -181,70 +183,6 @@
     console.error('Stats error:', e);
   });
 
-  // Server query polling
-  async function updateServerQuery() {
-    try {
-      const response = await fetch('/{{.Gameserver.ID}}/query');
-      const data = await response.json();
-
-      const queryContainer = document.getElementById('server-query-data');
-      if (!queryContainer) return;
-
-      if (data.online) {
-        queryContainer.innerHTML = `
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Status</span>
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                Online
-              </span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Players</span>
-              <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                ${data.players.current} / ${data.players.max}
-              </span>
-            </div>
-            ${data.map ? `
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Map</span>
-              <span class="text-sm text-gray-900 dark:text-gray-100">${data.map}</span>
-            </div>
-            ` : ''}
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Response Time</span>
-              <span class="text-sm text-gray-900 dark:text-gray-100">${data.ping}</span>
-            </div>
-          </div>
-        `;
-      } else {
-        queryContainer.innerHTML = `
-          <div class="text-center py-4">
-            <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-              Query Failed
-            </div>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Unable to query server status</p>
-          </div>
-        `;
-      }
-    } catch (error) {
-      console.error('Query error:', error);
-      const queryContainer = document.getElementById('server-query-data');
-      if (queryContainer) {
-        queryContainer.innerHTML = `
-          <div class="text-center py-4">
-            <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-              Error
-            </div>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Failed to fetch server status</p>
-          </div>
-        `;
-      }
-    }
-  }
-
-  // Poll server query every 30 seconds
-  updateServerQuery(); // Initial load
-  setInterval(updateServerQuery, 1000);
+  // Note: Server query polling now handled by HTMX
 </script>
 {{end}}
