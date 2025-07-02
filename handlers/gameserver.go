@@ -127,7 +127,9 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.htmxRedirect(w, "/")
+	// Set server ID in header for HTMX to use
+	w.Header().Set("X-Server-ID", server.ID)
+	w.WriteHeader(http.StatusOK)
 }
 
 // UpdateGameserver updates an existing gameserver

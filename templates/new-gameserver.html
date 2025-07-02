@@ -1,1 +1,701 @@
-{{template "gameserver-form.html" .}}
+{{$games := .Games}}
+
+<div class="max-w-5xl mx-auto">
+  <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
+    <!-- Form header -->
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center space-x-3">
+        <div class="flex-shrink-0 w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Create New Server</h1>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Choose a game and configure your server</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form content -->
+    <form hx-post="/" hx-indicator="#form-loading" hx-swap="none"
+      hx-on::after-request="if(event.detail.successful) { window.location.href = '/' + event.detail.xhr.getResponseHeader('X-Server-ID'); } else { showNotification('Failed to create server', 'error'); }">
+      
+      <div class="p-6 space-y-8">
+        <!-- Game Selection -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Select Game
+          </h3>
+          
+          <input type="hidden" id="game_id" name="game_id" value="" required>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {{range $games}}
+            <div class="game-card relative group cursor-pointer" data-game-id="{{.ID}}" onclick="selectGame('{{.ID}}')">
+              <div class="relative overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 transform hover:-translate-y-1 hover:shadow-lg">
+                {{if .GridImagePath}}
+                  <img src="{{.GridImagePath}}" alt="{{.Name}}" class="w-full h-auto">
+                {{else}}
+                  <div class="aspect-video w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                    <span class="text-lg font-medium text-gray-600 dark:text-gray-300">{{.Name}}</span>
+                  </div>
+                {{end}}
+                
+                <!-- Selected overlay -->
+                <div class="selected-overlay absolute inset-0 bg-blue-600 bg-opacity-90 hidden flex items-center justify-center">
+                  <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="mt-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300">{{.Name}}</p>
+            </div>
+            {{end}}
+          </div>
+          
+          <p id="game-selection-error" class="text-red-500 text-sm mt-2 hidden">Please select a game to continue</p>
+        </div>
+
+        <!-- Basic Information -->
+        <div class="space-y-4" id="basic-info-section" style="display: none;">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Basic Information
+          </h3>
+
+          <div>
+            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Server Name</label>
+            <input type="text" id="name" name="name" required
+              class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
+              placeholder="My Awesome Server">
+          </div>
+        </div>
+
+        <!-- Game Configuration -->
+        <div class="space-y-4" id="config-section" style="display: none;">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Game Configuration
+          </h3>
+          <div id="config-fields" class="grid gap-6 sm:grid-cols-2">
+            <!-- Dynamic config fields will be inserted here -->
+          </div>
+        </div>
+
+        <!-- Resource Allocation -->
+        <div class="space-y-6" id="resource-section" style="display: none;">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Resource Allocation
+          </h3>
+
+          <!-- Memory Slider -->
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <label for="memory_slider" class="text-sm font-medium text-gray-700 dark:text-gray-300">Memory (RAM)</label>
+              <div class="flex items-center space-x-2">
+                <span id="memory-value" class="text-lg font-semibold text-blue-600 dark:text-blue-400">2 GB</span>
+                <div id="memory-recommendation" class="text-xs text-gray-500 dark:text-gray-400"></div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <input type="range" id="memory_slider" min="1" max="16" step="1" value="2"
+                class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider">
+
+              <div class="flex justify-between text-xs px-2">
+                <span id="tick-1" class="text-gray-400">1</span>
+                <span id="tick-2" class="text-gray-400">2</span>
+                <span id="tick-3" class="text-gray-400">3</span>
+                <span id="tick-4" class="text-gray-400">4</span>
+                <span id="tick-5" class="text-gray-400">5</span>
+                <span id="tick-6" class="text-gray-400">6</span>
+                <span id="tick-7" class="text-gray-400">7</span>
+                <span id="tick-8" class="text-gray-400">8</span>
+                <span id="tick-9" class="text-gray-400">9</span>
+                <span id="tick-10" class="text-gray-400">10</span>
+                <span id="tick-11" class="text-gray-400">11</span>
+                <span id="tick-12" class="text-gray-400">12</span>
+                <span id="tick-13" class="text-gray-400">13</span>
+                <span id="tick-14" class="text-gray-400">14</span>
+                <span id="tick-15" class="text-gray-400">15</span>
+                <span id="tick-16" class="text-gray-400">16</span>
+              </div>
+            </div>
+
+            <input type="hidden" id="memory_gb" name="memory_gb" value="2">
+
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+              <span class="text-orange-500">●</span> Minimum required memory
+              <span class="ml-4 text-green-500">●</span> Recommended memory for optimal performance
+            </p>
+          </div>
+
+          <!-- Max Backups -->
+          <div>
+            <label for="max_backups" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Maximum Backups</label>
+            <select id="max_backups" name="max_backups"
+              class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+              <option value="0">Unlimited</option>
+              <option value="3">3 backups</option>
+              <option value="5">5 backups</option>
+              <option value="7" selected>7 backups (recommended)</option>
+              <option value="10">10 backups</option>
+              <option value="15">15 backups</option>
+            </select>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Older backups will be automatically deleted when this limit is reached</p>
+          </div>
+        </div>
+
+        <!-- Advanced Settings (Collapsible) -->
+        <div class="space-y-4" id="advanced-section" style="display: none;">
+          <button type="button" id="advanced-toggle"
+            class="flex items-center justify-between w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-smooth"
+            onclick="toggleAdvancedSettings()">
+            <div class="flex items-center space-x-3">
+              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Advanced Settings</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">(Optional)</span>
+            </div>
+            <svg id="advanced-arrow" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+
+          <div id="advanced-settings" class="hidden space-y-6 p-6 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <!-- CPU Limit -->
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <label for="cpu_slider" class="text-sm font-medium text-gray-700 dark:text-gray-300">CPU Cores</label>
+                <span id="cpu-value" class="text-lg font-semibold text-blue-600 dark:text-blue-400">Unlimited</span>
+              </div>
+
+              <div class="relative">
+                <input type="range" id="cpu_slider" min="0" max="8" step="0.5" value="0"
+                  class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider">
+                <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1 px-2">
+                  <span>∞</span>
+                  <span>1</span>
+                  <span>2</span>
+                  <span>3</span>
+                  <span>4</span>
+                  <span>5</span>
+                  <span>6</span>
+                  <span>7</span>
+                  <span>8</span>
+                </div>
+              </div>
+              <input type="hidden" id="cpu_cores" name="cpu_cores" value="0">
+              <p class="text-xs text-gray-500 dark:text-gray-400">Set to 0 (unlimited) for best performance, or limit CPU usage if sharing resources</p>
+            </div>
+
+            <!-- Custom Environment Variables -->
+            <div class="space-y-4">
+              <h4 class="text-base font-medium text-gray-900 dark:text-gray-100">Additional Environment Variables</h4>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Add custom environment variables that aren't covered by the game configuration above. Most users won't need this.</p>
+
+              <div id="env-vars" class="space-y-3">
+                <!-- Dynamic environment variable inputs -->
+              </div>
+
+              <button type="button" onclick="addEnvVar()"
+                class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Environment Variable
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form actions -->
+      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
+        <div class="flex items-center justify-between">
+          <a href="/"
+            class="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+            Cancel
+          </a>
+
+          <!-- Create button -->
+          <button type="submit" id="create-button" disabled
+            class="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-smooth disabled:opacity-50 disabled:cursor-not-allowed shadow-lg">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            <span class="button-text">Create Server</span>
+          </button>
+
+          <!-- Loading indicator -->
+          <div id="form-loading" class="htmx-indicator ml-3">
+            <div class="inline-flex items-center px-3 py-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm rounded-lg">
+              <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Creating...
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  /* Custom slider styles */
+  .slider::-webkit-slider-thumb {
+    appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .slider::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .slider::-webkit-slider-track {
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #fbbf24 0%, #10b981 50%, #3b82f6 100%);
+  }
+
+  .slider::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #fbbf24 0%, #10b981 50%, #3b82f6 100%);
+  }
+  
+  /* Selected game card styles */
+  .game-card.selected .border-gray-200,
+  .game-card.selected .dark\:border-gray-700 {
+    border-color: rgb(59 130 246) !important;
+  }
+  
+  .game-card.selected .selected-overlay {
+    display: flex !important;
+  }
+</style>
+
+<script>
+  // Game configuration data
+  const gameConfigs = {
+    {{range $games}}
+    "{{.ID}}": {
+      name: "{{.Name}}",
+      minMemoryMB: {{.MinMemoryMB}},
+      recMemoryMB: {{.RecMemoryMB}},
+      configVars: [
+        {{range .ConfigVars}}
+        {
+          name: "{{.Name}}",
+          displayName: "{{.DisplayName}}",
+          required: {{.Required}},
+          default: "{{.Default}}",
+          description: "{{.Description}}"
+        },
+        {{end}}
+      ]
+    },
+    {{end}}
+  };
+
+  let selectedGameId = null;
+
+  // Select a game
+  function selectGame(gameId) {
+    // Update selected state
+    selectedGameId = gameId;
+    document.getElementById('game_id').value = gameId;
+    
+    // Update UI
+    document.querySelectorAll('.game-card').forEach(card => {
+      card.classList.remove('selected');
+    });
+    document.querySelector(`[data-game-id="${gameId}"]`).classList.add('selected');
+    
+    // Hide error message
+    document.getElementById('game-selection-error').classList.add('hidden');
+    
+    // Show other sections
+    document.getElementById('basic-info-section').style.display = 'block';
+    document.getElementById('resource-section').style.display = 'block';
+    document.getElementById('advanced-section').style.display = 'block';
+    
+    // Enable create button
+    document.getElementById('create-button').disabled = false;
+    
+    // Load game configuration
+    loadGameConfiguration(gameId);
+  }
+
+  // Toggle advanced settings
+  function toggleAdvancedSettings() {
+    const settings = document.getElementById('advanced-settings');
+    const arrow = document.getElementById('advanced-arrow');
+
+    if (settings.classList.contains('hidden')) {
+      settings.classList.remove('hidden');
+      arrow.style.transform = 'rotate(180deg)';
+    } else {
+      settings.classList.add('hidden');
+      arrow.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  // Memory slider functionality
+  function setupMemorySlider() {
+    const memorySlider = document.getElementById('memory_slider');
+    const memoryValue = document.getElementById('memory-value');
+    const memoryHidden = document.getElementById('memory_gb');
+    const memoryRecommendation = document.getElementById('memory-recommendation');
+
+    if (!memorySlider) return;
+
+    memorySlider.addEventListener('input', function () {
+      const value = parseInt(this.value);
+      memoryValue.textContent = `${value} GB`;
+      memoryHidden.value = value;
+
+      // Update recommendation text based on current game
+      if (selectedGameId && gameConfigs[selectedGameId]) {
+        const game = gameConfigs[selectedGameId];
+        const minGB = Math.ceil(game.minMemoryMB / 1024);
+        const recGB = Math.ceil(game.recMemoryMB / 1024);
+
+        if (value < minGB) {
+          memoryRecommendation.textContent = '⚠️ Below minimum';
+          memoryRecommendation.className = 'text-xs text-red-500';
+        } else if (value < recGB) {
+          memoryRecommendation.textContent = '📊 Above minimum';
+          memoryRecommendation.className = 'text-xs text-orange-500';
+        } else {
+          memoryRecommendation.textContent = '✅ Recommended';
+          memoryRecommendation.className = 'text-xs text-green-500';
+        }
+      }
+    });
+  }
+
+  // CPU slider functionality
+  function setupCpuSlider() {
+    const cpuSlider = document.getElementById('cpu_slider');
+    const cpuValue = document.getElementById('cpu-value');
+    const cpuHidden = document.getElementById('cpu_cores');
+
+    if (!cpuSlider) return;
+
+    cpuSlider.addEventListener('input', function () {
+      const value = parseFloat(this.value);
+      cpuValue.textContent = value === 0 ? 'Unlimited' : `${value} cores`;
+      cpuHidden.value = value;
+    });
+  }
+
+  // Add environment variable input pair
+  function addEnvVar(name = '', value = '') {
+    const envVars = document.getElementById('env-vars');
+    const div = document.createElement('div');
+    div.className = 'flex gap-3 items-center bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-600';
+
+    div.innerHTML = `
+    <input type="text" placeholder="VARIABLE_NAME" value="${name}"
+           class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth font-mono">
+    <span class="text-gray-500 font-mono">=</span>
+    <input type="text" placeholder="value" value="${value}"
+           class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth font-mono">
+    <button type="button" onclick="removeEnvVar(this)" 
+            class="p-2 text-gray-400 hover:text-red-500 transition-smooth rounded-lg hover:bg-red-50 dark:hover:bg-red-900">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+  `;
+
+    envVars.appendChild(div);
+  }
+
+  // Remove environment variable input pair
+  function removeEnvVar(button) {
+    button.parentElement.remove();
+  }
+
+  // Create appropriate input for config variable
+  function createConfigInput(configVar, gameId, currentValue = '') {
+    let inputHtml = '';
+    const value = currentValue || configVar.default;
+
+    // Special handling for common config types
+    if (configVar.name === 'EULA' || configVar.name === 'SERVER_PUBLIC') {
+      // Boolean checkbox for EULA and similar
+      const isChecked = value === 'true' || value === '1';
+      inputHtml = `
+      <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+        <div class="flex items-center space-x-3">
+          <input type="checkbox" id="config_${configVar.name}" name="config_${configVar.name}" 
+                 ${isChecked ? 'checked' : ''}
+                 class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+          <label for="config_${configVar.name}" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            ${configVar.displayName}
+            ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+          </label>
+        </div>
+        <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">${configVar.description}</p>
+      </div>
+    `;
+    } else if (configVar.name.includes('PASSWORD') && configVar.name !== 'SERVER_PASSWORD') {
+      // Password input for sensitive fields
+      inputHtml = `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <input type="password" id="config_${configVar.name}" name="config_${configVar.name}" 
+               value="${value}" ${configVar.required ? 'required' : ''}
+               class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+      </div>
+    `;
+    } else if (configVar.name === 'MINECRAFT_VERSION') {
+      // Simple text input for Minecraft version
+      inputHtml = `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <input type="text" id="config_${configVar.name}" name="config_${configVar.name}" 
+               value="${value}" ${configVar.required ? 'required' : ''}
+               placeholder="latest"
+               class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+        <p class="text-xs text-gray-600 dark:text-gray-300">Examples: latest, 1.21.6, 1.20.4, 1.19.2</p>
+      </div>
+    `;
+    } else if (configVar.name.includes('DIFFICULTY')) {
+      // Game-specific difficulty options
+      let options = '';
+      if (gameId === 'minecraft') {
+        options = '<option value="peaceful">Peaceful</option><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option>';
+      } else if (gameId === 'terraria') {
+        options = '<option value="0">Classic</option><option value="1">Expert</option><option value="2">Master</option>';
+      }
+
+      // Set selected option
+      options = options.replace(`value="${value}"`, `value="${value}" selected`);
+
+      inputHtml = `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <select id="config_${configVar.name}" name="config_${configVar.name}" ${configVar.required ? 'required' : ''}
+                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+          ${options}
+        </select>
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+      </div>
+    `;
+    } else if (configVar.name.includes('GAMEMODE')) {
+      // Game-specific gamemode options
+      let options = '';
+      if (gameId === 'minecraft') {
+        options = '<option value="survival">Survival</option><option value="creative">Creative</option><option value="adventure">Adventure</option><option value="spectator">Spectator</option>';
+      } else if (gameId === 'garrysmod') {
+        options = '<option value="sandbox">Sandbox</option><option value="darkrp">DarkRP</option><option value="ttt">Trouble in Terrorist Town</option><option value="prop_hunt">Prop Hunt</option>';
+      }
+
+      // Set selected option
+      options = options.replace(`value="${value}"`, `value="${value}" selected`);
+
+      inputHtml = `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <select id="config_${configVar.name}" name="config_${configVar.name}" ${configVar.required ? 'required' : ''}
+                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+          ${options}
+        </select>
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+      </div>
+    `;
+    } else {
+      // Regular text input
+      inputHtml = `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <input type="text" id="config_${configVar.name}" name="config_${configVar.name}" 
+               value="${value}" ${configVar.required ? 'required' : ''}
+               class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+      </div>
+    `;
+    }
+
+    return inputHtml;
+  }
+
+  // Update memory recommendations and color tick marks
+  function updateMemoryRecommendations(gameId) {
+    const game = gameConfigs[gameId];
+    if (!game) return;
+
+    const minGB = Math.ceil(game.minMemoryMB / 1024);
+    const recGB = Math.ceil(game.recMemoryMB / 1024);
+    const memorySlider = document.getElementById('memory_slider');
+
+    // Update slider to recommended value
+    if (memorySlider) {
+      memorySlider.value = recGB;
+      document.getElementById('memory_gb').value = recGB;
+      document.getElementById('memory-value').textContent = `${recGB} GB`;
+    }
+
+    // Reset all tick marks to default color
+    for (let i = 1; i <= 16; i++) {
+      const tick = document.getElementById(`tick-${i}`);
+      if (tick) {
+        tick.className = 'text-gray-400';
+      }
+    }
+
+    // Color the min and rec tick marks
+    const minTick = document.getElementById(`tick-${minGB}`);
+    const recTick = document.getElementById(`tick-${recGB}`);
+
+    if (minTick) {
+      minTick.className = 'text-orange-500 font-semibold';
+    }
+    if (recTick) {
+      recTick.className = 'text-green-500 font-semibold';
+    }
+
+    // Trigger memory slider update
+    if (memorySlider) {
+      memorySlider.dispatchEvent(new Event('input'));
+    }
+  }
+
+  // Load game configuration
+  function loadGameConfiguration(gameId) {
+    const configSection = document.getElementById('config-section');
+    const configFields = document.getElementById('config-fields');
+
+    if (!gameId || !gameConfigs[gameId]) {
+      configSection.style.display = 'none';
+      return;
+    }
+
+    const game = gameConfigs[gameId];
+    configFields.innerHTML = '';
+
+    if (game.configVars.length > 0) {
+      configSection.style.display = 'block';
+
+      game.configVars.forEach(configVar => {
+        const fieldDiv = document.createElement('div');
+        fieldDiv.innerHTML = createConfigInput(configVar, gameId);
+        configFields.appendChild(fieldDiv);
+      });
+    }
+
+    // Update memory recommendations
+    updateMemoryRecommendations(gameId);
+  }
+
+  // Setup form submission handler
+  function setupFormSubmission() {
+    const form = document.querySelector('form');
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+      if (!selectedGameId) {
+        e.preventDefault();
+        document.getElementById('game-selection-error').classList.remove('hidden');
+        return;
+      }
+
+      // Create hidden environment textarea to send to server
+      let envTextarea = document.getElementById('environment');
+      if (!envTextarea) {
+        envTextarea = document.createElement('textarea');
+        envTextarea.name = 'environment';
+        envTextarea.id = 'environment';
+        envTextarea.style.display = 'none';
+        this.appendChild(envTextarea);
+      }
+
+      const envVars = [];
+
+      // Collect config values
+      if (gameConfigs[selectedGameId]) {
+        gameConfigs[selectedGameId].configVars.forEach(configVar => {
+          const input = document.getElementById(`config_${configVar.name}`);
+          if (input) {
+            let value;
+            if (input.type === 'checkbox') {
+              value = input.checked ? 'true' : 'false';
+            } else {
+              value = input.value.trim();
+            }
+
+            if (value) {
+              envVars.push(`${configVar.name}=${value}`);
+            }
+          }
+        });
+      }
+
+      // Collect custom env vars from advanced section
+      const envVarInputs = document.querySelectorAll('#env-vars > div');
+      envVarInputs.forEach(div => {
+        const inputs = div.querySelectorAll('input');
+        if (inputs.length === 2 && inputs[0].value.trim() && inputs[1].value.trim()) {
+          envVars.push(`${inputs[0].value.trim()}=${inputs[1].value.trim()}`);
+        }
+      });
+
+      envTextarea.value = envVars.join('\n');
+    });
+  }
+
+  // Initialize form
+  function initializeForm() {
+    setupMemorySlider();
+    setupCpuSlider();
+    setupFormSubmission();
+
+    // Initialize slider values
+    const memorySlider = document.getElementById('memory_slider');
+    const cpuSlider = document.getElementById('cpu_slider');
+    if (memorySlider) memorySlider.dispatchEvent(new Event('input'));
+    if (cpuSlider) cpuSlider.dispatchEvent(new Event('input'));
+  }
+
+  // Initialize on both page load and HTMX content swap
+  document.addEventListener('DOMContentLoaded', initializeForm);
+  document.addEventListener('htmx:afterSwap', initializeForm);
+</script>
