@@ -27,7 +27,7 @@ func TestDatabaseManager_ListGames(t *testing.T) {
 		gameIDs[game.ID] = true
 	}
 
-	expectedGames := []string{"minecraft", "cs2"}
+	expectedGames := []string{"minecraft", "valheim", "terraria", "garrysmod", "palworld", "rust"}
 	for _, expectedID := range expectedGames {
 		if !gameIDs[expectedID] {
 			t.Errorf("Expected game %s to be seeded", expectedID)
@@ -74,7 +74,7 @@ func TestDatabaseManager_ValidateGameID(t *testing.T) {
 		expected bool
 	}{
 		{"valid minecraft", "minecraft", true},
-		{"valid cs2", "cs2", true},
+		{"valid valheim", "valheim", true},
 		{"invalid game", "invalid-game", false},
 		{"empty string", "", false},
 	}

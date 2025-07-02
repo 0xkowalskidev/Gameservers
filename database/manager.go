@@ -62,6 +62,7 @@ func (dm *DatabaseManager) migrate() error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS games (
 		id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, slug TEXT NOT NULL DEFAULT '', image TEXT NOT NULL,
+		icon_path TEXT NOT NULL DEFAULT '', grid_image_path TEXT NOT NULL DEFAULT '',
 		port_mappings TEXT NOT NULL, config_vars TEXT NOT NULL DEFAULT '[]', 
 		min_memory_mb INTEGER NOT NULL DEFAULT 512, rec_memory_mb INTEGER NOT NULL DEFAULT 2048,
 		created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL
@@ -99,6 +100,8 @@ func (dm *DatabaseManager) migrate() error {
 		`ALTER TABLE games ADD COLUMN port_mappings TEXT DEFAULT '[]'`,
 		`ALTER TABLE gameservers ADD COLUMN port_mappings TEXT DEFAULT '[]'`,
 		`ALTER TABLE games ADD COLUMN slug TEXT DEFAULT ''`,
+		`ALTER TABLE games ADD COLUMN icon_path TEXT DEFAULT ''`,
+		`ALTER TABLE games ADD COLUMN grid_image_path TEXT DEFAULT ''`,
 	}
 
 	for _, query := range alterQueries {
@@ -124,6 +127,7 @@ func (dm *DatabaseManager) seedGames() error {
 
 	games := []*models.Game{
 		{ID: "minecraft", Name: "Minecraft", Slug: "minecraft", Image: "ghcr.io/0xkowalskidev/gameservers/minecraft:latest",
+			IconPath: "/static/games/minecraft/minecraft-icon.ico", GridImagePath: "/static/games/minecraft/minecraft-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0},
 			},
@@ -135,18 +139,8 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "normal", Description: "Game difficulty (peaceful, easy, normal, hard)"},
 				{Name: "GAMEMODE", DisplayName: "Game Mode", Required: false, Default: "survival", Description: "Default game mode (survival, creative, adventure, spectator)"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 3072, CreatedAt: time.Now(), UpdatedAt: time.Now()},
-		{ID: "cs2", Name: "Counter-Strike 2", Slug: "counter-strike-2", Image: "ghcr.io/0xkowalskidev/gameservers/cs2:latest",
-			PortMappings: []models.PortMapping{
-				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0},
-				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
-			},
-			ConfigVars: []models.ConfigVar{
-				{Name: "HOSTNAME", DisplayName: "Server Name", Required: false, Default: "CS2 Server", Description: "Server hostname shown in browser"},
-				{Name: "RCON_PASSWORD", DisplayName: "RCON Password", Required: true, Default: "", Description: "Password for remote console access (required)"},
-				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
-				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "10", Description: "Maximum number of players"},
-			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "valheim", Name: "Valheim", Slug: "valheim", Image: "ghcr.io/0xkowalskidev/gameservers/valheim:latest",
+			IconPath: "/static/games/valheim/valheim-icon.ico", GridImagePath: "/static/games/valheim/valheim-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 2456, HostPort: 0},
 				{Name: "query", Protocol: "udp", ContainerPort: 2457, HostPort: 0},
@@ -158,6 +152,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "CROSSPLAY", DisplayName: "Enable Crossplay", Required: false, Default: "1", Description: "Enable crossplay between Steam and Xbox (1 for yes, 0 for no)"},
 			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "terraria", Name: "Terraria", Slug: "terraria", Image: "ghcr.io/0xkowalskidev/gameservers/terraria:latest",
+			IconPath: "/static/games/terraria/terraria-icon.ico", GridImagePath: "/static/games/terraria/terraria-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 7777, HostPort: 0},
 			},
@@ -168,6 +163,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "1", Description: "World difficulty (0=Classic, 1=Expert, 2=Master)"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 2048, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "garrysmod", Name: "Garry's Mod", Slug: "garrys-mod", Image: "ghcr.io/0xkowalskidev/gameservers/garrysmod:latest",
+			IconPath: "/static/games/garrysmod/garrys-mod-icon.ico", GridImagePath: "/static/games/garrysmod/garrys-mod-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0},
 				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
@@ -180,6 +176,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 			}, MinMemoryMB: 2048, RecMemoryMB: 4096, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "palworld", Name: "Palworld", Slug: "palworld", Image: "ghcr.io/0xkowalskidev/gameservers/palworld:latest",
+			IconPath: "/static/games/palworld/palworld-icon.ico", GridImagePath: "/static/games/palworld/palworld-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 8211, HostPort: 0},
 				{Name: "rest_api", Protocol: "tcp", ContainerPort: 8212, HostPort: 0},
@@ -191,6 +188,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "ADMIN_PASSWORD", DisplayName: "Admin Password", Required: false, Default: "", Description: "Password for admin access"},
 			}, MinMemoryMB: 8192, RecMemoryMB: 16384, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		{ID: "rust", Name: "Rust", Slug: "rust", Image: "ghcr.io/0xkowalskidev/gameservers/rust:latest",
+			IconPath: "/static/games/rust/rust-icon.ico", GridImagePath: "/static/games/rust/rust-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 28015, HostPort: 0},
 				{Name: "rcon", Protocol: "tcp", ContainerPort: 28016, HostPort: 0},

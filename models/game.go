@@ -18,6 +18,8 @@ type Game struct {
 	Name         string        `json:"name"`
 	Slug         string        `json:"slug"`          // Query slug for gameserver query library
 	Image        string        `json:"image"`
+	IconPath     string        `json:"icon_path"`     // Path to the game icon (.ico)
+	GridImagePath string       `json:"grid_image_path"` // Path to the grid image (.png)
 	PortMappings []PortMapping `json:"port_mappings"`
 	ConfigVars   []ConfigVar   `json:"config_vars"`   // Required and optional configs
 	MinMemoryMB  int           `json:"min_memory_mb"` // Minimum memory to run

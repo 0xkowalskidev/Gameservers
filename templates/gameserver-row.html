@@ -9,23 +9,9 @@
       <div class="flex items-center space-x-3">
         <!-- Game Type Icon -->
         <div class="relative">
-          {{if eq .GameType "Minecraft"}}
-            <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-              <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 2h12l4 4v12l-4 4H6L2 18V6l4-4z"/>
-              </svg>
-            </div>
-          {{else if eq .GameType "Garrys Mod"}}
-            <div class="w-12 h-12 bg-gradient-to-br from-orange-400 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
-              <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-              </svg>
-            </div>
-          {{else if eq .GameType "Terraria"}}
-            <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-              </svg>
+          {{if .IconPath}}
+            <div class="w-12 h-12">
+              <img src="{{.IconPath}}" alt="{{.GameType}} icon" class="w-full h-full object-contain">
             </div>
           {{else}}
             <div class="w-12 h-12 bg-gradient-to-br from-gray-400 to-gray-600 rounded-xl flex items-center justify-center shadow-lg">

@@ -32,6 +32,7 @@ type Gameserver struct {
 	// Derived fields (not stored in DB)
 	GameType string  `json:"game_type"` // From Game.Name
 	Image    string  `json:"image"`     // From Game.Image
+	IconPath string  `json:"icon_path"` // From Game.IconPath
 	MemoryGB float64 `json:"memory_gb"` // MemoryMB converted to GB for display
 
 	// Volume info (derived field)

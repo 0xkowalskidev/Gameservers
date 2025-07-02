@@ -134,6 +134,7 @@ func (gss *GameserverService) populateGameFields(server *models.Gameserver) erro
 	}
 	server.GameType = game.Name
 	server.Image = game.Image
+	server.IconPath = game.IconPath
 	server.MemoryGB = float64(server.MemoryMB) / 1024.0
 
 	// Get volume information
