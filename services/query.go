@@ -54,8 +54,8 @@ func (qs *QueryService) QueryGameserver(gameserver *models.Gameserver, game *mod
 		}, nil
 	}
 
-	// Use localhost since we're querying from the same host
-	address := fmt.Sprintf("localhost:%d", queryPort.HostPort)
+	// Use 127.0.0.1 since we're querying from the same host
+	address := fmt.Sprintf("127.0.0.1:%d", queryPort.HostPort)
 
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -69,8 +69,6 @@ func (qs *QueryService) QueryGameserver(gameserver *models.Gameserver, game *mod
 			Online: false,
 		}, nil
 	}
-
-	fmt.Println(result)
 
 	return result, nil
 }
