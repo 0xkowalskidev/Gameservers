@@ -24,6 +24,7 @@ jobs:
           echo "terraria=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/terraria/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "rust=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/rust/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "valheim=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/valheim/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "palworld=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/palworld/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -64,3 +65,9 @@ jobs:
         run: |
           docker build images/valheim --tag ghcr.io/0xkowalskidev/gameservers/valheim:latest
           docker push ghcr.io/0xkowalskidev/gameservers/valheim:latest
+
+      - name: Build and push palworld
+        if: steps.changes.outputs.palworld == 'true'
+        run: |
+          docker build images/palworld --tag ghcr.io/0xkowalskidev/gameservers/palworld:latest
+          docker push ghcr.io/0xkowalskidev/gameservers/palworld:latest
