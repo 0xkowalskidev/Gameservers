@@ -182,6 +182,7 @@ func (dm *DatabaseManager) seedGames() error {
 		{ID: "palworld", Name: "Palworld", Slug: "palworld", Image: "ghcr.io/0xkowalskidev/gameservers/palworld:latest",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 8211, HostPort: 0},
+				{Name: "rest_api", Protocol: "tcp", ContainerPort: 8212, HostPort: 0},
 			},
 			ConfigVars: []models.ConfigVar{
 				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: false, Default: "Palworld Server", Description: "The name of your Palworld server"},
