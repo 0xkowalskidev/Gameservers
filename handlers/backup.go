@@ -4,28 +4,50 @@ import (
 	"fmt"
 	"net/http"
 
+	. "0xkowalskidev/gameservers/errors"
+	"0xkowalskidev/gameservers/models"
+	"0xkowalskidev/gameservers/services"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
+// BackupHandlers handles backup-related HTTP requests
+type BackupHandlers struct {
+	*BaseHandlers
+	gameserverService services.GameserverServiceInterface
+	backupService     models.BackupServiceInterface
+	fileService       models.FileServiceInterface
+}
+
+// NewBackupHandlers creates new backup handlers
+func NewBackupHandlers(base *BaseHandlers, gameserverService services.GameserverServiceInterface, backupService models.BackupServiceInterface, fileService models.FileServiceInterface) *BackupHandlers {
+	return &BackupHandlers{
+		BaseHandlers:      base,
+		gameserverService: gameserverService,
+		backupService:     backupService,
+		fileService:       fileService,
+	}
+}
+
 // RestoreGameserverBackup restores a gameserver from a backup
-func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Request) {
+func (h *BackupHandlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	backupFilename, err := h.requireQueryParam(r, "backup")
-	if err != nil {
-		HandleError(w, err, "restore_backup")
+	backupFilename := r.URL.Query().Get("backup")
+	if backupFilename == "" {
+		h.HandleError(w, r, BadRequest("backup parameter required"))
 		return
 	}
 
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
 	log.Info().Str("gameserver_id", id).Str("backup_filename", backupFilename).Msg("Restoring backup")
 
-	if err := h.service.RestoreGameserverBackup(gameserver.ID, backupFilename); err != nil {
-		HandleError(w, InternalError(err, "Failed to restore backup"), "restore_backup")
+	if err := h.backupService.RestoreGameserverBackup(gameserver.ID, backupFilename); err != nil {
+		h.HandleError(w, r, InternalError(err, "Failed to restore backup"))
 		return
 	}
 
@@ -33,13 +55,13 @@ func (h *Handlers) RestoreGameserverBackup(w http.ResponseWriter, r *http.Reques
 }
 
 // CreateGameserverBackup creates a new backup
-func (h *Handlers) CreateGameserverBackup(w http.ResponseWriter, r *http.Request) {
+func (h *BackupHandlers) CreateGameserverBackup(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	log.Info().Str("gameserver_id", id).Msg("Creating backup")
 
-	if err := h.service.CreateGameserverBackup(id); err != nil {
-		HandleError(w, InternalError(err, "Failed to create backup"), "create_backup")
+	if err := h.backupService.CreateGameserverBackup(id); err != nil {
+		h.HandleError(w, r, InternalError(err, "Failed to create backup"))
 		return
 	}
 
@@ -47,56 +69,57 @@ func (h *Handlers) CreateGameserverBackup(w http.ResponseWriter, r *http.Request
 }
 
 // ListGameserverBackups displays all backups for a gameserver
-func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request) {
+func (h *BackupHandlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
 	// Get backup files
-	backups, err := h.service.ListGameserverBackups(id)
+	backups, err := h.backupService.ListGameserverBackups(id)
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to list backup files"), "list_backups")
+		h.HandleError(w, r, InternalError(err, "Failed to list backup files"))
 		return
+	}
+
+	// Calculate remaining backups
+	var remainingBackups int
+	if gameserver.MaxBackups > 0 {
+		remainingBackups = gameserver.MaxBackups - len(backups)
+		if remainingBackups < 0 {
+			remainingBackups = 0
+		}
 	}
 
 	data := map[string]interface{}{
-		"Gameserver":   gameserver,
-		"Backups":      backups,
-		"GameserverID": id,
-		"BackupCount":  len(backups),
-		"MaxBackups":   gameserver.MaxBackups,
+		"Gameserver":       gameserver,
+		"Backups":          backups,
+		"RemainingBackups": remainingBackups,
 	}
 
-	// If HTMX request, check if it's targeting a specific element
-	if r.Header.Get("HX-Request") == "true" {
-		// If the request is targeting #backup-list specifically, return just the list
-		target := r.Header.Get("HX-Target")
-		templateName := "gameserver-backups.html"
-		if target == "#backup-list" || r.URL.Query().Get("list") == "true" {
-			templateName = "backup-list.html"
-		}
-		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render backup template"), "list_backups")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverPageOrPartial(w, r, gameserver, "backups", "gameserver-backups.html", data)
+	// Check if request is targeting a specific element
+	target := r.Header.Get("HX-Target")
+	templateName := "gameserver-backups.html"
+	if target == "#backup-list" || r.URL.Query().Get("list") == "true" {
+		templateName = "backup-list.html"
 	}
+	h.Render(w, r, templateName, data)
 }
 
 // DeleteGameserverBackup deletes a backup file
-func (h *Handlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request) {
+func (h *BackupHandlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	backupFilename, err := h.requireQueryParam(r, "backup")
-	if err != nil {
-		HandleError(w, err, "delete_backup")
+	backupFilename := r.URL.Query().Get("backup")
+	if backupFilename == "" {
+		h.HandleError(w, r, BadRequest("backup parameter required"))
 		return
 	}
 
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
@@ -104,8 +127,8 @@ func (h *Handlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request
 
 	// Delete the backup file from /data/backups
 	backupPath := fmt.Sprintf("/data/backups/%s", backupFilename)
-	if err := h.service.DeletePath(gameserver.ContainerID, backupPath); err != nil {
-		HandleError(w, InternalError(err, "Failed to delete backup"), "delete_backup")
+	if err := h.fileService.DeletePath(gameserver.ContainerID, backupPath); err != nil {
+		h.HandleError(w, r, InternalError(err, "Failed to delete backup"))
 		return
 	}
 

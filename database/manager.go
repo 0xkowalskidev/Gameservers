@@ -191,3 +191,27 @@ func (dm *DatabaseManager) seedGames() error {
 	log.Info().Int("count", len(games)).Msg("Games seeded successfully")
 	return nil
 }
+
+// Port allocation methods - delegated to port allocator
+// These methods are here to satisfy the DatabaseInterface but aren't typically used directly
+
+// AllocatePort allocates a single port
+func (dm *DatabaseManager) AllocatePort() (int, error) {
+	// This is a simplified implementation - in practice, port allocation
+	// is handled by the port allocator in the models package
+	return 0, &databaseError{Op: "port", Msg: "direct port allocation not implemented", Err: nil}
+}
+
+// ReleasePort releases a single port
+func (dm *DatabaseManager) ReleasePort(port int) error {
+	// This is a simplified implementation - in practice, port allocation
+	// is handled by the port allocator in the models package
+	return &databaseError{Op: "port", Msg: "direct port release not implemented", Err: nil}
+}
+
+// IsPortAvailable checks if a port is available
+func (dm *DatabaseManager) IsPortAvailable(port int) bool {
+	// This is a simplified implementation - in practice, port allocation
+	// is handled by the port allocator in the models package
+	return false
+}

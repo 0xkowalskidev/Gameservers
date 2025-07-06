@@ -1,42 +1,5 @@
-{{if .online}}
-  <div class="space-y-2">
-    <div class="flex items-center justify-between">
-      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Status</span>
-      <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-        <div class="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5"></div>
-        Online
-      </span>
-    </div>
-    
-    {{if .players}}
-    <div class="flex items-center justify-between">
-      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Players</span>
-      <span class="text-sm text-gray-900 dark:text-gray-100">{{.players.Current}} / {{.players.Max}}</span>
-    </div>
-    {{end}}
-    
-    {{if .map}}
-    <div class="flex items-center justify-between">
-      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Map</span>
-      <span class="text-sm text-gray-900 dark:text-gray-100 font-mono">{{.map}}</span>
-    </div>
-    {{end}}
-    
-    {{if .ping}}
-    <div class="flex items-center justify-between">
-      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ping</span>
-      <span class="text-sm text-gray-900 dark:text-gray-100">{{.ping}}ms</span>
-    </div>
-    {{end}}
-  </div>
-{{else}}
-  <div class="text-center py-2">
-    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-      <div class="w-1.5 h-1.5 bg-red-400 rounded-full mr-1.5"></div>
-      {{if .error}}Server Error{{else if .status}}{{.status | title}}{{else}}Offline{{end}}
-    </span>
-    {{if .error}}
-    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{.error}}</p>
-    {{end}}
-  </div>
-{{end}}
+<div>
+  <h4>{{.Name}}</h4>
+  <p>{{.Players.Current}} / {{.Players.Max}}</p>
+  <p>{{.Ping}} ms</p>
+</div>

@@ -31,6 +31,16 @@ type Game struct {
 	DeletedAt     gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 }
 
+// MinMemoryGB returns minimum memory in GB
+func (g *Game) MinMemoryGB() float64 {
+	return float64(g.MinMemoryMB) / 1024.0
+}
+
+// RecMemoryGB returns recommended memory in GB  
+func (g *Game) RecMemoryGB() float64 {
+	return float64(g.RecMemoryMB) / 1024.0
+}
+
 // ValidateEnvironment checks if all required config vars are provided in environment
 func (g *Game) ValidateEnvironment(env []string) []string {
 	var missing []string

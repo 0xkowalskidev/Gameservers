@@ -1,284 +1,134 @@
 {{$isEdit := .Game}}
 {{$game := .Game}}
 
-<div class="max-w-4xl mx-auto">
-  <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
-    <!-- Form header -->
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <div class="flex-shrink-0 w-10 h-10 {{if $isEdit}}bg-blue-100 dark:bg-blue-900{{else}}bg-green-100 dark:bg-green-900{{end}} rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 {{if $isEdit}}text-blue-600 dark:text-blue-400{{else}}text-green-600 dark:text-green-400{{end}}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {{if $isEdit}}
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-              {{else}}
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-              {{end}}
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{if $isEdit}}Edit Game{{else}}Create New Game{{end}}</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{if $isEdit}}Modify {{$game.Name}} configuration{{else}}Add a new game configuration to the control panel{{end}}</p>
-          </div>
-        </div>
-      </div>
-    </div>
+<h1>{{if $isEdit}}Edit Game{{else}}Create New Game{{end}}</h1>
 
-    <!-- Form content -->
-    <form {{if $isEdit}}hx-put="/games/{{$game.ID}}"{{else}}hx-post="/games"{{end}} hx-indicator="#form-loading" hx-swap="none"
-          hx-on::after-request="if(event.detail.successful) { {{if $isEdit}}showNotification('Game updated successfully', 'success');{{else}}window.location.href = '/games/' + event.detail.xhr.getResponseHeader('X-Game-ID');{{end}} } else { showNotification('Failed to {{if $isEdit}}update{{else}}create{{end}} game', 'error'); }">
-      
-      <div class="p-6 space-y-8">
-        <!-- Basic Information -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
-            Basic Information
-          </h3>
+<form {{if $isEdit}}hx-put="/games/{{$game.ID}}"{{else}}hx-post="/games"{{end}} hx-target="#content">
+  
+  <h2>Basic Information</h2>
+  
+  <p>
+    <label for="id">Game ID:</label>
+    <input type="text" id="id" name="id" required {{if $isEdit}}value="{{$game.ID}}" readonly{{end}} placeholder="minecraft">
+    {{if $isEdit}}<br><small>Game ID cannot be changed after creation</small>{{else}}<br><small>Lowercase, alphanumeric, used for Docker images and URLs</small>{{end}}
+  </p>
 
-          <div class="grid gap-6 sm:grid-cols-2">
-            <div>
-              <label for="id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Game ID</label>
-              <input type="text" id="id" name="id" required {{if $isEdit}}value="{{$game.ID}}" readonly{{end}}
-                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth {{if $isEdit}}cursor-not-allowed{{end}}"
-                     placeholder="minecraft">
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{if $isEdit}}Game ID cannot be changed after creation{{else}}Lowercase, alphanumeric, used for Docker images and URLs{{end}}</p>
-            </div>
+  <p>
+    <label for="name">Display Name:</label>
+    <input type="text" id="name" name="name" required {{if $isEdit}}value="{{$game.Name}}"{{end}} placeholder="Minecraft">
+  </p>
 
-            <div>
-              <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Display Name</label>
-              <input type="text" id="name" name="name" required {{if $isEdit}}value="{{$game.Name}}"{{end}}
-                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
-                     placeholder="Minecraft">
-            </div>
+  <p>
+    <label for="slug">Query Slug:</label>
+    <input type="text" id="slug" name="slug" required {{if $isEdit}}value="{{$game.Slug}}"{{end}} placeholder="minecraft">
+    <br><small>Used for gameserver query library</small>
+  </p>
 
-            <div>
-              <label for="slug" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Query Slug</label>
-              <input type="text" id="slug" name="slug" required {{if $isEdit}}value="{{$game.Slug}}"{{end}}
-                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
-                     placeholder="minecraft">
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Used for gameserver query library</p>
-            </div>
+  <p>
+    <label for="image">Docker Image:</label>
+    <input type="text" id="image" name="image" required {{if $isEdit}}value="{{$game.Image}}"{{end}} placeholder="ghcr.io/0xkowalskidev/gameservers/minecraft:latest">
+  </p>
 
-            <div>
-              <label for="image" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Docker Image</label>
-              <input type="text" id="image" name="image" required {{if $isEdit}}value="{{$game.Image}}"{{end}}
-                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
-                     placeholder="ghcr.io/0xkowalskidev/gameservers/minecraft:latest">
-            </div>
+  <p>
+    <label for="icon_path">Icon Path:</label>
+    <input type="text" id="icon_path" name="icon_path" {{if $isEdit}}value="{{$game.IconPath}}"{{end}} placeholder="/static/games/minecraft/minecraft-icon.ico">
+    <br><small>Path to game icon (.ico file)</small>
+  </p>
 
-            <div>
-              <label for="icon_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Icon Path</label>
-              <input type="text" id="icon_path" name="icon_path" {{if $isEdit}}value="{{$game.IconPath}}"{{end}}
-                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
-                     placeholder="/static/games/minecraft/minecraft-icon.ico">
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Path to game icon (.ico file)</p>
-            </div>
+  <p>
+    <label for="grid_image_path">Grid Image Path:</label>
+    <input type="text" id="grid_image_path" name="grid_image_path" {{if $isEdit}}value="{{$game.GridImagePath}}"{{end}} placeholder="/static/games/minecraft/minecraft-grid.png">
+    <br><small>Path to game grid image (.png file)</small>
+  </p>
 
-            <div>
-              <label for="grid_image_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Grid Image Path</label>
-              <input type="text" id="grid_image_path" name="grid_image_path" {{if $isEdit}}value="{{$game.GridImagePath}}"{{end}}
-                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
-                     placeholder="/static/games/minecraft/minecraft-grid.png">
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Path to game grid image (.png file)</p>
-            </div>
-          </div>
-        </div>
+  <h2>Memory Requirements</h2>
 
-        <!-- Memory Requirements -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
-            Memory Requirements
-          </h3>
+  <p>
+    <label for="min_memory_mb">Minimum Memory (MB):</label>
+    <input type="number" id="min_memory_mb" name="min_memory_mb" required min="512" max="32768" {{if $isEdit}}value="{{$game.MinMemoryMB}}"{{else}}value="1024"{{end}}>
+    <br><small>Minimum memory required to run the game</small>
+  </p>
 
-          <div class="grid gap-6 sm:grid-cols-2">
-            <div>
-              <label for="min_memory_mb" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Minimum Memory (MB)</label>
-              <input type="number" id="min_memory_mb" name="min_memory_mb" required min="512" max="32768" {{if $isEdit}}value="{{$game.MinMemoryMB}}"{{else}}value="1024"{{end}}
-                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Minimum memory required to run the game</p>
-            </div>
+  <p>
+    <label for="rec_memory_mb">Recommended Memory (MB):</label>
+    <input type="number" id="rec_memory_mb" name="rec_memory_mb" required min="512" max="32768" {{if $isEdit}}value="{{$game.RecMemoryMB}}"{{else}}value="2048"{{end}}>
+    <br><small>Recommended memory for optimal performance</small>
+  </p>
 
-            <div>
-              <label for="rec_memory_mb" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recommended Memory (MB)</label>
-              <input type="number" id="rec_memory_mb" name="rec_memory_mb" required min="512" max="32768" {{if $isEdit}}value="{{$game.RecMemoryMB}}"{{else}}value="2048"{{end}}
-                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Recommended memory for optimal performance</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Port Mappings -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
-            Port Mappings
-          </h3>
-          
-          <div id="port-mappings" class="space-y-3">
-            {{if $isEdit}}
-              {{range $index, $port := $game.PortMappings}}
-              <div class="flex gap-3 items-center bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
-                <input type="text" name="port_name" placeholder="game" value="{{$port.Name}}"
-                       class="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-                <select name="port_protocol"
-                        class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-                  <option value="tcp" {{if eq $port.Protocol "tcp"}}selected{{end}}>TCP</option>
-                  <option value="udp" {{if eq $port.Protocol "udp"}}selected{{end}}>UDP</option>
-                </select>
-                <input type="number" name="port_container" placeholder="25565" value="{{$port.ContainerPort}}" min="1" max="65535"
-                       class="w-24 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-                <button type="button" onclick="removePortMapping(this)"
-                        class="p-2 text-gray-400 hover:text-red-500 transition-smooth rounded-lg hover:bg-red-50 dark:hover:bg-red-900">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-              </div>
-              {{end}}
-            {{end}}
-          </div>
-
-          <button type="button" onclick="addPortMapping()"
-                  class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Add Port Mapping
-          </button>
-        </div>
-
-        <!-- Configuration Variables -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
-            Configuration Variables
-          </h3>
-          
-          <div id="config-vars" class="space-y-3">
-            {{if $isEdit}}
-              {{range $index, $config := $game.ConfigVars}}
-              <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <div class="grid gap-3 sm:grid-cols-2">
-                  <input type="text" name="config_name" placeholder="SERVER_NAME" value="{{$config.Name}}"
-                         class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono">
-                  <input type="text" name="config_display_name" placeholder="Server Name" value="{{$config.DisplayName}}"
-                         class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-                  <input type="text" name="config_default" placeholder="Default value" value="{{$config.Default}}"
-                         class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-                  <div class="flex items-center">
-                    <input type="checkbox" name="config_required" {{if $config.Required}}checked{{end}}
-                           class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                    <label class="ml-2 text-sm text-gray-700 dark:text-gray-300">Required</label>
-                  </div>
-                </div>
-                <textarea name="config_description" placeholder="Description of this configuration variable"
-                          class="mt-3 w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none"
-                          rows="2">{{$config.Description}}</textarea>
-                <button type="button" onclick="removeConfigVar(this)"
-                        class="mt-2 inline-flex items-center text-red-600 hover:text-red-500 text-sm">
-                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                  Remove
-                </button>
-              </div>
-              {{end}}
-            {{end}}
-          </div>
-
-          <button type="button" onclick="addConfigVar()"
-                  class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Add Configuration Variable
-          </button>
-        </div>
-      </div>
-
-      <!-- Form actions -->
-      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
-        <div class="flex items-center justify-between">
-          <a href="/games"
-             class="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-            Cancel
-          </a>
-
-          <div class="flex items-center space-x-3">
-            {{if $isEdit}}
-            <!-- Delete button -->
-            <button type="button" onclick="deleteGame('{{$game.ID}}')"
-                    class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-smooth">
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-              </svg>
-              Delete Game
-            </button>
-            {{end}}
-
-            <!-- Submit button -->
-            <button type="submit"
-                    class="inline-flex items-center px-6 py-3 bg-{{if $isEdit}}blue{{else}}green{{end}}-600 hover:bg-{{if $isEdit}}blue{{else}}green{{end}}-700 dark:bg-{{if $isEdit}}blue{{else}}green{{end}}-500 dark:hover:bg-{{if $isEdit}}blue{{else}}green{{end}}-600 text-white text-sm font-medium rounded-lg transition-smooth disabled:opacity-50 disabled:cursor-not-allowed shadow-lg">
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {{if $isEdit}}
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                {{else}}
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                {{end}}
-              </svg>
-              <span class="button-text">{{if $isEdit}}Update Game{{else}}Create Game{{end}}</span>
-            </button>
-          </div>
-
-          <!-- Loading indicator -->
-          <div id="form-loading" class="htmx-indicator ml-3">
-            <div class="inline-flex items-center px-3 py-2 bg-{{if $isEdit}}blue{{else}}green{{end}}-100 dark:bg-{{if $isEdit}}blue{{else}}green{{end}}-900 text-{{if $isEdit}}blue{{else}}green{{end}}-800 dark:text-{{if $isEdit}}blue{{else}}green{{end}}-200 text-sm rounded-lg">
-              <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {{if $isEdit}}Updating...{{else}}Creating...{{end}}
-            </div>
-          </div>
-        </div>
-      </div>
-    </form>
+  <h2>Port Mappings</h2>
+  
+  <div id="port-mappings">
+    {{if $isEdit}}
+      {{range $index, $port := $game.PortMappings}}
+      <p>
+        <input type="text" name="port_name" placeholder="game" value="{{$port.Name}}">
+        <select name="port_protocol">
+          <option value="tcp" {{if eq $port.Protocol "tcp"}}selected{{end}}>TCP</option>
+          <option value="udp" {{if eq $port.Protocol "udp"}}selected{{end}}>UDP</option>
+        </select>
+        <input type="number" name="port_container" placeholder="25565" value="{{$port.ContainerPort}}" min="1" max="65535">
+        <button type="button" onclick="removePortMapping(this)">Remove</button>
+      </p>
+      {{end}}
+    {{end}}
   </div>
-</div>
 
-<style>
-  .transition-smooth {
-    transition: all 0.2s ease-in-out;
-  }
-</style>
+  <p><button type="button" onclick="addPortMapping()">Add Port Mapping</button></p>
+
+  <h2>Configuration Variables</h2>
+  
+  <div id="config-vars">
+    {{if $isEdit}}
+      {{range $index, $config := $game.ConfigVars}}
+      <div style="border: 1px solid #ccc; padding: 10px; margin: 5px 0;">
+        <p>
+          <input type="text" name="config_name" placeholder="SERVER_NAME" value="{{$config.Name}}" style="font-family: monospace;">
+          <input type="text" name="config_display_name" placeholder="Server Name" value="{{$config.DisplayName}}">
+        </p>
+        <p>
+          <input type="text" name="config_default" placeholder="Default value" value="{{$config.Default}}">
+          <input type="checkbox" name="config_required" {{if $config.Required}}checked{{end}}>
+          <label>Required</label>
+        </p>
+        <p>
+          <textarea name="config_description" placeholder="Description of this configuration variable" rows="2" style="width: 100%;">{{$config.Description}}</textarea>
+        </p>
+        <p><button type="button" onclick="removeConfigVar(this)">Remove</button></p>
+      </div>
+      {{end}}
+    {{end}}
+  </div>
+
+  <p><button type="button" onclick="addConfigVar()">Add Configuration Variable</button></p>
+
+  <h2>Actions</h2>
+  <p>
+    <button type="submit">{{if $isEdit}}Update Game{{else}}Create Game{{end}}</button>
+    <a href="/games" hx-get="/games" hx-target="#content" hx-push-url="true">Cancel</a>
+    {{if $isEdit}}
+    <button type="button" onclick="deleteGame('{{$game.ID}}')">Delete Game</button>
+    {{end}}
+  </p>
+
+</form>
 
 <script>
   // Add port mapping
   function addPortMapping() {
     const container = document.getElementById('port-mappings');
-    const div = document.createElement('div');
-    div.className = 'flex gap-3 items-center bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-600';
+    const p = document.createElement('p');
     
-    div.innerHTML = `
-      <input type="text" name="port_name" placeholder="game"
-             class="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-      <select name="port_protocol"
-              class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
+    p.innerHTML = `
+      <input type="text" name="port_name" placeholder="game">
+      <select name="port_protocol">
         <option value="tcp">TCP</option>
         <option value="udp">UDP</option>
       </select>
-      <input type="number" name="port_container" placeholder="25565" min="1" max="65535"
-             class="w-24 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-      <button type="button" onclick="removePortMapping(this)"
-              class="p-2 text-gray-400 hover:text-red-500 transition-smooth rounded-lg hover:bg-red-50 dark:hover:bg-red-900">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-      </button>
+      <input type="number" name="port_container" placeholder="25565" min="1" max="65535">
+      <button type="button" onclick="removePortMapping(this)">Remove</button>
     `;
     
-    container.appendChild(div);
+    container.appendChild(p);
   }
 
   // Remove port mapping
@@ -290,32 +140,24 @@
   function addConfigVar() {
     const container = document.getElementById('config-vars');
     const div = document.createElement('div');
-    div.className = 'bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-600';
+    div.style.border = '1px solid #ccc';
+    div.style.padding = '10px';
+    div.style.margin = '5px 0';
     
     div.innerHTML = `
-      <div class="grid gap-3 sm:grid-cols-2">
-        <input type="text" name="config_name" placeholder="SERVER_NAME"
-               class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono">
-        <input type="text" name="config_display_name" placeholder="Server Name"
-               class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-        <input type="text" name="config_default" placeholder="Default value"
-               class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
-        <div class="flex items-center">
-          <input type="checkbox" name="config_required"
-                 class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-          <label class="ml-2 text-sm text-gray-700 dark:text-gray-300">Required</label>
-        </div>
-      </div>
-      <textarea name="config_description" placeholder="Description of this configuration variable"
-                class="mt-3 w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none"
-                rows="2"></textarea>
-      <button type="button" onclick="removeConfigVar(this)"
-              class="mt-2 inline-flex items-center text-red-600 hover:text-red-500 text-sm">
-        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-        Remove
-      </button>
+      <p>
+        <input type="text" name="config_name" placeholder="SERVER_NAME" style="font-family: monospace;">
+        <input type="text" name="config_display_name" placeholder="Server Name">
+      </p>
+      <p>
+        <input type="text" name="config_default" placeholder="Default value">
+        <input type="checkbox" name="config_required">
+        <label>Required</label>
+      </p>
+      <p>
+        <textarea name="config_description" placeholder="Description of this configuration variable" rows="2" style="width: 100%;"></textarea>
+      </p>
+      <p><button type="button" onclick="removeConfigVar(this)">Remove</button></p>
     `;
     
     container.appendChild(div);
@@ -323,19 +165,14 @@
 
   // Remove configuration variable
   function removeConfigVar(button) {
-    button.closest('.bg-gray-50').remove();
+    button.closest('div').remove();
   }
 
   // Delete game
   function deleteGame(gameId) {
     if (confirm('Are you sure you want to delete this game? This action cannot be undone.')) {
       htmx.ajax('DELETE', `/games/${gameId}`, {
-        swap: 'none'
-      }).then(() => {
-        showNotification('Game deleted successfully', 'success');
-        window.location.href = '/games';
-      }).catch(() => {
-        showNotification('Failed to delete game', 'error');
+        target: '#content'
       });
     }
   }
@@ -349,10 +186,4 @@
     }
   });
   {{end}}
-
-  // Show notification function (placeholder - implement as needed)
-  function showNotification(message, type) {
-    console.log(`${type.toUpperCase()}: ${message}`);
-    // TODO: Implement proper notification system
-  }
 </script>

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"fmt"
@@ -10,9 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -20,8 +17,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"0xkowalskidev/gameservers/database"
 	"0xkowalskidev/gameservers/docker"
@@ -86,149 +81,21 @@ func main() {
 	}
 	log.Info().Msg("Docker manager initialized successfully")
 
-	// Initialize database-level Gameserver service (implements models.GameserverServiceInterface)
-	dbGameserverService := database.NewGameserverService(db, dockerManager)
-	log.Info().Msg("Database gameserver service initialized")
-
-	// Initialize business logic service from services package (using dbGameserverService which implements the interface)
-	businessService := services.NewGameserverService(dbGameserverService, dockerManager, "/data")
-	log.Info().Msg("Business logic service initialized")
+	// Initialize domain-specific services
+	gameService := services.NewGameService(db)
+	gameserverService := services.NewGameserverService(db, gameService, dockerManager, "/data")
+	log.Info().Msg("Domain services initialized")
 
 	// Initialize and start task scheduler
-	taskScheduler := services.NewTaskScheduler(db, businessService)
+	taskScheduler := services.NewTaskScheduler(db, gameserverService)
 	taskScheduler.Start()
 	log.Info().Msg("Task scheduler started")
 
 	// Ensure scheduler is stopped when application exits
 	defer taskScheduler.Stop()
 
-	// Parse html templates with custom functions
-	tmpl, err := template.New("").Funcs(template.FuncMap{
-		"formatFileSize": formatFileSize,
-		"sub":            func(a, b int) int { return a - b },
-		"add":            func(a, b int) int { return a + b },
-		"lt":             func(a, b int) bool { return a < b },
-		"mul":            func(a, b interface{}) float64 {
-			var aVal, bVal float64
-			
-			switch v := a.(type) {
-			case int:
-				aVal = float64(v)
-			case float64:
-				aVal = v
-			default:
-				return 0
-			}
-			
-			switch v := b.(type) {
-			case int:
-				bVal = float64(v)
-			case float64:
-				bVal = v
-			default:
-				return 0
-			}
-			
-			return aVal * bVal
-		},
-		"div":            func(a, b interface{}) float64 {
-			var aVal, bVal float64
-			
-			switch v := a.(type) {
-			case int:
-				aVal = float64(v)
-			case float64:
-				aVal = v
-			default:
-				return 0
-			}
-			
-			switch v := b.(type) {
-			case int:
-				bVal = float64(v)
-			case float64:
-				bVal = v
-			default:
-				return 0
-			}
-			
-			if bVal == 0 {
-				return 0
-			}
-			return aVal / bVal
-		},
-		"gt": func(a, b interface{}) bool {
-			switch av := a.(type) {
-			case int:
-				if bv, ok := b.(int); ok {
-					return av > bv
-				}
-				if bv, ok := b.(float64); ok {
-					return float64(av) > bv
-				}
-			case float64:
-				if bv, ok := b.(float64); ok {
-					return av > bv
-				}
-				if bv, ok := b.(int); ok {
-					return av > float64(bv)
-				}
-			}
-			return false
-		},
-		"dict": func(values ...interface{}) map[string]interface{} {
-			if len(values)%2 != 0 {
-				return nil
-			}
-			dict := make(map[string]interface{}, len(values)/2)
-			for i := 0; i < len(values); i += 2 {
-				key, ok := values[i].(string)
-				if !ok {
-					return nil
-				}
-				dict[key] = values[i+1]
-			}
-			return dict
-		},
-		"slice": func(values ...interface{}) []interface{} {
-			return values
-		},
-		"len": func(items interface{}) int {
-			if items == nil {
-				return 0
-			}
-			v := reflect.ValueOf(items)
-			switch v.Kind() {
-			case reflect.Slice, reflect.Array:
-				return v.Len()
-			default:
-				return 0
-			}
-		},
-		"printf": fmt.Sprintf,
-		"floor": func(val interface{}) int {
-			switch v := val.(type) {
-			case float64:
-				return int(v)
-			case int:
-				return v
-			default:
-				return 0
-			}
-		},
-		"if": func(condition bool, trueVal, falseVal interface{}) interface{} {
-			if condition {
-				return trueVal
-			}
-			return falseVal
-		},
-		"upper": func(s string) string {
-			return strings.ToUpper(s)
-		},
-		"title": func(s string) string {
-			return cases.Title(language.English).String(s)
-		},
-	}).ParseFS(templateFiles, "templates/*.html")
+	// Parse html templates without custom functions
+	tmpl, err := template.New("").ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to parse templates")
 	}
@@ -240,22 +107,25 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to setup static files")
 	}
 
-	// Set up error handling functions for handlers
-	handlers.HandleError = HandleError
-	handlers.NotFound = NotFound
-	handlers.BadRequest = BadRequest
-	handlers.InternalError = InternalError
-	handlers.ParseForm = ParseForm
-	handlers.RequireMethod = RequireMethod
-	handlers.LogAndRespond = LogAndRespond
-	handlers.Render = Render
+	// Initialize domain-specific services
+	taskService := services.NewTaskService(db)
+	fileService := services.NewFileService(dockerManager)
+	backupService := services.NewBackupService(dockerManager, db)
+	log.Info().Msg("Domain-specific services initialized")
 
-	// Initialize query service
-	queryService := services.NewQueryService()
-	log.Info().Msg("Query service initialized")
+	// Initialize base handlers
+	baseHandlers := handlers.NewBaseHandlers(tmpl)
 
-	// Initialize handlers (using database service which implements models.GameserverServiceInterface)
-	handlerInstance := handlers.New(dbGameserverService, tmpl, config.MaxFileEditSize, config.MaxUploadSize, queryService)
+	// Initialize domain-specific handlers
+	dashboardHandlers := &handlers.DashboardHandlers{BaseHandlers: baseHandlers}
+	gameHandlers := handlers.NewGameHandlers(baseHandlers, gameService, gameserverService)
+	gameserverHandlers := handlers.NewGameserverHandlers(baseHandlers, gameserverService, gameService)
+	consoleHandlers := handlers.NewConsoleHandlers(baseHandlers, gameserverService)
+	fileHandlers := handlers.NewFileHandlers(baseHandlers, gameserverService, fileService, config.MaxFileEditSize, config.MaxUploadSize)
+	taskHandlers := handlers.NewTaskHandlers(baseHandlers, gameserverService, taskService)
+	backupHandlers := handlers.NewBackupHandlers(baseHandlers, gameserverService, backupService, fileService)
+
+	log.Info().Msg("Handlers initialized")
 
 	// Chi HTTP Server
 	r := chi.NewRouter()
@@ -286,54 +156,55 @@ func main() {
 	r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(http.FS(staticFS))))
 
 	// Games management routes
-	r.Get("/games", handlerInstance.IndexGames)
-	r.Get("/games/new", handlerInstance.NewGame)
-	r.Post("/games", handlerInstance.CreateGame)
-	r.Get("/games/{id}", handlerInstance.ShowGame)
-	r.Get("/games/{id}/edit", handlerInstance.EditGame)
-	r.Put("/games/{id}", handlerInstance.UpdateGame)
-	r.Delete("/games/{id}", handlerInstance.DestroyGame)
+	r.Get("/games", gameHandlers.IndexGames)
+	r.Get("/games/new", gameHandlers.NewGame)
+	r.Post("/games", gameHandlers.CreateGame)
+	r.Get("/games/{id}", gameHandlers.ShowGame)
+	r.Get("/games/{id}/edit", gameHandlers.EditGame)
+	r.Put("/games/{id}", gameHandlers.UpdateGame)
+	r.Delete("/games/{id}", gameHandlers.DestroyGame)
 
 	// Dashboard route
-	r.Get("/", handlerInstance.IndexDashboard)
-	
+	r.Get("/", dashboardHandlers.IndexDashboard)
+
 	// Gameservers routes
-	r.Get("/gameservers", handlerInstance.IndexGameservers)
-	r.Post("/gameservers", handlerInstance.CreateGameserver)
-	r.Get("/gameservers/new", handlerInstance.NewGameserver)
-	r.Get("/gameservers/{id}", handlerInstance.ShowGameserver)
-	r.Get("/gameservers/{id}/edit", handlerInstance.EditGameserver)
-	r.Put("/gameservers/{id}", handlerInstance.UpdateGameserver)
-	r.Post("/gameservers/{id}/start", handlerInstance.StartGameserver)
-	r.Post("/gameservers/{id}/stop", handlerInstance.StopGameserver)
-	r.Post("/gameservers/{id}/restart", handlerInstance.RestartGameserver)
-	r.Post("/gameservers/{id}/console", handlerInstance.SendGameserverCommand)
-	r.Delete("/gameservers/{id}", handlerInstance.DestroyGameserver)
-	r.Get("/gameservers/{id}/console", handlerInstance.GameserverConsole)
-	r.Get("/gameservers/{id}/logs", handlerInstance.GameserverLogs)
-	r.Get("/gameservers/{id}/stats", handlerInstance.GameserverStats)
-	r.Get("/gameservers/{id}/query", handlerInstance.QueryGameserver)
-	r.Get("/gameservers/{id}/tasks", handlerInstance.ListGameserverTasks)
-	r.Get("/gameservers/{id}/tasks/new", handlerInstance.NewGameserverTask)
-	r.Post("/gameservers/{id}/tasks", handlerInstance.CreateGameserverTask)
-	r.Get("/gameservers/{id}/tasks/{taskId}/edit", handlerInstance.EditGameserverTask)
-	r.Put("/gameservers/{id}/tasks/{taskId}", handlerInstance.UpdateGameserverTask)
-	r.Delete("/gameservers/{id}/tasks/{taskId}", handlerInstance.DeleteGameserverTask)
-	r.Post("/gameservers/{id}/restore", handlerInstance.RestoreGameserverBackup)
-	r.Post("/gameservers/{id}/backup", handlerInstance.CreateGameserverBackup)
-	r.Get("/gameservers/{id}/backups", handlerInstance.ListGameserverBackups)
-	r.Delete("/gameservers/{id}/backups/delete", handlerInstance.DeleteGameserverBackup)
+	r.Get("/gameservers", gameserverHandlers.IndexGameservers)
+	r.Post("/gameservers", gameserverHandlers.CreateGameserver)
+	r.Get("/gameservers/new", gameserverHandlers.NewGameserver)
+	r.Get("/gameservers/{id}", gameserverHandlers.ShowGameserver)
+	r.Get("/gameservers/{id}/edit", gameserverHandlers.EditGameserver)
+	r.Put("/gameservers/{id}", gameserverHandlers.UpdateGameserver)
+	r.Post("/gameservers/{id}/start", gameserverHandlers.StartGameserver)
+	r.Post("/gameservers/{id}/stop", gameserverHandlers.StopGameserver)
+	r.Post("/gameservers/{id}/restart", gameserverHandlers.RestartGameserver)
+	r.Post("/gameservers/{id}/console", consoleHandlers.SendGameserverCommand)
+	r.Delete("/gameservers/{id}", gameserverHandlers.DestroyGameserver)
+	r.Get("/gameservers/{id}/console", consoleHandlers.GameserverConsole)
+	r.Get("/gameservers/{id}/logs", consoleHandlers.GameserverLogs)
+	r.Get("/gameservers/{id}/stats", gameserverHandlers.GameserverStats)
+	r.Get("/gameservers/{id}/query", gameserverHandlers.GetGameserverQuery)
+	r.Get("/gameservers/{id}/status", gameserverHandlers.GetGameserverStatus)
+	r.Get("/gameservers/{id}/tasks", taskHandlers.ListGameserverTasks)
+	r.Get("/gameservers/{id}/tasks/new", taskHandlers.NewGameserverTask)
+	r.Post("/gameservers/{id}/tasks", taskHandlers.CreateGameserverTask)
+	r.Get("/gameservers/{id}/tasks/{taskId}/edit", taskHandlers.EditGameserverTask)
+	r.Put("/gameservers/{id}/tasks/{taskId}", taskHandlers.UpdateGameserverTask)
+	r.Delete("/gameservers/{id}/tasks/{taskId}", taskHandlers.DeleteGameserverTask)
+	r.Post("/gameservers/{id}/restore", backupHandlers.RestoreGameserverBackup)
+	r.Post("/gameservers/{id}/backups", backupHandlers.CreateGameserverBackup)
+	r.Get("/gameservers/{id}/backups", backupHandlers.ListGameserverBackups)
+	r.Delete("/gameservers/{id}/backups/delete", backupHandlers.DeleteGameserverBackup)
 
 	// File manager routes
-	r.Get("/gameservers/{id}/files", handlerInstance.GameserverFiles)
-	r.Get("/gameservers/{id}/files/browse", handlerInstance.BrowseGameserverFiles)
-	r.Get("/gameservers/{id}/files/content", handlerInstance.GameserverFileContent)
-	r.Post("/gameservers/{id}/files/save", handlerInstance.SaveGameserverFile)
-	r.Get("/gameservers/{id}/files/download", handlerInstance.DownloadGameserverFile)
-	r.Post("/gameservers/{id}/files/create", handlerInstance.CreateGameserverFile)
-	r.Delete("/gameservers/{id}/files/delete", handlerInstance.DeleteGameserverFile)
-	r.Post("/gameservers/{id}/files/rename", handlerInstance.RenameGameserverFile)
-	r.Post("/gameservers/{id}/files/upload", handlerInstance.UploadGameserverFile)
+	r.Get("/gameservers/{id}/files", fileHandlers.GameserverFiles)
+	r.Get("/gameservers/{id}/files/browse", fileHandlers.BrowseGameserverFiles)
+	r.Get("/gameservers/{id}/files/content", fileHandlers.GameserverFileContent)
+	r.Post("/gameservers/{id}/files/save", fileHandlers.SaveGameserverFile)
+	r.Get("/gameservers/{id}/files/download", fileHandlers.DownloadGameserverFile)
+	r.Post("/gameservers/{id}/files/create", fileHandlers.CreateGameserverFile)
+	r.Delete("/gameservers/{id}/files/delete", fileHandlers.DeleteGameserverFile)
+	r.Post("/gameservers/{id}/files/rename", fileHandlers.RenameGameserverFile)
+	r.Post("/gameservers/{id}/files/upload", fileHandlers.UploadGameserverFile)
 
 	// Setup HTTP server with graceful shutdown
 	srv := &http.Server{
@@ -364,98 +235,6 @@ func main() {
 		log.Fatal().Err(err).Msg("Server forced to shutdown")
 	}
 	log.Info().Msg("Server exited")
-}
-
-type LayoutData struct {
-	Content          template.HTML
-	Title            string
-	ShowCreateButton bool
-}
-
-func Render(w http.ResponseWriter, r *http.Request, tmpl *template.Template, templateName string, data interface{}) {
-	// If request is made using HTMX
-	if r.Header.Get("HX-Request") == "true" {
-		err := tmpl.ExecuteTemplate(w, templateName, data)
-		if err != nil {
-			log.Error().Err(err).Str("template", templateName).Msg("Failed to render HTMX template")
-			http.Error(w, "Template error", http.StatusInternalServerError)
-		}
-	} else {
-		var buf bytes.Buffer
-		err := tmpl.ExecuteTemplate(&buf, templateName, data)
-		if err != nil {
-			log.Error().Err(err).Str("template", templateName).Msg("Failed to render template content")
-			http.Error(w, "Template error", http.StatusInternalServerError)
-			return
-		}
-
-		// Generate layout data based on the current page
-		layoutData := generateLayoutData(r, template.HTML(buf.String()))
-
-		err = tmpl.ExecuteTemplate(w, "layout.html", layoutData)
-		if err != nil {
-			log.Error().Err(err).Str("template", "layout.html").Msg("Failed to render layout template")
-			http.Error(w, "Template error", http.StatusInternalServerError)
-		}
-	}
-}
-
-func generateLayoutData(r *http.Request, content template.HTML) LayoutData {
-	path := r.URL.Path
-
-	layout := LayoutData{
-		Content:          content,
-		ShowCreateButton: false,
-	}
-
-	// Enhanced title generation and create button logic
-	switch {
-	case path == "/":
-		layout.Title = "Dashboard"
-		layout.ShowCreateButton = true
-	case path == "/gameservers":
-		layout.Title = "Gameservers"
-		layout.ShowCreateButton = true
-	case path == "/gameservers/new":
-		layout.Title = "Create Server"
-	case path == "/games":
-		layout.Title = "Games Management"
-	case strings.HasPrefix(path, "/games/") && strings.HasSuffix(path, "/new"):
-		layout.Title = "Create Game"
-	case strings.HasPrefix(path, "/games/") && strings.HasSuffix(path, "/edit"):
-		layout.Title = "Edit Game"
-	case strings.HasPrefix(path, "/games/"):
-		layout.Title = "Game Details"
-	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/edit"):
-		layout.Title = "Edit Server"
-	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/tasks"):
-		layout.Title = "Server Tasks"
-	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/files"):
-		layout.Title = "Server Files"
-	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/console"):
-		layout.Title = "Server Console"
-	case strings.HasPrefix(path, "/gameservers/") && strings.Contains(path, "/backups"):
-		layout.Title = "Server Backups"
-	case strings.HasPrefix(path, "/gameservers/"):
-		layout.Title = "Server Details"
-	default:
-		layout.Title = "Gameserver Control Panel"
-	}
-
-	return layout
-}
-
-func formatFileSize(size int64) string {
-	const unit = 1024
-	if size < unit {
-		return fmt.Sprintf("%d B", size)
-	}
-	div, exp := int64(unit), 0
-	for n := size / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
 // loadConfig loads configuration from environment variables with sensible defaults

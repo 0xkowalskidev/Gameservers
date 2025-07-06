@@ -1,0 +1,29 @@
+<div id="gameserver-{{.ID}}">
+  <div>
+    <h3>{{.Name}}</h3>
+    <span>{{.Status}}</span>
+  </div>
+  
+  <dl>
+    <dt>Game:</dt>
+    <dd>{{.GameType}}</dd>
+    
+    <dt>Memory:</dt>
+    <dd>{{.MemoryGB}} GB</dd>
+    
+    {{if .GetGamePort}}
+    <dt>Port:</dt>
+    <dd>{{.GetGamePort.HostPort}}</dd>
+    {{end}}
+  </dl>
+  
+  <div>
+    <a href="/gameservers/{{.ID}}" hx-get="/gameservers/{{.ID}}" hx-target="#content" hx-push-url="true">Manage</a>
+    {{if eq .Status "running"}}
+    <button hx-post="/gameservers/{{.ID}}/stop" hx-target="#gameserver-{{.ID}}" hx-swap="outerHTML">Stop</button>
+    {{else}}
+    <button hx-post="/gameservers/{{.ID}}/start" hx-target="#gameserver-{{.ID}}" hx-swap="outerHTML">Start</button>
+    {{end}}
+    <button hx-delete="/gameservers/{{.ID}}" hx-target="#gameserver-{{.ID}}" hx-swap="outerHTML" hx-confirm="Delete {{.Name}}?">Delete</button>
+  </div>
+</div>

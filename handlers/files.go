@@ -11,30 +11,56 @@ import (
 	"strconv"
 	"strings"
 
+	. "0xkowalskidev/gameservers/errors"
+	"0xkowalskidev/gameservers/models"
+	"0xkowalskidev/gameservers/services"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
+// FileHandlers handles file-related HTTP requests
+type FileHandlers struct {
+	*BaseHandlers
+	gameserverService services.GameserverServiceInterface
+	fileService       models.FileServiceInterface
+	maxFileEditSize   int64
+	maxUploadSize     int64
+}
+
+// NewFileHandlers creates new file handlers
+func NewFileHandlers(base *BaseHandlers, gameserverService services.GameserverServiceInterface, fileService models.FileServiceInterface, maxFileEditSize, maxUploadSize int64) *FileHandlers {
+	return &FileHandlers{
+		BaseHandlers:      base,
+		gameserverService: gameserverService,
+		fileService:       fileService,
+		maxFileEditSize:   maxFileEditSize,
+		maxUploadSize:     maxUploadSize,
+	}
+}
+
 // GameserverFiles displays the file manager interface
-func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
 	// Get root directory listing
-	files, err := h.service.ListFiles(gameserver.ContainerID, "/data/server")
+	files, err := h.fileService.ListFiles(gameserver.ContainerID, "/data/server")
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to list files")
 	}
 
-	data := map[string]interface{}{"Files": files, "CurrentPath": "/data/server"}
-	h.renderGameserverPageOrPartial(w, r, gameserver, "files", "gameserver-files.html", data)
+	currentPath := "/data/server"
+	parentPath := filepath.Dir(currentPath)
+	data := map[string]interface{}{"Files": files, "CurrentPath": currentPath, "ParentPath": parentPath, "Gameserver": gameserver}
+	h.Render(w, r, "gameserver-files.html", data)
 }
 
 // BrowseGameserverFiles returns file listing for a specific path (HTMX)
-func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	path := r.URL.Query().Get("path")
 	if path == "" {
@@ -42,37 +68,45 @@ func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request)
 	}
 	path = sanitizePath(path)
 
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
-		return
-	}
-
-	files, err := h.service.ListFiles(gameserver.ContainerID, path)
+	gameserver, err := h.gameserverService.GetGameserver(id)
 	if err != nil {
-		h.handleError(w, err, "browse_files", "Failed to list files")
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
-	data := map[string]interface{}{"Files": files, "CurrentPath": path, "Gameserver": gameserver}
-	h.handleError(w, h.tmpl.ExecuteTemplate(w, "file-browser.html", data), "browse_files", "Failed to render file browser")
+	files, err := h.fileService.ListFiles(gameserver.ContainerID, path)
+	if err != nil {
+		h.HandleError(w, r, err)
+		return
+	}
+
+	parentPath := filepath.Dir(path)
+	data := map[string]interface{}{
+		"Files":       files,
+		"CurrentPath": path,
+		"ParentPath":  parentPath,
+		"Gameserver":  gameserver,
+		"IsNotRoot":   path != "/data/server",
+	}
+	h.Render(w, r, "file-browser.html", data)
 }
 
 // GameserverFileContent returns file content for editing (JSON API)
-func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) GameserverFileContent(w http.ResponseWriter, r *http.Request) {
 	// Set content type early to ensure consistent responses
 	w.Header().Set("Content-Type", "application/json")
 
 	// Get gameserver ID
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.jsonError(w, "Missing gameserver ID")
+		h.jsonResponse(w, map[string]string{"error": "Missing gameserver ID"})
 		return
 	}
 
 	// Get file path
 	path := r.URL.Query().Get("path")
 	if path == "" {
-		h.jsonError(w, "Missing file path")
+		h.jsonResponse(w, map[string]string{"error": "Missing file path"})
 		return
 	}
 
@@ -90,7 +124,7 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Get gameserver
-	gameserver, err := h.service.GetGameserver(id)
+	gameserver, err := h.gameserverService.GetGameserver(id)
 	if err != nil {
 		log.Error().Err(err).Str("id", id).Msg("Failed to get gameserver")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -102,7 +136,7 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 
 	// Use a safer approach to read the file
 	// Instead of using ExecCommand with cat, use docker cp to copy the file out
-	reader, err := h.service.DownloadFile(gameserver.ContainerID, path)
+	reader, err := h.fileService.DownloadFile(gameserver.ContainerID, path)
 	if err != nil {
 		log.Error().Err(err).Str("path", path).Msg("Failed to download file for reading")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -163,7 +197,7 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 }
 
 // SaveGameserverFile saves file content (JSON API)
-func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
 	// Set content type early
 	w.Header().Set("Content-Type", "application/json")
 
@@ -215,7 +249,7 @@ func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get gameserver
-	gameserver, err := h.service.GetGameserver(id)
+	gameserver, err := h.gameserverService.GetGameserver(id)
 	if err != nil {
 		log.Error().Err(err).Str("id", id).Msg("Failed to get gameserver")
 		w.WriteHeader(http.StatusNotFound)
@@ -238,7 +272,7 @@ func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write file
-	if err := h.service.WriteFile(gameserver.ContainerID, path, contentBytes); err != nil {
+	if err := h.fileService.WriteFile(gameserver.ContainerID, path, contentBytes); err != nil {
 		log.Error().Err(err).Str("path", path).Msg("Failed to write file")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -255,28 +289,29 @@ func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // DownloadGameserverFile downloads a file
-func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	path, err := h.requireQueryParam(r, "path")
-	if err != nil {
-		HandleError(w, err, "download_file")
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		h.HandleError(w, r, BadRequest("path parameter required"))
 		return
 	}
 
 	// Sanitize path
 	path = sanitizePath(path)
 
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
 	// Use DownloadFile which supports both server and backup paths
 	log.Info().Str("path", path).Str("container_id", gameserver.ContainerID).Msg("Attempting to download file")
-	reader, err := h.service.DownloadFile(gameserver.ContainerID, path)
+	reader, err := h.fileService.DownloadFile(gameserver.ContainerID, path)
 	if err != nil {
 		log.Error().Err(err).Str("path", path).Str("container_id", gameserver.ContainerID).Msg("Download file failed")
-		HandleError(w, InternalError(err, "Failed to download file"), "download_file")
+		h.HandleError(w, r, InternalError(err, "Failed to download file"))
 		return
 	}
 	defer reader.Close()
@@ -290,7 +325,7 @@ func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request
 	// Read the first (and should be only) file from the tar
 	header, err := tarReader.Next()
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to read file from archive"), "download_file")
+		h.HandleError(w, r, InternalError(err, "Failed to read file from archive"))
 		return
 	}
 
@@ -306,36 +341,40 @@ func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request
 }
 
 // CreateGameserverFile creates a new file or directory
-func (h *Handlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.validateFormFields(r, "path", "name"); err != nil {
-		HandleError(w, err, "create_file")
+	if err := ParseForm(r); err != nil {
+		h.HandleError(w, r, err)
 		return
 	}
 
-	path := r.FormValue("path")
-	name := r.FormValue("name")
+	path := strings.TrimSpace(r.FormValue("path"))
+	name := strings.TrimSpace(r.FormValue("name"))
+	if path == "" || name == "" {
+		h.HandleError(w, r, BadRequest("path and name are required"))
+		return
+	}
+
 	isDir := r.FormValue("type") == "directory"
 
 	// Sanitize inputs
 	path = sanitizePath(path)
 	fullPath := filepath.Join(path, name)
 
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
-
-	var err error
 	if isDir {
-		err = h.service.CreateDirectory(gameserver.ContainerID, fullPath)
+		err = h.fileService.CreateDirectory(gameserver.ContainerID, fullPath)
 	} else {
 		// Create empty file
-		err = h.service.WriteFile(gameserver.ContainerID, fullPath, []byte(""))
+		err = h.fileService.WriteFile(gameserver.ContainerID, fullPath, []byte(""))
 	}
 
 	if err != nil {
-		HandleError(w, InternalError(err, "Failed to create file/directory"), "create_file")
+		h.HandleError(w, r, InternalError(err, "Failed to create file/directory"))
 		return
 	}
 
@@ -344,24 +383,25 @@ func (h *Handlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) 
 }
 
 // DeleteGameserverFile deletes a file or directory
-func (h *Handlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	path, err := h.requireQueryParam(r, "path")
-	if err != nil {
-		HandleError(w, err, "delete_file")
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		h.HandleError(w, r, BadRequest("path parameter required"))
 		return
 	}
 
 	// Sanitize path
 	path = sanitizePath(path)
 
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
-	if err := h.service.DeletePath(gameserver.ContainerID, path); err != nil {
-		HandleError(w, InternalError(err, "Failed to delete file/directory"), "delete_file")
+	if err := h.fileService.DeletePath(gameserver.ContainerID, path); err != nil {
+		h.HandleError(w, r, InternalError(err, "Failed to delete file/directory"))
 		return
 	}
 
@@ -369,27 +409,32 @@ func (h *Handlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) 
 }
 
 // RenameGameserverFile renames a file or directory
-func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.validateFormFields(r, "old_path", "new_name"); err != nil {
-		HandleError(w, err, "rename_file")
+	if err := ParseForm(r); err != nil {
+		h.HandleError(w, r, err)
 		return
 	}
 
-	oldPath := r.FormValue("old_path")
-	newName := r.FormValue("new_name")
+	oldPath := strings.TrimSpace(r.FormValue("old_path"))
+	newName := strings.TrimSpace(r.FormValue("new_name"))
+	if oldPath == "" || newName == "" {
+		h.HandleError(w, r, BadRequest("old_path and new_name are required"))
+		return
+	}
 
 	// Sanitize paths
 	oldPath = sanitizePath(oldPath)
 	newPath := sanitizePath(filepath.Join(filepath.Dir(oldPath), newName))
 
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
-	if err := h.service.RenameFile(gameserver.ContainerID, oldPath, newPath); err != nil {
-		HandleError(w, InternalError(err, "Failed to rename file"), "rename_file")
+	if err := h.fileService.RenameFile(gameserver.ContainerID, oldPath, newPath); err != nil {
+		h.HandleError(w, r, InternalError(err, "Failed to rename file"))
 		return
 	}
 
@@ -398,12 +443,12 @@ func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) 
 }
 
 // UploadGameserverFile handles file uploads
-func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) {
+func (h *FileHandlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	// Parse multipart form with configurable limit
 	if err := r.ParseMultipartForm(h.maxUploadSize); err != nil {
-		HandleError(w, BadRequest("Invalid upload format"), "upload_file")
+		h.HandleError(w, r, BadRequest("Invalid upload format"))
 		return
 	}
 
@@ -417,19 +462,20 @@ func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) 
 	// Get the uploaded file
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		HandleError(w, BadRequest("No file provided"), "upload_file")
+		h.HandleError(w, r, BadRequest("No file provided"))
 		return
 	}
 	defer file.Close()
 
 	// Validate file size
 	if header.Size > h.maxUploadSize {
-		HandleError(w, BadRequest("File too large (max %s)", formatFileSize(h.maxUploadSize)), "upload_file")
+		h.HandleError(w, r, BadRequest("File too large (max %s)", formatFileSize(h.maxUploadSize)))
 		return
 	}
 
-	gameserver := h.requireGameserver(w, id)
-	if gameserver == nil {
+	gameserver, err := h.gameserverService.GetGameserver(id)
+	if err != nil {
+		h.HandleError(w, r, NotFound("Gameserver"))
 		return
 	}
 
@@ -445,23 +491,23 @@ func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := tw.WriteHeader(hdr); err != nil {
-		HandleError(w, InternalError(err, "Failed to create archive"), "upload_file")
+		h.HandleError(w, r, InternalError(err, "Failed to create archive"))
 		return
 	}
 
 	if _, err := io.Copy(tw, file); err != nil {
-		HandleError(w, InternalError(err, "Failed to write file"), "upload_file")
+		h.HandleError(w, r, InternalError(err, "Failed to write file"))
 		return
 	}
 
 	if err := tw.Close(); err != nil {
-		HandleError(w, InternalError(err, "Failed to close archive"), "upload_file")
+		h.HandleError(w, r, InternalError(err, "Failed to close archive"))
 		return
 	}
 
 	// Upload file to container
-	if err := h.service.UploadFile(gameserver.ContainerID, destPath, bytes.NewReader(buf.Bytes())); err != nil {
-		HandleError(w, InternalError(err, "Failed to upload file"), "upload_file")
+	if err := h.fileService.UploadFile(gameserver.ContainerID, destPath, bytes.NewReader(buf.Bytes())); err != nil {
+		h.HandleError(w, r, InternalError(err, "Failed to upload file"))
 		return
 	}
 
@@ -594,4 +640,18 @@ func isEditableFile(filename string) bool {
 	}
 
 	return editableExtensions[ext]
+}
+
+// formatFileSize formats file size in human readable format
+func formatFileSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }

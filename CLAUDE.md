@@ -204,6 +204,7 @@ nix run .#test
 
 ## Memories
 - Call it Gameserver or Gameservers, not GameServer or Server
+- Never use go test ./... as it will activate the images tests which take 20 minutes+
 
 ## Codebase Quality Assessment
 

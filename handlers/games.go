@@ -4,33 +4,68 @@ import (
 	"net/http"
 	"strconv"
 
+	. "0xkowalskidev/gameservers/errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/models"
+	"0xkowalskidev/gameservers/services"
 )
 
+// GameHandlers handles game-related HTTP requests
+type GameHandlers struct {
+	*BaseHandlers
+	gameService       models.GameServiceInterface
+	gameserverService services.GameserverServiceInterface // Needed for validation
+}
+
+// NewGameHandlers creates new game handlers
+func NewGameHandlers(base *BaseHandlers, gameService models.GameServiceInterface, gameserverService services.GameserverServiceInterface) *GameHandlers {
+	return &GameHandlers{
+		BaseHandlers:      base,
+		gameService:       gameService,
+		gameserverService: gameserverService,
+	}
+}
+
+// GameWithCounts represents a game with pre-calculated counts
+type GameWithCounts struct {
+	*models.Game
+	PortMappingsCount int
+	ConfigVarsCount   int
+}
+
 // IndexGames lists all games
-func (h *Handlers) IndexGames(w http.ResponseWriter, r *http.Request) {
-	games, err := h.service.ListGames()
+func (h *GameHandlers) IndexGames(w http.ResponseWriter, r *http.Request) {
+	games, err := h.gameService.ListGames()
 	if err != nil {
-		h.handleServiceError(w, err, "index_games")
+		h.HandleError(w, r, err)
 		return
 	}
 
-	data := map[string]interface{}{
-		"Games": games,
+	// Enrich games with counts
+	var gamesWithCounts []GameWithCounts
+	for _, game := range games {
+		gamesWithCounts = append(gamesWithCounts, GameWithCounts{
+			Game:              game,
+			PortMappingsCount: len(game.PortMappings),
+			ConfigVarsCount:   len(game.ConfigVars),
+		})
 	}
 
-	Render(w, r, h.tmpl, "games-list.html", data)
+	data := map[string]interface{}{
+		"Games": gamesWithCounts,
+	}
+
+	h.Render(w, r, "games-list.html", data)
 }
 
 // ShowGame displays a specific game's details
-func (h *Handlers) ShowGame(w http.ResponseWriter, r *http.Request) {
+func (h *GameHandlers) ShowGame(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	game, err := h.service.GetGame(id)
+	game, err := h.gameService.GetGame(id)
 	if err != nil {
-		h.handleServiceError(w, err, "show_game")
+		h.HandleError(w, r, err)
 		return
 	}
 
@@ -38,20 +73,20 @@ func (h *Handlers) ShowGame(w http.ResponseWriter, r *http.Request) {
 		"Game": game,
 	}
 
-	Render(w, r, h.tmpl, "game-details.html", data)
+	h.Render(w, r, "game-details.html", data)
 }
 
 // NewGame shows the create game form
-func (h *Handlers) NewGame(w http.ResponseWriter, r *http.Request) {
-	Render(w, r, h.tmpl, "new-game.html", nil)
+func (h *GameHandlers) NewGame(w http.ResponseWriter, r *http.Request) {
+	h.Render(w, r, "new-game.html", nil)
 }
 
 // EditGame shows the edit game form
-func (h *Handlers) EditGame(w http.ResponseWriter, r *http.Request) {
+func (h *GameHandlers) EditGame(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	game, err := h.service.GetGame(id)
+	game, err := h.gameService.GetGame(id)
 	if err != nil {
-		h.handleServiceError(w, err, "edit_game")
+		h.HandleError(w, r, err)
 		return
 	}
 
@@ -59,40 +94,40 @@ func (h *Handlers) EditGame(w http.ResponseWriter, r *http.Request) {
 		"Game": game,
 	}
 
-	Render(w, r, h.tmpl, "edit-game.html", data)
+	h.Render(w, r, "edit-game.html", data)
 }
 
 // CreateGame handles game creation
-func (h *Handlers) CreateGame(w http.ResponseWriter, r *http.Request) {
+func (h *GameHandlers) CreateGame(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		h.handleError(w, err, "create_game", "Failed to parse form")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	// Parse memory values
 	minMemoryMB, err := strconv.Atoi(r.FormValue("min_memory_mb"))
 	if err != nil {
-		h.handleError(w, err, "create_game", "Invalid minimum memory value")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	recMemoryMB, err := strconv.Atoi(r.FormValue("rec_memory_mb"))
 	if err != nil {
-		h.handleError(w, err, "create_game", "Invalid recommended memory value")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	// Parse port mappings
 	portMappings, err := h.parsePortMappings(r)
 	if err != nil {
-		h.handleError(w, err, "create_game", "Invalid port mappings")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	// Parse config vars
 	configVars, err := h.parseConfigVars(r)
 	if err != nil {
-		h.handleError(w, err, "create_game", "Invalid configuration variables")
+		h.HandleError(w, r, err)
 		return
 	}
 
@@ -109,8 +144,8 @@ func (h *Handlers) CreateGame(w http.ResponseWriter, r *http.Request) {
 		RecMemoryMB:   recMemoryMB,
 	}
 
-	if err := h.service.CreateGame(game); err != nil {
-		h.handleServiceError(w, err, "create_game")
+	if err := h.gameService.CreateGame(game); err != nil {
+		h.HandleError(w, r, err)
 		return
 	}
 
@@ -126,44 +161,44 @@ func (h *Handlers) CreateGame(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateGame handles game updates
-func (h *Handlers) UpdateGame(w http.ResponseWriter, r *http.Request) {
+func (h *GameHandlers) UpdateGame(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
-	game, err := h.service.GetGame(id)
+
+	game, err := h.gameService.GetGame(id)
 	if err != nil {
-		h.handleServiceError(w, err, "update_game")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		h.handleError(w, err, "update_game", "Failed to parse form")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	// Parse memory values
 	minMemoryMB, err := strconv.Atoi(r.FormValue("min_memory_mb"))
 	if err != nil {
-		h.handleError(w, err, "update_game", "Invalid minimum memory value")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	recMemoryMB, err := strconv.Atoi(r.FormValue("rec_memory_mb"))
 	if err != nil {
-		h.handleError(w, err, "update_game", "Invalid recommended memory value")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	// Parse port mappings
 	portMappings, err := h.parsePortMappings(r)
 	if err != nil {
-		h.handleError(w, err, "update_game", "Invalid port mappings")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	// Parse config vars
 	configVars, err := h.parseConfigVars(r)
 	if err != nil {
-		h.handleError(w, err, "update_game", "Invalid configuration variables")
+		h.HandleError(w, r, err)
 		return
 	}
 
@@ -178,8 +213,8 @@ func (h *Handlers) UpdateGame(w http.ResponseWriter, r *http.Request) {
 	game.MinMemoryMB = minMemoryMB
 	game.RecMemoryMB = recMemoryMB
 
-	if err := h.service.UpdateGame(game); err != nil {
-		h.handleServiceError(w, err, "update_game")
+	if err := h.gameService.UpdateGame(game); err != nil {
+		h.HandleError(w, r, err)
 		return
 	}
 
@@ -193,25 +228,25 @@ func (h *Handlers) UpdateGame(w http.ResponseWriter, r *http.Request) {
 }
 
 // DestroyGame handles game deletion
-func (h *Handlers) DestroyGame(w http.ResponseWriter, r *http.Request) {
+func (h *GameHandlers) DestroyGame(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	// Check if any gameservers are using this game
-	gameservers, err := h.service.ListGameservers()
+	gameservers, err := h.gameserverService.ListGameservers()
 	if err != nil {
-		h.handleServiceError(w, err, "destroy_game")
+		h.HandleError(w, r, err)
 		return
 	}
 
 	for _, server := range gameservers {
 		if server.GameID == id {
-			h.handleError(w, nil, "destroy_game", "Cannot delete game: it is being used by gameserver '"+server.Name+"'")
+			h.HandleError(w, r, BadRequest("Cannot delete game: it is being used by gameserver '%s'", server.Name))
 			return
 		}
 	}
 
-	if err := h.service.DeleteGame(id); err != nil {
-		h.handleServiceError(w, err, "destroy_game")
+	if err := h.gameService.DeleteGame(id); err != nil {
+		h.HandleError(w, r, err)
 		return
 	}
 
@@ -225,23 +260,23 @@ func (h *Handlers) DestroyGame(w http.ResponseWriter, r *http.Request) {
 }
 
 // parsePortMappings parses port mapping form data
-func (h *Handlers) parsePortMappings(r *http.Request) ([]models.PortMapping, error) {
+func (h *GameHandlers) parsePortMappings(r *http.Request) ([]models.PortMapping, error) {
 	var portMappings []models.PortMapping
-	
+
 	names := r.Form["port_name"]
 	protocols := r.Form["port_protocol"]
 	containerPorts := r.Form["port_container"]
-	
+
 	for i := 0; i < len(names); i++ {
 		if names[i] == "" || protocols[i] == "" || containerPorts[i] == "" {
 			continue
 		}
-		
+
 		containerPort, err := strconv.Atoi(containerPorts[i])
 		if err != nil {
 			return nil, err
 		}
-		
+
 		portMappings = append(portMappings, models.PortMapping{
 			Name:          names[i],
 			Protocol:      protocols[i],
@@ -249,40 +284,40 @@ func (h *Handlers) parsePortMappings(r *http.Request) ([]models.PortMapping, err
 			HostPort:      0, // Host port is allocated dynamically
 		})
 	}
-	
+
 	return portMappings, nil
 }
 
 // parseConfigVars parses configuration variable form data
-func (h *Handlers) parseConfigVars(r *http.Request) ([]models.ConfigVar, error) {
+func (h *GameHandlers) parseConfigVars(r *http.Request) ([]models.ConfigVar, error) {
 	var configVars []models.ConfigVar
-	
+
 	names := r.Form["config_name"]
 	displayNames := r.Form["config_display_name"]
 	required := r.Form["config_required"]
 	defaults := r.Form["config_default"]
 	descriptions := r.Form["config_description"]
-	
+
 	for i := 0; i < len(names); i++ {
 		if names[i] == "" || displayNames[i] == "" {
 			continue
 		}
-		
+
 		isRequired := false
 		if i < len(required) && required[i] == "on" {
 			isRequired = true
 		}
-		
+
 		defaultValue := ""
 		if i < len(defaults) {
 			defaultValue = defaults[i]
 		}
-		
+
 		description := ""
 		if i < len(descriptions) {
 			description = descriptions[i]
 		}
-		
+
 		configVars = append(configVars, models.ConfigVar{
 			Name:        names[i],
 			DisplayName: displayNames[i],
@@ -291,6 +326,7 @@ func (h *Handlers) parseConfigVars(r *http.Request) ([]models.ConfigVar, error) 
 			Description: description,
 		})
 	}
-	
+
 	return configVars, nil
 }
+

@@ -1,5 +1,5 @@
 {
-  description = "Dev environment with Tailwind and Go server";
+  description = "Dev environment";
 
   inputs = { nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable"; };
 
@@ -10,7 +10,7 @@
     in {
       packages.${system} = {
         dev = pkgs.writeShellScriptBin "dev" ''
-          ${pkgs.reflex}/bin/reflex -r '\.go|\.html$' -s -- sh -c '${pkgs.tailwindcss}/bin/tailwindcss --content "./templates/*.html" -o static/tailwind.css -m && ${pkgs.go}/bin/go run .'
+          ${pkgs.reflex}/bin/reflex -r '\.go|\.html$' -s -- sh -c '${pkgs.go}/bin/go run .'
         '';
         test = pkgs.writeShellScriptBin "test" ''
           echo "Running main application tests..."
@@ -52,12 +52,10 @@
 
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = [
-          pkgs.tailwindcss
           pkgs.reflex
           pkgs.go
           pkgs.richgo # Nicer go tests
           pkgs.sqlite
-          pkgs.nodejs # Needed by tailwind supposedly
           pkgs.chromium # Used by claude
           self.packages.${system}.dev
           self.packages.${system}.test
