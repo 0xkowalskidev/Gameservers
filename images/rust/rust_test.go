@@ -387,8 +387,8 @@ func TestRustImage_PortConfiguration(t *testing.T) {
 		t.Error("Server should be configured with port 28015")
 	}
 
-	if !strings.Contains(logStr, "+rcon.port 28016") {
-		t.Error("RCON should be configured with port 28016")
+	if !strings.Contains(logStr, "+rcon.port 28017") {
+		t.Error("RCON should be configured with port 28017")
 	}
 }
 
@@ -544,4 +544,3 @@ func TestRustImage_FileStructure(t *testing.T) {
 		t.Errorf("rcon-cli should be available, exit code: %d, output: %s", exitCode, output)
 	}
 }
-

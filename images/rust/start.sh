@@ -18,7 +18,7 @@ SERVER_ARGS=()
 SERVER_ARGS+=("-batchmode")
 SERVER_ARGS+=("+server.hostname" "$NAME")
 SERVER_ARGS+=("+server.port" "28015")
-SERVER_ARGS+=("+server.queryport" "28017")
+SERVER_ARGS+=("+server.queryport" "28016")
 SERVER_ARGS+=("+server.ip" "0.0.0.0")
 SERVER_ARGS+=("+server.maxplayers" "$MAXPLAYERS")
 SERVER_ARGS+=("+server.worldsize" "$WORLDSIZE")
@@ -33,7 +33,7 @@ fi
 
 if [[ -n "$RCON_PASSWORD" ]]; then
     SERVER_ARGS+=("+rcon.password" "$RCON_PASSWORD")
-    SERVER_ARGS+=("+rcon.port" 28016)
+    SERVER_ARGS+=("+rcon.port" 28017)
     SERVER_ARGS+=("+rcon.web" "1")
 fi
 

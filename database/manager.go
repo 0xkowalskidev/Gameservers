@@ -1,10 +1,10 @@
 package database
 
 import (
+	"github.com/rs/zerolog/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/models"
 )
@@ -164,9 +164,9 @@ func (dm *DatabaseManager) seedGames() error {
 			IconPath: "/static/games/rust/rust-icon.ico", GridImagePath: "/static/games/rust/rust-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 28015, HostPort: 0},
-				{Name: "rcon", Protocol: "tcp", ContainerPort: 28016, HostPort: 0},
-				{Name: "rcon", Protocol: "udp", ContainerPort: 28016, HostPort: 0},
-				{Name: "query", Protocol: "udp", ContainerPort: 28017, HostPort: 0},
+				{Name: "query", Protocol: "udp", ContainerPort: 28016, HostPort: 0},
+				{Name: "rcon", Protocol: "tcp", ContainerPort: 28017, HostPort: 0},
+				{Name: "rcon", Protocol: "udp", ContainerPort: 28017, HostPort: 0},
 			},
 			ConfigVars: []models.ConfigVar{
 				{Name: "NAME", DisplayName: "Server Name", Required: false, Default: "Rust Server", Description: "The name of your Rust server"},

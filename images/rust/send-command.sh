@@ -19,4 +19,4 @@ if [[ -z "$COMMAND" ]]; then
 fi
 
 # Send command using rcon-cli
-rcon-cli -a "$RCON_HOST:28016" -p "$RCON_PASSWORD" "$COMMAND"
+rcon-cli -a "$RCON_HOST:28017" -p "$RCON_PASSWORD" "$COMMAND"

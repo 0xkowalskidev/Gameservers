@@ -26,6 +26,7 @@ RUN chmod +x /data/scripts/start.sh /data/scripts/send-command.sh
 WORKDIR /data/server
 
 # Expose Rust server ports
+# Game | Query | Rcon tcp/udp
 EXPOSE 28015/udp 28016/udp 28016/tcp 28017/udp 
 
 ENTRYPOINT ["/data/scripts/start.sh"]
