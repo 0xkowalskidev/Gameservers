@@ -3,6 +3,8 @@ package services
 import (
 	"time"
 
+	"github.com/google/uuid"
+
 	"0xkowalskidev/gameservers/models"
 )
 
@@ -22,7 +24,9 @@ func NewTaskService(db models.DatabaseInterface) models.TaskServiceInterface {
 func (s *TaskService) CreateScheduledTask(task *models.ScheduledTask) error {
 	now := time.Now()
 	task.CreatedAt, task.UpdatedAt = now, now
-	task.ID = models.GenerateID()
+	if task.ID == "" {
+		task.ID = uuid.New().String()
+	}
 
 	// Calculate initial next run time
 	nextRun := CalculateNextRun(task.CronSchedule, now)

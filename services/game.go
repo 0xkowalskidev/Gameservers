@@ -3,6 +3,8 @@ package services
 import (
 	"time"
 
+	"github.com/google/uuid"
+
 	"0xkowalskidev/gameservers/models"
 )
 
@@ -30,6 +32,9 @@ func (s *GameService) GetGame(id string) (*models.Game, error) {
 
 // CreateGame creates a new game
 func (s *GameService) CreateGame(game *models.Game) error {
+	if game.ID == "" {
+		game.ID = uuid.New().String()
+	}
 	now := time.Now()
 	game.CreatedAt, game.UpdatedAt = now, now
 	return s.db.CreateGame(game)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/0xkowalskidev/gameserverquery/protocol"
 	"github.com/0xkowalskidev/gameserverquery/query"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/models"
@@ -228,6 +229,7 @@ func (s *GameserverService) CreateGameserver(req CreateGameserverRequest) (*mode
 
 	// Create database record with port mappings from game template
 	gs := &models.Gameserver{
+		ID:           uuid.New().String(),
 		Name:         req.Name,
 		GameID:       req.GameID,
 		PortMappings: make([]models.PortMapping, len(game.PortMappings)),
