@@ -1,13 +1,17 @@
 {
   description = "Dev environment";
 
-  inputs = { nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable"; };
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  };
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, nixpkgs }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-    in {
+    in
+    {
       packages.${system} = {
         dev = pkgs.writeShellScriptBin "dev" ''
           ${pkgs.reflex}/bin/reflex -r '\.go|\.html$' -s -- sh -c '${pkgs.go}/bin/go run .'
@@ -56,17 +60,11 @@
           pkgs.go
           pkgs.richgo # Nicer go tests
           pkgs.sqlite
-          pkgs.chromium # Used by claude
           self.packages.${system}.dev
           self.packages.${system}.test
           self.packages.${system}.test-images
           self.packages.${system}.test-all
         ];
-
-        shellHook = ''
-          export PUPPETEER_EXECUTABLE_PATH=${pkgs.chromium}/bin/chromium
-        '';
       };
     };
 }
-
