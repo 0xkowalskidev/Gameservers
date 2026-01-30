@@ -3,7 +3,7 @@ FROM alpine:3.21 AS base
 
 RUN apk add --no-cache unzip && \
     mkdir -p /terraria-server && \
-    wget -O /terraria-server.zip https://terraria.org/api/download/pc-dedicated-server/terraria-server-1449.zip && \
+    wget -O /terraria-server.zip https://terraria.org/api/download/pc-dedicated-server/terraria-server-1450.zip && \
     unzip /terraria-server.zip -d /terraria && \
     mv /terraria/1449/Linux/* /terraria-server && \
     chmod +x /terraria-server/TerrariaServer.bin.x86_64 && \
