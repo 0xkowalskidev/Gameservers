@@ -103,9 +103,9 @@ func main() {
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"formatFileSize": formatFileSize,
 		"sub":            func(a, b int) int { return a - b },
-		"mul":            func(a, b interface{}) float64 {
+		"mul": func(a, b interface{}) float64 {
 			var aVal, bVal float64
-			
+
 			switch v := a.(type) {
 			case int:
 				aVal = float64(v)
@@ -114,7 +114,7 @@ func main() {
 			default:
 				return 0
 			}
-			
+
 			switch v := b.(type) {
 			case int:
 				bVal = float64(v)
@@ -123,12 +123,12 @@ func main() {
 			default:
 				return 0
 			}
-			
+
 			return aVal * bVal
 		},
-		"div":            func(a, b interface{}) float64 {
+		"div": func(a, b interface{}) float64 {
 			var aVal, bVal float64
-			
+
 			switch v := a.(type) {
 			case int:
 				aVal = float64(v)
@@ -137,7 +137,7 @@ func main() {
 			default:
 				return 0
 			}
-			
+
 			switch v := b.(type) {
 			case int:
 				bVal = float64(v)
@@ -146,7 +146,7 @@ func main() {
 			default:
 				return 0
 			}
-			
+
 			if bVal == 0 {
 				return 0
 			}
@@ -236,7 +236,6 @@ func main() {
 	handlers.InternalError = InternalError
 	handlers.ParseForm = ParseForm
 	handlers.RequireMethod = RequireMethod
-	handlers.LogAndRespond = LogAndRespond
 	handlers.Render = Render
 
 	// Initialize query service

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/0xkowalskidev/gameserverquery/protocol"
+	"github.com/go-chi/chi/v5"
 
 	"0xkowalskidev/gameservers/models"
 	"0xkowalskidev/gameservers/services"
@@ -218,11 +218,6 @@ func mockRequireMethod(r *http.Request, method string) error {
 	return nil
 }
 
-func mockLogAndRespond(w http.ResponseWriter, status int, message string, args ...interface{}) {
-	w.WriteHeader(status)
-	w.Write([]byte(message))
-}
-
 func mockRender(w http.ResponseWriter, r *http.Request, tmpl *template.Template, templateName string, data interface{}) {
 	if err := tmpl.ExecuteTemplate(w, templateName, data); err != nil {
 		http.Error(w, "Template Error", 500)
@@ -237,7 +232,6 @@ func init() {
 	InternalError = mockInternalError
 	ParseForm = mockParseForm
 	RequireMethod = mockRequireMethod
-	LogAndRespond = mockLogAndRespond
 	Render = mockRender
 }
 

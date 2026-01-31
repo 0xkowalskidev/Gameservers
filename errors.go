@@ -108,11 +108,3 @@ func ParseForm(r *http.Request) error {
 	}
 	return nil
 }
-
-// LogAndRespond logs an info message and writes a response
-func LogAndRespond(w http.ResponseWriter, status int, message string, args ...interface{}) {
-	msg := fmt.Sprintf(message, args...)
-	log.Info().Int("status", status).Msg(msg)
-	w.WriteHeader(status)
-	fmt.Fprint(w, msg)
-}

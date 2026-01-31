@@ -27,7 +27,6 @@ var (
 	InternalError func(err error, message string) error
 	ParseForm     func(r *http.Request) error
 	RequireMethod func(r *http.Request, method string) error
-	LogAndRespond func(w http.ResponseWriter, status int, message string, args ...interface{})
 )
 
 // Utility functions - imported from main package
