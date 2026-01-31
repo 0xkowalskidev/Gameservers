@@ -13,154 +13,149 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 - **Backend**: Go with Chi router and zerolog for structured logging
 - **Frontend**: HTMX + Tailwind CSS (embedded static files)
 - **Container Runtime**: Docker API with automatic image pulling
-- **Database**: SQLite with database/sql
+- **Database**: SQLite with GORM
 - **Package Manager**: Nix flake
 
 ### Design Principles
-1. **Single Binary**: Everything compiled into one executable
-2. **Clean Architecture**: Well-organized packages (database/, docker/, handlers/, models/, services/)
+1. **Single Binary**: Everything compiled into one executable with embedded templates/static files
+2. **Clean Architecture**: Well-organized packages with clear separation of concerns
 3. **Interface-Driven Design**: Heavy use of interfaces for testability and modularity
-4. **Template Files**: HTML templates in templates/ directory
-5. **Simple State Management**: SQLite for persistence, in-memory for runtime
-6. **No Authentication**: Direct access (handle externally if needed)
-7. **Comprehensive Testing**: Nearly every Go file has corresponding tests
+4. **Simple State Management**: SQLite for persistence, in-memory for runtime
+5. **No Authentication**: Direct access (handle externally if needed)
+6. **Comprehensive Testing**: Nearly every Go file has corresponding tests
 
-## Features
+### Layered Architecture
+The codebase follows a well-structured layered architecture:
 
-### Phase 1: Core Functionality
-- [x] Docker container management (start/stop/restart)
-- [x] Real-time console output (via SSE log streaming)
-- [x] Resource monitoring via SSE (CPU, RAM)
-- [x] Gameserver CRUD
-
-### Phase 2: Enhanced Features
-- [x] Advanced file manager with editor
-- [x] Backup/restore functionality
-- [x] Schedule tasks (restarts, backups)
-- [x] Console integration (unified command interface)
-
-### Phase 3: Future File Manager Enhancements
-- [ ] File upload functionality (drag & drop support)
-- [ ] Multi-select for batch file operations
-- [ ] File preview for logs and text files
-- [ ] Zip archive operations (create/extract)
-- [ ] Move/cut files and directories between folders
-
-## Current TODOs
-- None at the moment! 🎉
-- Smart pull strategy implemented - Docker now checks remote image digests and only pulls when there's a newer version available
-
-## Recent Improvements
-- **✅ Port Assignment System**: Implemented our own port allocator that reserves ports for gameservers before Docker container creation. This ensures consistent port assignments across server restarts and allows us to "reserve" ports even when containers are stopped/deleted. Ports are assigned during gameserver creation and persisted in the database.
-
-## Recent Improvements (cont'd)
-- **✅ Port Allocator Refactoring**: The PortAllocator has been properly extracted into `models/port.go` with comprehensive unit tests, following clean separation of concerns.
-
-## File Structure
 ```
-/
-├── main.go              # Entry point, Chi router setup
-├── errors.go            # HTTP error handling utilities
-├── errors_test.go       # Tests for error handling
-├── database/            # Database layer
-│   ├── manager.go       # Database connection management
-│   ├── games.go         # Game CRUD operations
-│   ├── gameservers.go   # Gameserver CRUD operations
-│   ├── tasks.go         # Scheduled tasks CRUD
-│   ├── service.go       # Database service implementation
-│   └── *_test.go        # Comprehensive test coverage
-├── docker/              # Docker API interactions
-│   ├── client.go        # Docker client initialization
-│   ├── containers.go    # Container management
-│   ├── files.go         # File operations via Docker
-│   ├── images.go        # Image management
-│   ├── volumes.go       # Volume management
-│   ├── backup.go        # Backup/restore functionality
-│   └── *_test.go        # Test files for each module
-├── handlers/            # HTTP request handlers
-│   ├── common.go        # Common handler utilities
-│   ├── gameserver.go    # Gameserver CRUD handlers
-│   ├── console.go       # Console streaming handlers (SSE)
-│   ├── files.go         # File manager handlers
-│   ├── backup.go        # Backup handlers
-│   ├── tasks.go         # Task scheduling handlers
-│   └── *_test.go        # Handler tests
-├── models/              # Data models and interfaces
-│   ├── interfaces.go    # Service interfaces
-│   ├── gameserver.go    # Gameserver model
-│   ├── game.go          # Game model
-│   ├── port.go          # Port allocation logic
-│   ├── task.go          # Scheduled task model
-│   ├── file.go          # File info model
-│   ├── volume.go        # Volume info model
-│   ├── errors.go        # Model-specific errors
-│   └── utils.go         # Utility functions
-├── services/            # Business logic layer
-│   ├── gameserver.go    # Gameserver service
-│   ├── scheduler.go     # Task scheduler implementation
-│   ├── cron.go          # Cron expression parser
-│   ├── interfaces.go    # Service interfaces
-│   ├── requests.go      # Request/response DTOs
-│   ├── errors.go        # Service errors
-│   └── *_test.go        # Service tests
-├── templates/           # HTML templates (HTMX)
-│   ├── layout.html      # Base layout
-│   ├── index.html       # Dashboard (not dashboard_page.html)
-│   ├── components.html  # Reusable components
-│   └── [many more templates for each feature]
-├── static/              # Static assets (embedded)
-│   ├── htmx.js         # HTMX library
-│   └── tailwind.css    # Tailwind CSS
-├── images/              # Docker images for game servers
-│   ├── minecraft/       # Minecraft server image
-│   ├── garrysmod/       # Garry's Mod server image
-│   └── terraria/        # Terraria server image
-├── .github/workflows/   # CI/CD
-│   └── build-images.yml # Docker image builds
-├── flake.nix           # Nix development environment
-├── flake.lock          # Nix lock file
-├── go.mod              # Go dependencies
-└── go.sum              # Go dependency checksums
+┌─────────────────────────────────────┐
+│  HTTP Layer (main.go, handlers/)    │  ← Chi routes, request handling, template rendering
+├─────────────────────────────────────┤
+│  Business Layer (services/)         │  ← Business logic, orchestration, validation
+├─────────────────────────────────────┤
+│  Data Layer (database/)             │  ← SQLite/GORM operations, persistence
+├─────────────────────────────────────┤
+│  Docker Layer (docker/)             │  ← Container, volume, image management
+├─────────────────────────────────────┤
+│  Models (models/)                   │  ← Shared structs, interfaces, utilities
+└─────────────────────────────────────┘
 ```
 
-## API Design (HTMX-focused)
+**Key Points:**
+- **Two Service Layers**: `database/` implements `models.GameserverServiceInterface` for data operations; `services/` adds business logic like validation and orchestration
+- **Interface Boundaries**: `models/interfaces.go` defines contracts between layers
+- **Dependency Flow**: HTTP → Business Service → Database Service → Docker Manager
+- **Port Allocation**: Custom port allocator in `models/port.go` reserves ports before container creation
 
-### Implemented Routes
-- `GET /` - List gameservers (dashboard)
-- `POST /` - Create gameserver
-- `GET /new` - Create gameserver form
-- `GET /{id}` - Show gameserver details
-- `POST /{id}/start` - Start gameserver
-- `POST /{id}/stop` - Stop gameserver  
-- `POST /{id}/restart` - Restart gameserver
-- `DELETE /{id}` - Delete gameserver
-- `GET /{id}/console` - Console output (SSE stream)
-- `POST /{id}/console` - Send console command
-- `GET /{id}/files` - File manager
-- `POST /{id}/files` - File operations
-- `GET /{id}/backup` - List backups
-- `POST /{id}/backup` - Create backup
-- `POST /{id}/restore` - Restore from backup
-- `GET /tasks` - List scheduled tasks
-- `POST /tasks` - Create scheduled task
+## Development Commands
 
-### RESTful Handler Naming
-- `IndexGameservers()`, `NewGameserver()`, `CreateGameserver()`
-- `ShowGameserver()`, `DestroyGameserver()`
-- Console, files, backup, and task handlers follow similar patterns
+### Nix Environment
+```bash
+# Enter development shell (loads all tools)
+nix develop
 
-## Gameserver Images
+# Run dev server with hot reload + Tailwind compilation
+nix run .#dev
+# or just 'dev' inside nix shell
+
+# Run application tests (excludes slow image tests)
+nix run .#test
+
+# Run Docker image integration tests (slow, requires Docker)
+nix run .#test-images
+
+# Run all tests (application + images)
+nix run .#test-all
+```
+
+### Manual Commands
+```bash
+# Run specific package tests
+go test ./handlers/...
+go test ./database/...
+
+# Run single test
+go test -run TestCreateGameserver ./handlers/
+
+# Build binary
+go build -o gameservers .
+
+# Run server
+go run .
+
+# Set debug logging
+DEBUG=1 go run .
+```
+
+## Configuration
+
+All configuration is done via environment variables with sensible defaults:
+
+```bash
+# Server
+GAMESERVER_HOST=localhost                    # default: localhost
+GAMESERVER_PORT=3000                        # default: 3000
+GAMESERVER_SHUTDOWN_TIMEOUT=30s             # default: 30s
+
+# Database
+GAMESERVER_DATABASE_PATH=gameservers.db     # default: gameservers.db
+
+# Docker
+GAMESERVER_DOCKER_SOCKET=                   # default: empty (uses Docker default)
+GAMESERVER_CONTAINER_NAMESPACE=gameservers  # default: gameservers
+GAMESERVER_CONTAINER_STOP_TIMEOUT=30s       # default: 30s
+
+# File Operations
+GAMESERVER_MAX_FILE_EDIT_SIZE=10485760      # default: 10MB
+GAMESERVER_MAX_UPLOAD_SIZE=104857600        # default: 100MB
+```
+
+## Gameserver Docker Images
 
 ### Structure
-Each gameserver has its own directory under `gameservers/` containing:
+Each gameserver type has a directory under `images/` containing:
 - `Dockerfile` - Image definition
-- Startup script - start.sh
-- Other standardised files needed for gameserver management
+- `start.sh` - Startup script
+- `send-command.sh` - Command injection script
+- `*_test.go` - Integration tests (slow, require Docker)
+- Game-specific config files
 
-### Image Naming Convention
+### Registry Convention
 - Registry: `ghcr.io/0xkowalskidev/gameservers`
 - Format: `ghcr.io/0xkowalskidev/gameservers/GAME:VERSION`
 - Example: `ghcr.io/0xkowalskidev/gameservers/minecraft:1.20.4`
+
+### Available Games
+Current images: minecraft, terraria, garrysmod, palworld, rust, valheim
+
+## Key Implementation Details
+
+### Port Allocation System
+- Custom allocator in `models/port.go` reserves ports during gameserver creation
+- Ports persist in database, survive container restarts/recreation
+- Avoids Docker's dynamic port assignment issues
+
+### Template Rendering (main.go)
+- HTMX requests (`HX-Request: true` header) get partial templates
+- Full page requests get wrapped in `layout.html`
+- Custom template functions: `formatFileSize`, `dict`, `slice`, `gt`, `mul`, `div`, etc.
+
+### Docker Integration
+- Smart image pulling: checks remote digest, only pulls if newer version exists
+- Volume-based persistence: each gameserver gets its own named volume
+- Backup/restore: tar-based snapshots to `/data/backups/`
+- File operations: uses Docker API (`docker cp` equivalent)
+
+### Task Scheduler
+- Cron-like scheduling in `services/scheduler.go`
+- Supports: restart, backup, stop, start actions
+- Runs in background goroutine, checks every minute
+- Cron expression parser in `services/cron.go`
+
+### Error Handling
+- `models/errors.go`: Domain-specific errors (DatabaseError, ValidationError)
+- `services/errors.go`: HTTP-aware errors with status codes
+- `errors.go` (root): HTTP error handlers used by handlers package
 
 ## Testing Strategy
 
@@ -171,9 +166,8 @@ Each gameserver has its own directory under `gameservers/` containing:
 
 ### Test Structure
 - Each file has an associated `_test.go` file (except main.go/other untestable files)
-- Example: `docker.go` → `docker_test.go`
 - Use table-driven tests for multiple scenarios
-- Mock external dependencies (Docker API, SQLite)
+- Mock external dependencies (Docker API, database)
 
 ### What NOT to Test
 - Simple getters/setters
@@ -181,89 +175,23 @@ Each gameserver has its own directory under `gameservers/` containing:
 - HTML template rendering (visual testing)
 - Third-party library internals
 
-## Development Scripts (via Nix)
-```bash
-# Enter development shell
-nix develop
+## Important Notes
 
-# Run development server with hot reload and Tailwind compilation
-nix run .#dev
-# or just 'dev' in the shell
+### Terminology
+- Call it "Gameserver" or "Gameservers", not "GameServer" or "Server"
 
-# Run tests with richgo (colored output)
-nix run .#test
-# dont use 'test' in the shell as its overwritten by internals
-```
-## Notes
-- Use Chi middleware for request logging
-- Templates use Go html/template package
-- SSE connections auto-reconnect on failure
+### HTMX Integration
 - Console streaming uses SSE (Server-Sent Events), not WebSocket
-- Consider using Alpine.js for light interactivity
-- File operations use Docker cp API
+- SSE endpoints: `/{id}/console`, `/{id}/stats`, `/{id}/logs`
+- SSE connections auto-reconnect on failure
 
-## Memories
-- Call it Gameserver or Gameservers, not GameServer or Server
+### Database
+- Uses GORM for ORM operations (switched from database/sql)
+- Auto-migration in `database/manager.go`
+- Models in `models/` package have GORM tags
 
-## Codebase Quality Assessment
-
-### Strengths
-- **Excellent Test Coverage**: Nearly every Go file has comprehensive tests
-- **Clean Architecture**: Clear separation of concerns with dedicated packages
-- **Interface-Driven Design**: Enables easy testing and modularity
-- **Consistent Error Handling**: Centralized HTTP-aware error types
-- **Embedded Assets**: Single binary deployment with embedded templates/static files
-- **Structured Logging**: Consistent use of zerolog throughout
-
-### Suggested Improvements
-
-1. **Configuration Management**
-   - Add `config/config.go` for environment-based configuration
-   - Support env vars for database path, port, Docker socket
-   - Add configuration validation on startup
-
-2. **API Documentation**
-   - Consider OpenAPI/Swagger for HTMX endpoints
-   - Document expected request/response formats
-   - Add inline godoc comments for exported functions
-
-3. **Database Migrations**
-   - Implement versioned migration system (e.g., golang-migrate)
-   - Track applied migrations in database
-   - Support rollback functionality
-
-4. **Observability**
-   - Add `/metrics` endpoint for Prometheus
-   - Include `/health` and `/ready` endpoints
-   - Add request tracing with correlation IDs
-
-5. **Security Enhancements**
-   - Implement rate limiting middleware
-   - Add CORS configuration options
-   - Sanitize console command inputs
-   - Consider adding optional authentication layer
-
-6. **Developer Experience**
-   - Add Makefile for common tasks
-   - Include docker-compose.yml for local development
-   - Set up pre-commit hooks for code quality
-   - Add README.md with setup instructions
-
-7. **WebSocket Implementation**
-   - Consider implementing proper WebSocket for bidirectional console
-   - Current SSE works well for logs but limits interactivity
-
-8. **Backup Strategy**
-   - Add scheduled automatic backups
-   - Implement backup retention policies
-   - Support remote backup destinations (S3, etc.)
-
-### Architecture Notes
-The codebase follows a well-structured layered architecture:
-- **HTTP Layer** (main.go, handlers/): Request routing and handling
-- **Service Layer** (services/): Business logic orchestration
-- **Data Access** (database/): SQLite operations and migrations
-- **Docker Integration** (docker/): Container management
-- **Models** (models/): Shared data structures and interfaces
-
-This architecture promotes testability, maintainability, and clear separation of concerns.
+### File Operations
+- File manager: browse, edit, download, upload, rename, delete
+- Edit size limit: 10MB (configurable)
+- Upload size limit: 100MB (configurable)
+- Uses Docker API for all file operations (not host filesystem)
