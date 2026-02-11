@@ -25,27 +25,25 @@ A minimal, Docker-based gameserver management control panel built with Go, HTMX,
 6. **Comprehensive Testing**: Nearly every Go file has corresponding tests
 
 ### Layered Architecture
-The codebase follows a well-structured layered architecture:
+The codebase follows a simplified 2-layer architecture:
 
 ```
 ┌─────────────────────────────────────┐
-│  HTTP Layer (main.go, handlers/)    │  ← Chi routes, request handling, template rendering
+│  HTTP Layer (main.go, handlers/)    │  ← Chi routes, request handling, workflows
 ├─────────────────────────────────────┤
-│  Business Layer (services/)         │  ← Business logic, orchestration, validation
-├─────────────────────────────────────┤
-│  Data Layer (database/)             │  ← SQLite/GORM operations, persistence
+│  Repository Layer (database/)       │  ← Data access + Docker orchestration
 ├─────────────────────────────────────┤
 │  Docker Layer (docker/)             │  ← Container, volume, image management
 ├─────────────────────────────────────┤
-│  Models (models/)                   │  ← Shared structs, interfaces, utilities
+│  Models (models/)                   │  ← Shared structs, utilities
 └─────────────────────────────────────┘
 ```
 
 **Key Points:**
-- **Two Service Layers**: `database/` implements `models.GameserverServiceInterface` for data operations; `services/` adds business logic like validation and orchestration
-- **Interface Boundaries**: `models/interfaces.go` defines contracts between layers
-- **Dependency Flow**: HTTP → Business Service → Database Service → Docker Manager
-- **Port Allocation**: Custom port allocator in `models/port.go` reserves ports before container creation
+- **Single Repository Layer**: `database/repository.go` handles both data access and Docker orchestration
+- **Concrete Types**: Direct dependency injection without unnecessary interfaces
+- **Dependency Flow**: HTTP → GameserverRepository → Docker Manager
+- **Port Allocation**: Simplified port allocator in `models/port.go` uses static range (49152-65535)
 
 ## Development Commands
 
@@ -159,21 +157,7 @@ Current images: minecraft, terraria, garrysmod, palworld, rust, valheim
 
 ## Testing Strategy
 
-### Principles
-- **Minimal**: Only test critical paths and complex logic
-- **Maintainable**: Tests should be easy to update as code changes
-- **High Impact**: Focus on areas that would cause significant issues if broken
-
-### Test Structure
-- Each file has an associated `_test.go` file (except main.go/other untestable files)
-- Use table-driven tests for multiple scenarios
-- Mock external dependencies (Docker API, database)
-
-### What NOT to Test
-- Simple getters/setters
-- Direct Docker API calls (trust the Docker client library)
-- HTML template rendering (visual testing)
-- Third-party library internals
+**Note**: All tests have been removed from the codebase (except image integration tests in `/images`). Verification is done manually or through smoke testing.
 
 ## Important Notes
 
@@ -186,9 +170,10 @@ Current images: minecraft, terraria, garrysmod, palworld, rust, valheim
 - SSE connections auto-reconnect on failure
 
 ### Database
-- Uses GORM for ORM operations (switched from database/sql)
+- Uses GORM for ORM operations
 - Auto-migration in `database/manager.go`
 - Models in `models/` package have GORM tags
+- Repository pattern in `database/repository.go` for data access
 
 ### File Operations
 - File manager: browse, edit, download, upload, rename, delete
