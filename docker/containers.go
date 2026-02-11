@@ -93,7 +93,7 @@ func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
 	}
 
 	// Create and mount auto-managed volume for data persistence
-	volumeName := d.getVolumeNameForServer(server)
+	volumeName := d.GetVolumeNameForServer(server)
 	if err := d.CreateVolume(volumeName); err != nil {
 		log.Error().Err(err).Str("volume", volumeName).Msg("Failed to create volume")
 		return err

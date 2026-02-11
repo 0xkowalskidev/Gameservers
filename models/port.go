@@ -11,28 +11,20 @@ type PortMapping struct {
 	HostPort      int    `json:"host_port"` // 0 = auto-assign
 }
 
-// PortAllocator manages port assignments for gameservers
-type PortAllocator struct {
-	minPort int
-	maxPort int
-}
-
-func NewPortAllocator() *PortAllocator {
-	// Use dynamic/private port range (IANA recommended for ephemeral ports)
-	return &PortAllocator{
-		minPort: 49152,
-		maxPort: 65535,
-	}
-}
+// Port allocation range (IANA recommended for ephemeral ports)
+const (
+	minPort = 49152
+	maxPort = 65535
+)
 
 // isPortAvailable checks if a port is within range and not already used
-func (pa *PortAllocator) isPortAvailable(port int, usedPorts map[int]bool) bool {
-	return port >= pa.minPort && port <= pa.maxPort && !usedPorts[port]
+func isPortAvailable(port int, usedPorts map[int]bool) bool {
+	return port >= minPort && port <= maxPort && !usedPorts[port]
 }
 
 // AllocatePortsForServer assigns available ports to all zero-valued port mappings
 // Port mappings with the same name will get the same host port (for TCP+UDP on same port)
-func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts map[int]bool) error {
+func AllocatePortsForServer(server *Gameserver, usedPorts map[int]bool) error {
 	// Group port mappings by name to assign same port to same-named mappings
 	portGroups := make(map[string]int) // name -> assigned port
 
@@ -48,7 +40,7 @@ func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts ma
 
 			// Try container port first if it's in valid range
 			containerPort := server.PortMappings[i].ContainerPort
-			if containerPort > 0 && pa.isPortAvailable(containerPort, usedPorts) {
+			if containerPort > 0 && isPortAvailable(containerPort, usedPorts) {
 				server.PortMappings[i].HostPort = containerPort
 				portGroups[portName] = containerPort
 				usedPorts[containerPort] = true
@@ -56,11 +48,11 @@ func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts ma
 			}
 
 			// Container port not available, find next available port
-			port, err := pa.findAvailablePort(usedPorts)
+			port, err := findAvailablePort(usedPorts)
 			if err != nil {
 				return err
 			}
-			
+
 			server.PortMappings[i].HostPort = port
 			portGroups[portName] = port
 			usedPorts[port] = true
@@ -70,16 +62,16 @@ func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts ma
 }
 
 // findAvailablePort finds the next available port in the valid range
-func (pa *PortAllocator) findAvailablePort(usedPorts map[int]bool) (int, error) {
-	for port := pa.minPort; port <= pa.maxPort; port++ {
+func findAvailablePort(usedPorts map[int]bool) (int, error) {
+	for port := minPort; port <= maxPort; port++ {
 		if !usedPorts[port] {
 			return port, nil
 		}
 	}
 
-	return 0, &OperationError{
+	return 0, &DatabaseError{
 		Op:  "allocate_port",
-		Msg: fmt.Sprintf("no available ports in range %d-%d", pa.minPort, pa.maxPort),
+		Msg: fmt.Sprintf("no available ports in range %d-%d", minPort, maxPort),
 		Err: nil,
 	}
 }

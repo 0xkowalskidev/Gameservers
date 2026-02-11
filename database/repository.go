@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/models"
@@ -13,17 +14,15 @@ import (
 
 // GameserverRepository wraps DatabaseManager with Docker operations
 type GameserverRepository struct {
-	db            *DatabaseManager
-	docker        models.DockerManagerInterface
-	portAllocator *models.PortAllocator
+	db     *DatabaseManager
+	docker models.DockerManagerInterface
 }
 
 // NewGameserverRepository creates a new gameserver repository instance
 func NewGameserverRepository(db *DatabaseManager, docker models.DockerManagerInterface) *GameserverRepository {
 	return &GameserverRepository{
-		db:            db,
-		docker:        docker,
-		portAllocator: models.NewPortAllocator(),
+		db:     db,
+		docker: docker,
 	}
 }
 
@@ -137,7 +136,7 @@ func (gss *GameserverRepository) populateGameFields(server *models.Gameserver) e
 	server.MemoryGB = float64(server.MemoryMB) / 1024.0
 
 	// Get volume information
-	volumeName := fmt.Sprintf("gameservers-%s-data", server.Name)
+	volumeName := gss.docker.GetVolumeNameForServer(server)
 	if volumeInfo, err := gss.docker.GetVolumeInfo(volumeName); err == nil {
 		server.VolumeInfo = volumeInfo
 	}
@@ -166,8 +165,8 @@ func (gss *GameserverRepository) allocatePortsForServer(server *models.Gameserve
 		}
 	}
 
-	// Allocate ports using our port allocator
-	return gss.portAllocator.AllocatePortsForServer(server, usedPorts)
+	// Allocate ports for the server
+	return models.AllocatePortsForServer(server, usedPorts)
 }
 
 // StartGameserver starts a gameserver with Docker container creation
@@ -272,7 +271,7 @@ func (gss *GameserverRepository) DeleteGameserver(id string) error {
 	}
 
 	// Remove the auto-managed volume (this will delete all data!)
-	volumeName := fmt.Sprintf("gameservers-%s-data", server.Name)
+	volumeName := gss.docker.GetVolumeNameForServer(server)
 	if err := gss.docker.RemoveVolume(volumeName); err != nil {
 		log.Warn().Err(err).Str("volume", volumeName).Msg("Failed to remove volume, may not exist")
 	}
@@ -363,11 +362,17 @@ func (gss *GameserverRepository) CreateScheduledTask(task *models.ScheduledTask)
 	task.CreatedAt, task.UpdatedAt = now, now
 	task.ID = models.GenerateID()
 
-	// Calculate initial next run time
-	nextRun := models.CalculateNextRun(task.CronSchedule, now)
-	if !nextRun.IsZero() {
-		task.NextRun = &nextRun
+	// Validate and calculate initial next run time using robfig/cron
+	schedule, err := cron.ParseStandard(task.CronSchedule)
+	if err != nil {
+		return &models.DatabaseError{
+			Op:  "parse_cron",
+			Msg: fmt.Sprintf("invalid cron schedule: %s", task.CronSchedule),
+			Err: err,
+		}
 	}
+	nextRun := schedule.Next(now)
+	task.NextRun = &nextRun
 
 	return gss.db.CreateScheduledTask(task)
 }
@@ -425,48 +430,6 @@ func (gss *GameserverRepository) RestoreGameserverBackup(gameserverID, backupFil
 		return err
 	}
 	return gss.docker.RestoreBackup(gameserver.ContainerID, backupFilename)
-}
-
-// File operation methods
-
-// ListFiles lists files in a gameserver container
-func (gss *GameserverRepository) ListFiles(containerID string, path string) ([]*models.FileInfo, error) {
-	return gss.docker.ListFiles(containerID, path)
-}
-
-// ReadFile reads a file from a gameserver container
-func (gss *GameserverRepository) ReadFile(containerID string, path string) ([]byte, error) {
-	return gss.docker.ReadFile(containerID, path)
-}
-
-// WriteFile writes a file to a gameserver container
-func (gss *GameserverRepository) WriteFile(containerID string, path string, content []byte) error {
-	return gss.docker.WriteFile(containerID, path, content)
-}
-
-// CreateDirectory creates a directory in a gameserver container
-func (gss *GameserverRepository) CreateDirectory(containerID string, path string) error {
-	return gss.docker.CreateDirectory(containerID, path)
-}
-
-// DeletePath deletes a file or directory in a gameserver container
-func (gss *GameserverRepository) DeletePath(containerID string, path string) error {
-	return gss.docker.DeletePath(containerID, path)
-}
-
-// DownloadFile downloads a file from a gameserver container
-func (gss *GameserverRepository) DownloadFile(containerID string, path string) (io.ReadCloser, error) {
-	return gss.docker.DownloadFile(containerID, path)
-}
-
-// RenameFile renames a file in a gameserver container
-func (gss *GameserverRepository) RenameFile(containerID string, oldPath string, newPath string) error {
-	return gss.docker.RenameFile(containerID, oldPath, newPath)
-}
-
-// UploadFile uploads a file to a gameserver container
-func (gss *GameserverRepository) UploadFile(containerID string, destPath string, reader io.Reader) error {
-	return gss.docker.UploadFile(containerID, destPath, reader)
 }
 
 // ListGameserverBackups lists all backup files for a gameserver

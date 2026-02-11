@@ -15,7 +15,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">Create and restore backups for {{.Gameserver.Name}}</p>
           </div>
         </div>
-        <button hx-post="/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none" hx-on::after-request="if(event.detail.successful) { htmx.ajax('GET', '/{{.Gameserver.ID}}/backups?list=true', {target: '#backup-list'}); showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
+        <button hx-post="/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none" hx-on::after-request="if(event.detail.successful) { htmx.ajax('GET', '/{{.Gameserver.ID}}/backups?list=true', {target: '#backup-list'}).catch(err => showNotification('Failed to refresh backup list: ' + err.message, 'error')); showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
                 class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>

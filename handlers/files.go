@@ -24,7 +24,7 @@ func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get root directory listing
-	files, err := h.service.ListFiles(gameserver.ContainerID, "/data/server")
+	files, err := h.docker.ListFiles(gameserver.ContainerID, "/data/server")
 	if err != nil {
 		log.Error().Err(err).Str("gameserver_id", id).Msg("Failed to list files")
 	}
@@ -47,7 +47,7 @@ func (h *Handlers) BrowseGameserverFiles(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	files, err := h.service.ListFiles(gameserver.ContainerID, path)
+	files, err := h.docker.ListFiles(gameserver.ContainerID, path)
 	if err != nil {
 		HandleError(w, InternalError(err, "Failed to list files"), "browse_files")
 		return
@@ -111,7 +111,7 @@ func (h *Handlers) GameserverFileContent(w http.ResponseWriter, r *http.Request)
 
 	// Use a safer approach to read the file
 	// Instead of using ExecCommand with cat, use docker cp to copy the file out
-	reader, err := h.service.DownloadFile(gameserver.ContainerID, path)
+	reader, err := h.docker.DownloadFile(gameserver.ContainerID, path)
 	if err != nil {
 		log.Error().Err(err).Str("path", path).Msg("Failed to download file for reading")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -247,7 +247,7 @@ func (h *Handlers) SaveGameserverFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write file
-	if err := h.service.WriteFile(gameserver.ContainerID, path, contentBytes); err != nil {
+	if err := h.docker.WriteFile(gameserver.ContainerID, path, contentBytes); err != nil {
 		log.Error().Err(err).Str("path", path).Msg("Failed to write file")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -282,7 +282,7 @@ func (h *Handlers) DownloadGameserverFile(w http.ResponseWriter, r *http.Request
 
 	// Use DownloadFile which supports both server and backup paths
 	log.Info().Str("path", path).Str("container_id", gameserver.ContainerID).Msg("Attempting to download file")
-	reader, err := h.service.DownloadFile(gameserver.ContainerID, path)
+	reader, err := h.docker.DownloadFile(gameserver.ContainerID, path)
 	if err != nil {
 		log.Error().Err(err).Str("path", path).Str("container_id", gameserver.ContainerID).Msg("Download file failed")
 		HandleError(w, InternalError(err, "Failed to download file"), "download_file")
@@ -337,10 +337,10 @@ func (h *Handlers) CreateGameserverFile(w http.ResponseWriter, r *http.Request) 
 
 	var err error
 	if isDir {
-		err = h.service.CreateDirectory(gameserver.ContainerID, fullPath)
+		err = h.docker.CreateDirectory(gameserver.ContainerID, fullPath)
 	} else {
 		// Create empty file
-		err = h.service.WriteFile(gameserver.ContainerID, fullPath, []byte(""))
+		err = h.docker.WriteFile(gameserver.ContainerID, fullPath, []byte(""))
 	}
 
 	if err != nil {
@@ -369,7 +369,7 @@ func (h *Handlers) DeleteGameserverFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.service.DeletePath(gameserver.ContainerID, path); err != nil {
+	if err := h.docker.DeletePath(gameserver.ContainerID, path); err != nil {
 		HandleError(w, InternalError(err, "Failed to delete file/directory"), "delete_file")
 		return
 	}
@@ -397,7 +397,7 @@ func (h *Handlers) RenameGameserverFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.service.RenameFile(gameserver.ContainerID, oldPath, newPath); err != nil {
+	if err := h.docker.RenameFile(gameserver.ContainerID, oldPath, newPath); err != nil {
 		HandleError(w, InternalError(err, "Failed to rename file"), "rename_file")
 		return
 	}
@@ -469,7 +469,7 @@ func (h *Handlers) UploadGameserverFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Upload file to container
-	if err := h.service.UploadFile(gameserver.ContainerID, destPath, bytes.NewReader(buf.Bytes())); err != nil {
+	if err := h.docker.UploadFile(gameserver.ContainerID, destPath, bytes.NewReader(buf.Bytes())); err != nil {
 		HandleError(w, InternalError(err, "Failed to upload file"), "upload_file")
 		return
 	}

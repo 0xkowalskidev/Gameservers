@@ -55,14 +55,3 @@ func (g *Game) ValidateEnvironment(env []string) []string {
 
 	return missing
 }
-
-// GetRequiredConfigs returns a list of required configuration variables
-func (g *Game) GetRequiredConfigs() []ConfigVar {
-	var required []ConfigVar
-	for _, configVar := range g.ConfigVars {
-		if configVar.Required {
-			required = append(required, configVar)
-		}
-	}
-	return required
-}

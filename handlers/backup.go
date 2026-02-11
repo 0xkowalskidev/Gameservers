@@ -82,7 +82,7 @@ func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request)
 		}
 	} else {
 		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "backups", "gameserver-backups.html", data)
+		h.renderGameserverWithWrapper(w, r, gameserver, "backups", "gameserver-backups.html", data)
 	}
 }
 
@@ -104,7 +104,7 @@ func (h *Handlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request
 
 	// Delete the backup file from /data/backups
 	backupPath := fmt.Sprintf("/data/backups/%s", backupFilename)
-	if err := h.service.DeletePath(gameserver.ContainerID, backupPath); err != nil {
+	if err := h.docker.DeletePath(gameserver.ContainerID, backupPath); err != nil {
 		HandleError(w, InternalError(err, "Failed to delete backup"), "delete_backup")
 		return
 	}

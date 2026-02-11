@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -583,34 +584,21 @@ func sortFiles(files []*models.FileInfo, isBackupsPath bool) []*models.FileInfo 
 	}
 
 	// Sort directories alphabetically by name
-	for i := 0; i < len(dirs); i++ {
-		for j := i + 1; j < len(dirs); j++ {
-			if strings.ToLower(dirs[i].Name) > strings.ToLower(dirs[j].Name) {
-				dirs[i], dirs[j] = dirs[j], dirs[i]
-			}
-		}
-	}
+	sort.Slice(dirs, func(i, j int) bool {
+		return strings.ToLower(dirs[i].Name) < strings.ToLower(dirs[j].Name)
+	})
 
 	// Sort files: by modification time for backups, by size for file manager
 	if isBackupsPath {
 		// Sort backups by modification time (newest first)
-		for i := 0; i < len(regularFiles); i++ {
-			for j := i + 1; j < len(regularFiles); j++ {
-				// Compare modification time strings (YYYY-MM-DD HH:MM:SS format sorts correctly)
-				if regularFiles[i].Modified < regularFiles[j].Modified {
-					regularFiles[i], regularFiles[j] = regularFiles[j], regularFiles[i]
-				}
-			}
-		}
+		sort.Slice(regularFiles, func(i, j int) bool {
+			return regularFiles[i].Modified > regularFiles[j].Modified
+		})
 	} else {
 		// Sort files by size (largest first) for file manager
-		for i := 0; i < len(regularFiles); i++ {
-			for j := i + 1; j < len(regularFiles); j++ {
-				if regularFiles[i].Size < regularFiles[j].Size {
-					regularFiles[i], regularFiles[j] = regularFiles[j], regularFiles[i]
-				}
-			}
-		}
+		sort.Slice(regularFiles, func(i, j int) bool {
+			return regularFiles[i].Size > regularFiles[j].Size
+		})
 	}
 
 	// Combine: directories first, then files
@@ -666,24 +654,4 @@ func cleanFilename(filename string) string {
 	cleaned = strings.ReplaceAll(cleaned, "\n", "")
 
 	return cleaned
-}
-
-func cleanDockerOutput(output string) string {
-	// Docker exec output can contain stream multiplexing headers
-	// These are 8-byte headers: [STREAM_TYPE, 0, 0, 0, SIZE_BYTE1, SIZE_BYTE2, SIZE_BYTE3, SIZE_BYTE4]
-	// followed by the actual data
-
-	// If the output starts with these control bytes, strip them
-	if len(output) >= 8 {
-		// Check if it looks like a Docker stream header (first byte is 1 or 2 for stdout/stderr)
-		firstByte := output[0]
-		if (firstByte == 1 || firstByte == 2) && output[1] == 0 && output[2] == 0 && output[3] == 0 {
-			// Skip the 8-byte header
-			if len(output) > 8 {
-				return output[8:]
-			}
-		}
-	}
-
-	return output
 }

@@ -17,6 +17,7 @@ type DockerManagerInterface interface {
 	CreateVolume(volumeName string) error
 	RemoveVolume(volumeName string) error
 	GetVolumeInfo(volumeName string) (*VolumeInfo, error)
+	GetVolumeNameForServer(server *Gameserver) string
 	CreateBackup(gameserverID, backupPath string) error
 	RestoreBackup(gameserverID, backupPath string) error
 	CleanupOldBackups(containerID string, maxBackups int) error

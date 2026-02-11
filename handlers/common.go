@@ -37,6 +37,7 @@ var (
 // Handlers contains all HTTP handlers and their dependencies
 type Handlers struct {
 	service         *database.GameserverRepository
+	docker          models.DockerManagerInterface
 	tmpl            *template.Template
 	maxFileEditSize int64
 	maxUploadSize   int64
@@ -44,9 +45,10 @@ type Handlers struct {
 }
 
 // New creates a new handlers instance
-func New(service *database.GameserverRepository, tmpl *template.Template, maxFileEditSize, maxUploadSize int64, queryService QueryServiceInterface) *Handlers {
+func New(service *database.GameserverRepository, docker models.DockerManagerInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64, queryService QueryServiceInterface) *Handlers {
 	return &Handlers{
 		service:         service,
+		docker:          docker,
 		tmpl:            tmpl,
 		maxFileEditSize: maxFileEditSize,
 		maxUploadSize:   maxUploadSize,
@@ -82,7 +84,7 @@ func (h *Handlers) renderGameserverPageOrPartial(w http.ResponseWriter, r *http.
 			HandleError(w, InternalError(err, "Failed to render template"), "render_template")
 		}
 	} else {
-		h.renderGameserverPage(w, r, gameserver, currentPage, templateName, data)
+		h.renderGameserverWithWrapper(w, r, gameserver, currentPage, templateName, data)
 	}
 }
 
@@ -217,13 +219,8 @@ func (h *Handlers) validateFormFields(r *http.Request, fields ...string) error {
 	return nil
 }
 
-// renderGameserverPage is a helper that combines renderWithGameserverContext for the most common use case
-func (h *Handlers) renderGameserverPage(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, contentTemplate string, data map[string]interface{}) {
-	h.renderWithGameserverContext(w, r, gameserver, currentPage, contentTemplate, data)
-}
-
-// renderWithGameserverContext handles the standard gameserver page layout with navigation
-func (h *Handlers) renderWithGameserverContext(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, templateName string, data map[string]interface{}) {
+// renderGameserverWithWrapper renders a gameserver page with wrapper (for full page loads)
+func (h *Handlers) renderGameserverWithWrapper(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, templateName string, data map[string]interface{}) {
 	// Set up page data with gameserver context
 	pageData := map[string]interface{}{
 		"Gameserver":  gameserver,
@@ -235,34 +232,9 @@ func (h *Handlers) renderWithGameserverContext(w http.ResponseWriter, r *http.Re
 		pageData[k] = v
 	}
 
-	// Always render the layout for full page requests
-	if r.Header.Get("HX-Request") != "true" {
-		// For full page requests, we need to render the content template first,
-		// then wrap it in the gameserver-wrapper, then in the layout
-		var contentBuf bytes.Buffer
-		err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, pageData)
-		if err != nil {
-			HandleError(w, err, "render_content_template")
-			return
-		}
-
-		// Create wrapper data with the rendered content
-		wrapperData := map[string]interface{}{
-			"Gameserver":  gameserver,
-			"CurrentPage": currentPage,
-			"Content":     template.HTML(contentBuf.String()),
-		}
-
-		// Use the Render function to wrap in layout
-		Render(w, r, h.tmpl, "gameserver-wrapper.html", wrapperData)
-		return
-	}
-
-	// For HTMX requests, render the gameserver-wrapper which includes navigation
-	// First render the content template
+	// Render the content template
 	var contentBuf bytes.Buffer
-	err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, pageData)
-	if err != nil {
+	if err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, pageData); err != nil {
 		HandleError(w, err, "render_content_template")
 		return
 	}
@@ -274,10 +246,13 @@ func (h *Handlers) renderWithGameserverContext(w http.ResponseWriter, r *http.Re
 		"Content":     template.HTML(contentBuf.String()),
 	}
 
-	// Render the wrapper template
-	err = h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData)
-	if err != nil {
-		HandleError(w, err, "render_wrapper_template")
+	// Render the wrapper (which uses Render for layout if full page)
+	if r.Header.Get("HX-Request") == "true" {
+		if err := h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData); err != nil {
+			HandleError(w, err, "render_wrapper_template")
+		}
+	} else {
+		Render(w, r, h.tmpl, "gameserver-wrapper.html", wrapperData)
 	}
 }
 
@@ -304,9 +279,4 @@ func (h *Handlers) jsonError(w http.ResponseWriter, message string) {
 func (h *Handlers) jsonSuccess(w http.ResponseWriter, data map[string]interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
-}
-
-func (h *Handlers) jsonStatus(w http.ResponseWriter, status, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": status, "message": message})
 }

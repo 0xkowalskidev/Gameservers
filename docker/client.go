@@ -52,5 +52,13 @@ func NewDockerManager(dockerSocket, namespace string, stopTimeout time.Duration)
 	}, nil
 }
 
+// wrapErr creates a DockerError with the given operation, message, and wrapped error
+func (d *DockerManager) wrapErr(op, msg string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &DockerError{Op: op, Msg: msg, Err: err}
+}
+
 // Ensure DockerManager implements the interface
 var _ models.DockerManagerInterface = (*DockerManager)(nil)

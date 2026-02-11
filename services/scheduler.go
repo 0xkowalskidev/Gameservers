@@ -3,6 +3,7 @@ package services
 import (
 	"time"
 
+	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/database"
@@ -96,11 +97,13 @@ func (ts *TaskScheduler) processTasks() {
 }
 
 func (ts *TaskScheduler) updateTaskNextRun(task *models.ScheduledTask, from time.Time) {
-	nextRun := models.CalculateNextRun(task.CronSchedule, from)
-	if !nextRun.IsZero() {
-		task.NextRun = &nextRun
-	} else {
+	schedule, err := cron.ParseStandard(task.CronSchedule)
+	if err != nil {
+		log.Error().Err(err).Str("task_id", task.ID).Str("cron", task.CronSchedule).Msg("Invalid cron schedule")
 		task.NextRun = nil
+	} else {
+		nextRun := schedule.Next(from)
+		task.NextRun = &nextRun
 	}
 	task.UpdatedAt = from
 

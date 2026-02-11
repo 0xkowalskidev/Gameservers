@@ -61,9 +61,9 @@ func (d *DockerManager) RemoveVolume(volumeName string) error {
 	return nil
 }
 
-// getVolumeNameForServer generates a volume name for a gameserver
-func (d *DockerManager) getVolumeNameForServer(server *models.Gameserver) string {
-	return fmt.Sprintf("gameservers-%s-data", server.Name)
+// GetVolumeNameForServer generates a volume name for a gameserver
+func (d *DockerManager) GetVolumeNameForServer(server *models.Gameserver) string {
+	return fmt.Sprintf("%s-%s-data", d.namespace, server.Name)
 }
 
 // GetVolumeInfo returns information about a Docker volume

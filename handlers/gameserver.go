@@ -98,7 +98,7 @@ func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Full page load, use wrapper
-		h.renderGameserverPage(w, r, gameserver, "edit", "edit-gameserver.html", data)
+		h.renderGameserverWithWrapper(w, r, gameserver, "edit", "edit-gameserver.html", data)
 	}
 }
 

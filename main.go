@@ -154,8 +154,8 @@ func main() {
 	queryService := services.NewQueryService()
 	log.Info().Msg("Query service initialized")
 
-	// Initialize handlers (using database service which implements models.GameserverServiceInterface)
-	handlerInstance := handlers.New(gameserverRepo, tmpl, config.MaxFileEditSize, config.MaxUploadSize, queryService)
+	// Initialize handlers
+	handlerInstance := handlers.New(gameserverRepo, dockerManager, tmpl, config.MaxFileEditSize, config.MaxUploadSize, queryService)
 
 	// Chi HTTP Server
 	r := chi.NewRouter()

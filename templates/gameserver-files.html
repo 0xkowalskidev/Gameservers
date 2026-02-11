@@ -209,6 +209,8 @@ function navigateTo(path) {
   htmx.ajax('GET', `/{{.Gameserver.ID}}/files/browse?path=${encodeURIComponent(path)}`, {
     target: '#file-browser',
     swap: 'innerHTML'
+  }).catch(err => {
+    showNotification('Failed to load directory: ' + err.message, 'error');
   });
 }
 
@@ -401,8 +403,10 @@ function downloadFile(path) {
 }
 
 function deleteFile(path) {
-  if (!confirm(`Are you sure you want to delete ${path}?`)) return;
-  
+  const fileName = path.split('/').pop();
+  const escapedName = fileName.replace(/[`\\]/g, '\\$&');
+  if (!confirm(`Are you sure you want to delete ${escapedName}?`)) return;
+
   fetch(`/{{.Gameserver.ID}}/files/delete?path=${encodeURIComponent(path)}`, {
     method: 'DELETE'
   })
@@ -562,6 +566,12 @@ dropZone.addEventListener('drop', function(e) {
 
 // Handle keyboard shortcuts
 document.addEventListener('keydown', function(e) {
+  // Don't trigger shortcuts when typing in inputs or textareas
+  const activeElement = document.activeElement;
+  if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+    return;
+  }
+
   if (e.ctrlKey && e.key === 's') {
     e.preventDefault();
     saveFile();
