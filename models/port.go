@@ -2,9 +2,6 @@ package models
 
 import (
 	"fmt"
-	"net"
-	"os"
-	"strconv"
 )
 
 type PortMapping struct {
@@ -21,56 +18,16 @@ type PortAllocator struct {
 }
 
 func NewPortAllocator() *PortAllocator {
-	// Default port range - allow most ports but stay away from system ports
-	minPort := 1024
-	maxPort := 65535
-
-	// Read from environment variables if set
-	if startEnv := os.Getenv("PORT_RANGE_START"); startEnv != "" {
-		if start, err := strconv.Atoi(startEnv); err == nil && start >= 1024 && start <= 65535 {
-			minPort = start
-		}
-	}
-
-	if endEnv := os.Getenv("PORT_RANGE_END"); endEnv != "" {
-		if end, err := strconv.Atoi(endEnv); err == nil && end >= 1024 && end <= 65535 && end > minPort {
-			maxPort = end
-		}
-	}
-
+	// Use dynamic/private port range (IANA recommended for ephemeral ports)
 	return &PortAllocator{
-		minPort: minPort,
-		maxPort: maxPort,
+		minPort: 49152,
+		maxPort: 65535,
 	}
 }
 
-// isPortAvailable checks if a port is available on the system
-func (pa *PortAllocator) isPortAvailable(port int, protocol string) bool {
-	if port < pa.minPort || port > pa.maxPort {
-		return false
-	}
-
-	// Try to bind to the port to see if it's available
-	address := fmt.Sprintf(":%d", port)
-	
-	switch protocol {
-	case "tcp":
-		listener, err := net.Listen("tcp", address)
-		if err != nil {
-			return false
-		}
-		listener.Close()
-		return true
-	case "udp":
-		conn, err := net.ListenPacket("udp", address)
-		if err != nil {
-			return false
-		}
-		conn.Close()
-		return true
-	default:
-		return false
-	}
+// isPortAvailable checks if a port is within range and not already used
+func (pa *PortAllocator) isPortAvailable(port int, usedPorts map[int]bool) bool {
+	return port >= pa.minPort && port <= pa.maxPort && !usedPorts[port]
 }
 
 // AllocatePortsForServer assigns available ports to all zero-valued port mappings
@@ -82,7 +39,6 @@ func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts ma
 	for i := range server.PortMappings {
 		if server.PortMappings[i].HostPort == 0 {
 			portName := server.PortMappings[i].Name
-			protocol := server.PortMappings[i].Protocol
 
 			// Check if we already assigned a port for this name
 			if assignedPort, exists := portGroups[portName]; exists {
@@ -90,17 +46,17 @@ func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts ma
 				continue
 			}
 
-			// Try container port first (preferred approach)
+			// Try container port first if it's in valid range
 			containerPort := server.PortMappings[i].ContainerPort
-			if containerPort > 0 && !usedPorts[containerPort] && pa.isPortAvailable(containerPort, protocol) {
+			if containerPort > 0 && pa.isPortAvailable(containerPort, usedPorts) {
 				server.PortMappings[i].HostPort = containerPort
 				portGroups[portName] = containerPort
 				usedPorts[containerPort] = true
 				continue
 			}
 
-			// Container port not available, find next available port starting from container port + 1
-			port, err := pa.findAvailablePort(containerPort+1, protocol, usedPorts)
+			// Container port not available, find next available port
+			port, err := pa.findAvailablePort(usedPorts)
 			if err != nil {
 				return err
 			}
@@ -113,30 +69,17 @@ func (pa *PortAllocator) AllocatePortsForServer(server *Gameserver, usedPorts ma
 	return nil
 }
 
-// findAvailablePort finds the next available port starting from the given startPort
-func (pa *PortAllocator) findAvailablePort(startPort int, protocol string, usedPorts map[int]bool) (int, error) {
-	// Ensure we start within our valid range
-	if startPort < pa.minPort {
-		startPort = pa.minPort
-	}
-
-	// Search from startPort to maxPort
-	for port := startPort; port <= pa.maxPort; port++ {
-		if !usedPorts[port] && pa.isPortAvailable(port, protocol) {
+// findAvailablePort finds the next available port in the valid range
+func (pa *PortAllocator) findAvailablePort(usedPorts map[int]bool) (int, error) {
+	for port := pa.minPort; port <= pa.maxPort; port++ {
+		if !usedPorts[port] {
 			return port, nil
 		}
 	}
 
-	// If we didn't find anything above startPort, search from minPort to startPort-1
-	for port := pa.minPort; port < startPort; port++ {
-		if !usedPorts[port] && pa.isPortAvailable(port, protocol) {
-			return port, nil
-		}
-	}
-
-	return 0, &DatabaseError{
+	return 0, &OperationError{
 		Op:  "allocate_port",
-		Msg: fmt.Sprintf("no available %s ports in range %d-%d", protocol, pa.minPort, pa.maxPort),
+		Msg: fmt.Sprintf("no available ports in range %d-%d", pa.minPort, pa.maxPort),
 		Err: nil,
 	}
 }
