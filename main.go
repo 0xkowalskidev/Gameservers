@@ -83,16 +83,12 @@ func main() {
 	}
 	log.Info().Msg("Docker manager initialized successfully")
 
-	// Initialize database-level Gameserver service (implements models.GameserverServiceInterface)
-	dbGameserverService := database.NewGameserverService(db, dockerManager)
-	log.Info().Msg("Database gameserver service initialized")
-
-	// Initialize business logic service from services package (using dbGameserverService which implements the interface)
-	businessService := services.NewGameserverService(dbGameserverService, dockerManager, "/data")
-	log.Info().Msg("Business logic service initialized")
+	// Initialize gameserver repository
+	gameserverRepo := database.NewGameserverRepository(db, dockerManager)
+	log.Info().Msg("Gameserver repository initialized")
 
 	// Initialize and start task scheduler
-	taskScheduler := services.NewTaskScheduler(db, businessService)
+	taskScheduler := services.NewTaskScheduler(db, gameserverRepo)
 	taskScheduler.Start()
 	log.Info().Msg("Task scheduler started")
 
@@ -104,118 +100,34 @@ func main() {
 		"formatFileSize": formatFileSize,
 		"sub":            func(a, b int) int { return a - b },
 		"mul": func(a, b interface{}) float64 {
-			var aVal, bVal float64
-
-			switch v := a.(type) {
-			case int:
-				aVal = float64(v)
-			case float64:
-				aVal = v
-			default:
-				return 0
-			}
-
-			switch v := b.(type) {
-			case int:
-				bVal = float64(v)
-			case float64:
-				bVal = v
-			default:
-				return 0
-			}
-
+			aVal, bVal := toFloat64(a), toFloat64(b)
 			return aVal * bVal
 		},
 		"div": func(a, b interface{}) float64 {
-			var aVal, bVal float64
-
-			switch v := a.(type) {
-			case int:
-				aVal = float64(v)
-			case float64:
-				aVal = v
-			default:
-				return 0
-			}
-
-			switch v := b.(type) {
-			case int:
-				bVal = float64(v)
-			case float64:
-				bVal = v
-			default:
-				return 0
-			}
-
+			aVal, bVal := toFloat64(a), toFloat64(b)
 			if bVal == 0 {
 				return 0
 			}
 			return aVal / bVal
 		},
 		"gt": func(a, b interface{}) bool {
-			switch av := a.(type) {
-			case int:
-				if bv, ok := b.(int); ok {
-					return av > bv
-				}
-				if bv, ok := b.(float64); ok {
-					return float64(av) > bv
-				}
-			case float64:
-				if bv, ok := b.(float64); ok {
-					return av > bv
-				}
-				if bv, ok := b.(int); ok {
-					return av > float64(bv)
-				}
-			}
-			return false
+			return toFloat64(a) > toFloat64(b)
 		},
-		"dict": func(values ...interface{}) map[string]interface{} {
-			if len(values)%2 != 0 {
-				return nil
-			}
-			dict := make(map[string]interface{}, len(values)/2)
-			for i := 0; i < len(values); i += 2 {
-				key, ok := values[i].(string)
-				if !ok {
-					return nil
-				}
-				dict[key] = values[i+1]
-			}
-			return dict
-		},
-		"slice": func(values ...interface{}) []interface{} {
-			return values
-		},
-		"len": func(items interface{}) int {
-			if items == nil {
-				return 0
-			}
-			v := reflect.ValueOf(items)
-			switch v.Kind() {
-			case reflect.Slice, reflect.Array:
-				return v.Len()
-			default:
-				return 0
-			}
+		"floor": func(val interface{}) int {
+			return int(toFloat64(val))
 		},
 		"printf": fmt.Sprintf,
-		"floor": func(val interface{}) int {
-			switch v := val.(type) {
-			case float64:
-				return int(v)
-			case int:
-				return v
+		"len": func(v interface{}) int {
+			if v == nil {
+				return 0
+			}
+			val := reflect.ValueOf(v)
+			switch val.Kind() {
+			case reflect.Slice, reflect.Array, reflect.Map:
+				return val.Len()
 			default:
 				return 0
 			}
-		},
-		"if": func(condition bool, trueVal, falseVal interface{}) interface{} {
-			if condition {
-				return trueVal
-			}
-			return falseVal
 		},
 	}).ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
@@ -243,7 +155,7 @@ func main() {
 	log.Info().Msg("Query service initialized")
 
 	// Initialize handlers (using database service which implements models.GameserverServiceInterface)
-	handlerInstance := handlers.New(dbGameserverService, tmpl, config.MaxFileEditSize, config.MaxUploadSize, queryService)
+	handlerInstance := handlers.New(gameserverRepo, tmpl, config.MaxFileEditSize, config.MaxUploadSize, queryService)
 
 	// Chi HTTP Server
 	r := chi.NewRouter()
@@ -411,67 +323,81 @@ func formatFileSize(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
+// toFloat64 converts interface{} to float64 for template math functions
+func toFloat64(v interface{}) float64 {
+	switch val := v.(type) {
+	case int:
+		return float64(val)
+	case int64:
+		return float64(val)
+	case float64:
+		return val
+	case float32:
+		return float64(val)
+	default:
+		return 0
+	}
+}
+
 // loadConfig loads configuration from environment variables with sensible defaults
 func loadConfig() Config {
-	config := Config{
+	// Helper to get string env var
+	getStr := func(key, def string) string {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
+		return def
+	}
+
+	// Helper to get int env var
+	getInt := func(key string, def int) int {
+		if v := os.Getenv(key); v != "" {
+			if i, err := strconv.Atoi(v); err == nil {
+				return i
+			}
+			log.Warn().Str("key", key).Str("value", v).Msg("Invalid integer, using default")
+		}
+		return def
+	}
+
+	// Helper to get int64 env var
+	getInt64 := func(key string, def int64) int64 {
+		if v := os.Getenv(key); v != "" {
+			if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+				return i
+			}
+			log.Warn().Str("key", key).Str("value", v).Msg("Invalid int64, using default")
+		}
+		return def
+	}
+
+	// Helper to get duration env var
+	getDuration := func(key string, def time.Duration) time.Duration {
+		if v := os.Getenv(key); v != "" {
+			if d, err := time.ParseDuration(v); err == nil {
+				return d
+			}
+			log.Warn().Str("key", key).Str("value", v).Msg("Invalid duration, using default")
+		}
+		return def
+	}
+
+	return Config{
 		// Server defaults
-		Host:            getenv("GAMESERVER_HOST", "localhost"),
-		Port:            getenvInt("GAMESERVER_PORT", 3000),
-		ShutdownTimeout: getenvDuration("GAMESERVER_SHUTDOWN_TIMEOUT", 30*time.Second),
+		Host:            getStr("GAMESERVER_HOST", "localhost"),
+		Port:            getInt("GAMESERVER_PORT", 3000),
+		ShutdownTimeout: getDuration("GAMESERVER_SHUTDOWN_TIMEOUT", 30*time.Second),
 
 		// Database defaults
-		DatabasePath: getenv("GAMESERVER_DATABASE_PATH", "gameservers.db"),
+		DatabasePath: getStr("GAMESERVER_DATABASE_PATH", "gameservers.db"),
 
 		// Docker defaults
-		DockerSocket:         getenv("GAMESERVER_DOCKER_SOCKET", ""),
-		ContainerNamespace:   getenv("GAMESERVER_CONTAINER_NAMESPACE", "gameservers"),
-		ContainerStopTimeout: getenvDuration("GAMESERVER_CONTAINER_STOP_TIMEOUT", 30*time.Second),
+		DockerSocket:         getStr("GAMESERVER_DOCKER_SOCKET", ""),
+		ContainerNamespace:   getStr("GAMESERVER_CONTAINER_NAMESPACE", "gameservers"),
+		ContainerStopTimeout: getDuration("GAMESERVER_CONTAINER_STOP_TIMEOUT", 30*time.Second),
 
 		// File system defaults (10MB edit, 100MB upload)
-		MaxFileEditSize: getenvInt64("GAMESERVER_MAX_FILE_EDIT_SIZE", 10*1024*1024),
-		MaxUploadSize:   getenvInt64("GAMESERVER_MAX_UPLOAD_SIZE", 100*1024*1024),
+		MaxFileEditSize: getInt64("GAMESERVER_MAX_FILE_EDIT_SIZE", 10*1024*1024),
+		MaxUploadSize:   getInt64("GAMESERVER_MAX_UPLOAD_SIZE", 100*1024*1024),
 	}
-
-	return config
-}
-
-// getenv gets environment variable with default value
-func getenv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// getenvInt gets environment variable as int with default value
-func getenvInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if i, err := strconv.Atoi(value); err == nil {
-			return i
-		}
-		log.Warn().Str("key", key).Str("value", value).Msg("Invalid integer value, using default")
-	}
-	return defaultValue
-}
-
-// getenvInt64 gets environment variable as int64 with default value
-func getenvInt64(key string, defaultValue int64) int64 {
-	if value := os.Getenv(key); value != "" {
-		if i, err := strconv.ParseInt(value, 10, 64); err == nil {
-			return i
-		}
-		log.Warn().Str("key", key).Str("value", value).Msg("Invalid int64 value, using default")
-	}
-	return defaultValue
-}
-
-// getenvDuration gets environment variable as duration with default value
-func getenvDuration(key string, defaultValue time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if d, err := time.ParseDuration(value); err == nil {
-			return d
-		}
-		log.Warn().Str("key", key).Str("value", value).Msg("Invalid duration value, using default")
-	}
-	return defaultValue
 }

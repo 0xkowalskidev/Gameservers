@@ -21,14 +21,6 @@ func (e HTTPError) Error() string {
 	return e.Message
 }
 
-// Common HTTP errors
-var (
-	ErrNotFound         = HTTPError{Status: http.StatusNotFound, Message: "Resource not found"}
-	ErrBadRequest       = HTTPError{Status: http.StatusBadRequest, Message: "Bad request"}
-	ErrInternalServer   = HTTPError{Status: http.StatusInternalServerError, Message: "Internal server error"}
-	ErrMethodNotAllowed = HTTPError{Status: http.StatusMethodNotAllowed, Message: "Method not allowed"}
-)
-
 // HandleError handles errors in HTTP handlers with consistent logging and responses
 func HandleError(w http.ResponseWriter, err error, context string) {
 	if err == nil {
