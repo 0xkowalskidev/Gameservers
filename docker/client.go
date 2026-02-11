@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/docker/docker/client"
@@ -10,19 +9,8 @@ import (
 	"0xkowalskidev/gameservers/models"
 )
 
-// DockerError represents an error that occurred during a Docker operation
-type DockerError struct {
-	Op  string
-	Msg string
-	Err error
-}
-
-func (e *DockerError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("docker %s: %s: %v", e.Op, e.Msg, e.Err)
-	}
-	return fmt.Sprintf("docker %s: %s", e.Op, e.Msg)
-}
+// DockerError is an alias for models.OperationError
+type DockerError = models.OperationError
 
 // DockerManager manages Docker operations for gameservers
 type DockerManager struct {

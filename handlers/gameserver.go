@@ -111,7 +111,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	}
 
 	server := &models.Gameserver{
-		ID:          generateID(),
+		ID:          models.GenerateID(),
 		Name:        formData.Name,
 		GameID:      formData.GameID,
 		MemoryMB:    formData.MemoryMB,

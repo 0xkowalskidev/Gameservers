@@ -1,21 +1,20 @@
 package services
 
 import (
-	"context"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
+	"0xkowalskidev/gameservers/database"
 	"0xkowalskidev/gameservers/models"
 )
 
 // TaskScheduler handles scheduled task execution
 type TaskScheduler struct {
 	db            DatabaseInterface
-	gameserverSvc GameserverServiceInterface
-	ctx           context.Context
-	cancel        context.CancelFunc
+	gameserverSvc *database.GameserverRepository
 	ticker        *time.Ticker
+	done          chan struct{}
 	checkInterval time.Duration
 }
 
@@ -26,13 +25,11 @@ type DatabaseInterface interface {
 }
 
 // NewTaskScheduler creates a new task scheduler instance
-func NewTaskScheduler(db DatabaseInterface, gameserverSvc GameserverServiceInterface) *TaskScheduler {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewTaskScheduler(db DatabaseInterface, gameserverSvc *database.GameserverRepository) *TaskScheduler {
 	return &TaskScheduler{
 		db:            db,
 		gameserverSvc: gameserverSvc,
-		ctx:           ctx,
-		cancel:        cancel,
+		done:          make(chan struct{}),
 		checkInterval: time.Minute,
 	}
 }
@@ -46,7 +43,7 @@ func (ts *TaskScheduler) Start() {
 		ts.updateNextRunTimes() // Initial calculation
 		for {
 			select {
-			case <-ts.ctx.Done():
+			case <-ts.done:
 				return
 			case <-ts.ticker.C:
 				ts.processTasks()
@@ -61,7 +58,7 @@ func (ts *TaskScheduler) Stop() {
 	if ts.ticker != nil {
 		ts.ticker.Stop()
 	}
-	ts.cancel()
+	close(ts.done)
 }
 
 func (ts *TaskScheduler) updateNextRunTimes() {
@@ -99,7 +96,7 @@ func (ts *TaskScheduler) processTasks() {
 }
 
 func (ts *TaskScheduler) updateTaskNextRun(task *models.ScheduledTask, from time.Time) {
-	nextRun := CalculateNextRun(task.CronSchedule, from)
+	nextRun := models.CalculateNextRun(task.CronSchedule, from)
 	if !nextRun.IsZero() {
 		task.NextRun = &nextRun
 	} else {
@@ -114,7 +111,7 @@ func (ts *TaskScheduler) updateTaskNextRun(task *models.ScheduledTask, from time
 
 func (ts *TaskScheduler) executeTask(task *models.ScheduledTask) {
 	log.Info().Str("task_id", task.ID).Str("task_name", task.Name).Str("type", string(task.Type)).Msg("Executing scheduled task")
-	if err := ts.gameserverSvc.ExecuteScheduledTask(context.Background(), task); err != nil {
+	if err := ts.gameserverSvc.ExecuteScheduledTask(task); err != nil {
 		log.Error().Err(err).Str("task_id", task.ID).Str("task_name", task.Name).Msg("Failed to execute scheduled task")
 	}
 }

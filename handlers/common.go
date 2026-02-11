@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
+	"0xkowalskidev/gameservers/database"
 	"0xkowalskidev/gameservers/models"
 	"github.com/0xkowalskidev/gameserverquery/protocol"
 )
@@ -34,18 +34,18 @@ var (
 	Render func(w http.ResponseWriter, r *http.Request, tmpl *template.Template, templateName string, data interface{})
 )
 
-// BaseHandler provides common functionality for all handlers
-type BaseHandler struct {
-	service         models.GameserverServiceInterface
+// Handlers contains all HTTP handlers and their dependencies
+type Handlers struct {
+	service         *database.GameserverRepository
 	tmpl            *template.Template
 	maxFileEditSize int64
 	maxUploadSize   int64
 	queryService    QueryServiceInterface
 }
 
-// NewBaseHandler creates a new base handler
-func NewBaseHandler(service models.GameserverServiceInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64, queryService QueryServiceInterface) *BaseHandler {
-	return &BaseHandler{
+// New creates a new handlers instance
+func New(service *database.GameserverRepository, tmpl *template.Template, maxFileEditSize, maxUploadSize int64, queryService QueryServiceInterface) *Handlers {
+	return &Handlers{
 		service:         service,
 		tmpl:            tmpl,
 		maxFileEditSize: maxFileEditSize,
@@ -54,17 +54,8 @@ func NewBaseHandler(service models.GameserverServiceInterface, tmpl *template.Te
 	}
 }
 
-// Handlers embeds BaseHandler for backward compatibility
-type Handlers struct {
-	*BaseHandler
-}
-
-func New(service models.GameserverServiceInterface, tmpl *template.Template, maxFileEditSize, maxUploadSize int64, queryService QueryServiceInterface) *Handlers {
-	return &Handlers{BaseHandler: NewBaseHandler(service, tmpl, maxFileEditSize, maxUploadSize, queryService)}
-}
-
 // Helper function to get gameserver with error handling
-func (h *BaseHandler) getGameserver(w http.ResponseWriter, id string) (*models.Gameserver, bool) {
+func (h *Handlers) getGameserver(w http.ResponseWriter, id string) (*models.Gameserver, bool) {
 	gameserver, err := h.service.GetGameserver(id)
 	if err != nil {
 		HandleError(w, NotFound("Gameserver"), "get_gameserver")
@@ -74,13 +65,13 @@ func (h *BaseHandler) getGameserver(w http.ResponseWriter, id string) (*models.G
 }
 
 // Helper function to handle redirects with HTMX
-func (h *BaseHandler) htmxRedirect(w http.ResponseWriter, url string) {
+func (h *Handlers) htmxRedirect(w http.ResponseWriter, url string) {
 	w.Header().Set("HX-Redirect", url)
 	w.WriteHeader(http.StatusOK)
 }
 
 // renderGameserverPageOrPartial handles the common HTMX vs full page rendering pattern
-func (h *BaseHandler) renderGameserverPageOrPartial(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage, templateName string, data map[string]interface{}) {
+func (h *Handlers) renderGameserverPageOrPartial(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage, templateName string, data map[string]interface{}) {
 	if data == nil {
 		data = make(map[string]interface{})
 	}
@@ -106,7 +97,7 @@ type GameserverFormData struct {
 }
 
 // parseGameserverForm parses and validates gameserver form data
-func (h *BaseHandler) parseGameserverForm(r *http.Request) (*GameserverFormData, error) {
+func (h *Handlers) parseGameserverForm(r *http.Request) (*GameserverFormData, error) {
 	if err := ParseForm(r); err != nil {
 		return nil, err
 	}
@@ -145,7 +136,7 @@ func (h *BaseHandler) parseGameserverForm(r *http.Request) (*GameserverFormData,
 }
 
 // parseScheduledTaskForm parses and validates scheduled task form data
-func (h *BaseHandler) parseScheduledTaskForm(r *http.Request, gameserverID string) (*models.ScheduledTask, error) {
+func (h *Handlers) parseScheduledTaskForm(r *http.Request, gameserverID string) (*models.ScheduledTask, error) {
 	if err := ParseForm(r); err != nil {
 		return nil, err
 	}
@@ -170,7 +161,7 @@ func (h *BaseHandler) parseScheduledTaskForm(r *http.Request, gameserverID strin
 }
 
 // updateTaskFromForm updates task from form data
-func (h *BaseHandler) updateTaskFromForm(task *models.ScheduledTask, r *http.Request) error {
+func (h *Handlers) updateTaskFromForm(task *models.ScheduledTask, r *http.Request) error {
 	if err := ParseForm(r); err != nil {
 		return err
 	}
@@ -206,7 +197,7 @@ func (h *BaseHandler) updateTaskFromForm(task *models.ScheduledTask, r *http.Req
 }
 
 // requireQueryParam validates required query parameter
-func (h *BaseHandler) requireQueryParam(r *http.Request, param string) (string, error) {
+func (h *Handlers) requireQueryParam(r *http.Request, param string) (string, error) {
 	if value := r.URL.Query().Get(param); value != "" {
 		return value, nil
 	}
@@ -214,7 +205,7 @@ func (h *BaseHandler) requireQueryParam(r *http.Request, param string) (string, 
 }
 
 // validateFormFields validates required form fields
-func (h *BaseHandler) validateFormFields(r *http.Request, fields ...string) error {
+func (h *Handlers) validateFormFields(r *http.Request, fields ...string) error {
 	if err := ParseForm(r); err != nil {
 		return err
 	}
@@ -227,12 +218,12 @@ func (h *BaseHandler) validateFormFields(r *http.Request, fields ...string) erro
 }
 
 // renderGameserverPage is a helper that combines renderWithGameserverContext for the most common use case
-func (h *BaseHandler) renderGameserverPage(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, contentTemplate string, data map[string]interface{}) {
+func (h *Handlers) renderGameserverPage(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, contentTemplate string, data map[string]interface{}) {
 	h.renderWithGameserverContext(w, r, gameserver, currentPage, contentTemplate, data)
 }
 
 // renderWithGameserverContext handles the standard gameserver page layout with navigation
-func (h *BaseHandler) renderWithGameserverContext(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, templateName string, data map[string]interface{}) {
+func (h *Handlers) renderWithGameserverContext(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, templateName string, data map[string]interface{}) {
 	// Set up page data with gameserver context
 	pageData := map[string]interface{}{
 		"Gameserver":  gameserver,
@@ -290,11 +281,6 @@ func (h *BaseHandler) renderWithGameserverContext(w http.ResponseWriter, r *http
 	}
 }
 
-// generateID generates a unique ID for entities
-func generateID() string {
-	return strconv.FormatInt(time.Now().UnixNano(), 36)
-}
-
 // formatFileSize formats file size in human readable format
 func formatFileSize(size int64) string {
 	const unit = 1024
@@ -310,17 +296,17 @@ func formatFileSize(size int64) string {
 }
 
 // JSON response helpers
-func (h *BaseHandler) jsonError(w http.ResponseWriter, message string) {
+func (h *Handlers) jsonError(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"Supported": false, "Error": message})
 }
 
-func (h *BaseHandler) jsonSuccess(w http.ResponseWriter, data map[string]interface{}) {
+func (h *Handlers) jsonSuccess(w http.ResponseWriter, data map[string]interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
 }
 
-func (h *BaseHandler) jsonStatus(w http.ResponseWriter, status, message string) {
+func (h *Handlers) jsonStatus(w http.ResponseWriter, status, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": status, "message": message})
 }
