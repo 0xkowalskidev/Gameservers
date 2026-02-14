@@ -80,8 +80,16 @@ func (h *Handlers) renderGameserverPageOrPartial(w http.ResponseWriter, r *http.
 	data["Gameserver"] = gameserver
 
 	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render template"), "render_template")
+		// Check what's being targeted
+		target := r.Header.Get("HX-Target")
+		if target == "content" {
+			// Targeting outer content - return full wrapper
+			h.renderGameserverWithWrapper(w, r, gameserver, currentPage, templateName, data)
+		} else {
+			// Targeting inner content (e.g., main-content) - return just template
+			if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
+				HandleError(w, InternalError(err, "Failed to render template"), "render_template")
+			}
 		}
 	} else {
 		h.renderGameserverWithWrapper(w, r, gameserver, currentPage, templateName, data)
