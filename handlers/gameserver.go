@@ -190,7 +190,7 @@ func (h *Handlers) StartGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.GameserverRow(w, r)
+	h.renderGameserverPartial(w, r)
 }
 
 // StopGameserver stops a gameserver
@@ -200,7 +200,7 @@ func (h *Handlers) StopGameserver(w http.ResponseWriter, r *http.Request) {
 		HandleError(w, InternalError(err, "Failed to stop gameserver"), "stop_gameserver")
 		return
 	}
-	h.GameserverRow(w, r)
+	h.renderGameserverPartial(w, r)
 }
 
 // RestartGameserver restarts a gameserver
@@ -210,7 +210,7 @@ func (h *Handlers) RestartGameserver(w http.ResponseWriter, r *http.Request) {
 		HandleError(w, InternalError(err, "Failed to restart gameserver"), "restart_gameserver")
 		return
 	}
-	h.GameserverRow(w, r)
+	h.renderGameserverPartial(w, r)
 }
 
 // DestroyGameserver deletes a gameserver
@@ -223,16 +223,31 @@ func (h *Handlers) DestroyGameserver(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// GameserverRow renders a single gameserver row (for HTMX updates)
-func (h *Handlers) GameserverRow(w http.ResponseWriter, r *http.Request) {
+// renderGameserverPartial renders either the card (for list pages) or header (for detail pages)
+// based on the HX-Target header
+func (h *Handlers) renderGameserverPartial(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	gameserver, ok := h.getGameserver(w, id)
 	if !ok {
 		return
 	}
 
-	if err := h.tmpl.ExecuteTemplate(w, "gameserver-row.html", gameserver); err != nil {
-		HandleError(w, InternalError(err, "Failed to render gameserver row"), "gameserver_row")
+	target := r.Header.Get("HX-Target")
+
+	// Detail page targets #gameserver-header
+	if target == "gameserver-header" {
+		data := map[string]interface{}{
+			"Gameserver": gameserver,
+		}
+		if err := h.tmpl.ExecuteTemplate(w, "gameserver-header.html", data); err != nil {
+			HandleError(w, InternalError(err, "Failed to render gameserver header"), "gameserver_header")
+		}
+		return
+	}
+
+	// List page targets #gameserver-{id} - render card
+	if err := h.tmpl.ExecuteTemplate(w, "gameserver-card.html", gameserver); err != nil {
+		HandleError(w, InternalError(err, "Failed to render gameserver card"), "gameserver_card")
 	}
 }
 

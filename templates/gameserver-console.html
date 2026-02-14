@@ -31,7 +31,13 @@
     <!-- Console content -->
     <div class="flex flex-col" style="height: 600px;">
       <!-- Log output area -->
-      <div class="flex-1 bg-black text-green-400 font-mono text-sm p-4 overflow-y-auto" id="console-output">
+      <div class="flex-1 bg-black text-green-400 font-mono text-sm p-4 overflow-y-auto" id="console-output"
+           {{if eq .Gameserver.Status "running"}}
+           hx-ext="sse"
+           sse-connect="/gameservers/{{.Gameserver.ID}}/logs"
+           sse-swap="log"
+           hx-swap="beforeend"
+           {{end}}>
         {{if eq .Gameserver.Status "running"}}
           <div class="text-gray-500 mb-2">[INFO] Console connected - logs will appear below</div>
         {{else}}
@@ -105,59 +111,37 @@
 
 {{if eq .Gameserver.Status "running"}}
 <script>
-// Connect to log stream
-const logSource = new EventSource('/gameservers/{{.Gameserver.ID}}/logs');
-const output = document.getElementById('console-output');
-let autoScroll = true;
+(function() {
+  const output = document.getElementById('console-output');
+  let autoScroll = true;
 
-// Track if user is scrolling
-output.addEventListener('scroll', function() {
-  const isScrolledToBottom = output.scrollHeight - output.clientHeight <= output.scrollTop + 1;
-  autoScroll = isScrolledToBottom;
-});
+  // Track if user is scrolling
+  output.addEventListener('scroll', function() {
+    const isScrolledToBottom = output.scrollHeight - output.clientHeight <= output.scrollTop + 1;
+    autoScroll = isScrolledToBottom;
+  });
 
-logSource.addEventListener('log', function(e) {
-  const logLine = document.createElement('div');
-  logLine.className = 'whitespace-pre-wrap break-all';
-  logLine.textContent = e.data;
-  output.appendChild(logLine);
-  
-  // Auto-scroll to bottom if user hasn't scrolled up
-  if (autoScroll) {
-    output.scrollTop = output.scrollHeight;
-  }
-  
-  // Limit to last 1000 lines for performance
-  const lines = output.children;
-  if (lines.length > 1000) {
-    output.removeChild(lines[0]);
-  }
-});
+  // Auto-scroll and line limiting after htmx-sse swaps content
+  output.addEventListener('htmx:sseMessage', function() {
+    if (autoScroll) {
+      output.scrollTop = output.scrollHeight;
+    }
+    // Limit to last 1000 lines for performance
+    while (output.children.length > 1000) {
+      output.removeChild(output.children[0]);
+    }
+  });
 
-logSource.addEventListener('error', function(e) {
-  const errorLine = document.createElement('div');
-  errorLine.className = 'text-red-400';
-  errorLine.textContent = '[ERROR] Connection lost - refresh page to reconnect';
-  output.appendChild(errorLine);
-  if (autoScroll) {
-    output.scrollTop = output.scrollHeight;
+  // Handle form submission with Enter key
+  const commandInput = document.getElementById('command-input');
+  if (commandInput) {
+    commandInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        htmx.trigger(e.target.closest('form'), 'submit');
+      }
+    });
   }
-});
-
-// Handle form submission with Enter key
-document.getElementById('command-input').addEventListener('keypress', function(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const form = e.target.closest('form');
-    htmx.trigger(form, 'submit');
-  }
-});
-
-// Clean up on page unload
-window.addEventListener('beforeunload', function() {
-  if (logSource) {
-    logSource.close();
-  }
-});
+})();
 </script>
 {{end}}

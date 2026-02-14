@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strings"
 
@@ -70,7 +71,9 @@ func (h *Handlers) GameserverLogs(w http.ResponseWriter, r *http.Request) {
 		if len(line) > 8 {
 			cleanLine := line[8:]
 			if strings.TrimSpace(cleanLine) != "" {
-				fmt.Fprintf(w, "event: log\ndata: %s\n\n", cleanLine)
+				// Escape HTML to prevent XSS
+				cleanLine = template.HTMLEscapeString(cleanLine)
+				fmt.Fprintf(w, "event: log\ndata: <div class=\"whitespace-pre-wrap break-all\">%s</div>\n\n", cleanLine)
 				flusher.Flush()
 			}
 		}

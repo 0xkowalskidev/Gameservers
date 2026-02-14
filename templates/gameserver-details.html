@@ -118,7 +118,7 @@
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
         <div class="space-y-3">
-          <a href="/gameservers/{{.Gameserver.ID}}/tasks" hx-get="/gameservers/{{.Gameserver.ID}}/tasks" hx-target="#main-content"
+          <a href="/gameservers/{{.Gameserver.ID}}/tasks" hx-get="/gameservers/{{.Gameserver.ID}}/tasks" hx-target="#content"
             hx-push-url="true"
             class="w-full inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +127,7 @@
             </svg>
             Manage Scheduled Tasks
           </a>
-          <a href="/gameservers/{{.Gameserver.ID}}/files" hx-get="/gameservers/{{.Gameserver.ID}}/files" hx-target="#main-content"
+          <a href="/gameservers/{{.Gameserver.ID}}/files" hx-get="/gameservers/{{.Gameserver.ID}}/files" hx-target="#content"
             hx-push-url="true"
             class="w-full inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,12 +152,17 @@
 </div>
 
 {{if eq .Gameserver.Status "running"}}
-<script>
-  // Stats monitoring
-  const statsSource = new EventSource('/gameservers/{{.Gameserver.ID}}/stats');
+<!-- Stats SSE connection - htmx-sse handles automatic cleanup on navigation -->
+<div id="stats-sse" hx-ext="sse" sse-connect="/gameservers/{{.Gameserver.ID}}/stats" hx-trigger="sse:stats" hx-swap="none" style="display:none;"></div>
 
-  statsSource.addEventListener('stats', function (e) {
-    const stats = JSON.parse(e.data);
+<script>
+(function() {
+  const statsContainer = document.getElementById('stats-sse');
+  let queryInterval;
+
+  // Listen for SSE stats events
+  statsContainer.addEventListener('htmx:sseMessage', function(e) {
+    const stats = JSON.parse(e.detail.data);
 
     // Update CPU
     const cpuPercent = document.getElementById('cpu-percent');
@@ -175,10 +180,6 @@
       memUsage.textContent = stats.memoryUsageGB.toFixed(1) + ' / ' + stats.memoryLimitGB.toFixed(1) + ' GB';
       memBar.style.width = Math.min(memPercent, 100) + '%';
     }
-  });
-
-  statsSource.addEventListener('error', function (e) {
-    console.error('Stats error:', e);
   });
 
   // Server query polling
@@ -229,22 +230,18 @@
       }
     } catch (error) {
       console.error('Query error:', error);
-      const queryContainer = document.getElementById('server-query-data');
-      if (queryContainer) {
-        queryContainer.innerHTML = `
-          <div class="text-center py-4">
-            <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-              Error
-            </div>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Failed to fetch server status</p>
-          </div>
-        `;
-      }
     }
   }
 
-  // Poll server query every 30 seconds
-  updateServerQuery(); // Initial load
-  setInterval(updateServerQuery, 1000);
+  // Poll server query every second
+  updateServerQuery();
+  queryInterval = setInterval(updateServerQuery, 1000);
+
+  // Clean up interval on htmx navigation
+  document.body.addEventListener('htmx:beforeSwap', function cleanup() {
+    clearInterval(queryInterval);
+    document.body.removeEventListener('htmx:beforeSwap', cleanup);
+  }, { once: true });
+})();
 </script>
 {{end}}

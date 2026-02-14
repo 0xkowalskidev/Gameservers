@@ -31,8 +31,9 @@ var (
 
 // Layout data for wrapping content in layout.html
 type LayoutData struct {
-	Content template.HTML
-	Title   string
+	Content   template.HTML
+	Title     string
+	ActiveNav string // "dashboard" | "gameservers"
 }
 
 // Handlers contains all HTTP handlers and their dependencies
@@ -97,10 +98,9 @@ func (h *Handlers) render(w http.ResponseWriter, r *http.Request, templateName s
 }
 
 // renderGameserver renders a gameserver control panel page (with tabs/wrapper)
-// Handles three cases:
-//   - HTMX targeting #content: returns wrapper (cross-page navigation)
-//   - HTMX targeting #main-content: returns just template (tab switching)
-//   - Full page load: returns template → wrapper → layout
+// Handles two cases:
+//   - HTMX request: returns wrapper with content
+//   - Full page load: returns wrapper → layout
 func (h *Handlers) renderGameserver(w http.ResponseWriter, r *http.Request, gs *models.Gameserver, currentPage, templateName string, data map[string]interface{}) {
 	if data == nil {
 		data = make(map[string]interface{})
@@ -108,18 +108,7 @@ func (h *Handlers) renderGameserver(w http.ResponseWriter, r *http.Request, gs *
 	data["Gameserver"] = gs
 	data["CurrentPage"] = currentPage
 
-	isHTMX := r.Header.Get("HX-Request") == "true"
-	target := r.Header.Get("HX-Target")
-
-	// Tab switching (HTMX targeting inner content)
-	if isHTMX && target != "content" {
-		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render template"), "render_template")
-		}
-		return
-	}
-
-	// Need wrapper: either HTMX targeting #content, or full page load
+	// Render content template
 	var contentBuf bytes.Buffer
 	if err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, data); err != nil {
 		HandleError(w, InternalError(err, "Failed to render template"), "render_template")
@@ -132,8 +121,8 @@ func (h *Handlers) renderGameserver(w http.ResponseWriter, r *http.Request, gs *
 		"Content":     template.HTML(contentBuf.String()),
 	}
 
-	if isHTMX {
-		// HTMX targeting #content - just wrapper, no layout
+	if r.Header.Get("HX-Request") == "true" {
+		// HTMX request - just wrapper
 		if err := h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData); err != nil {
 			HandleError(w, InternalError(err, "Failed to render wrapper"), "render_wrapper")
 		}
@@ -164,12 +153,17 @@ func (h *Handlers) generateLayoutData(r *http.Request, content template.HTML) La
 	switch {
 	case path == "/":
 		layout.Title = "Dashboard"
-	case path == "/gameservers":
-		layout.Title = "Gameservers"
-	case path == "/gameservers/new":
-		layout.Title = "Create Server"
-	case strings.HasPrefix(path, "/gameservers/"):
-		layout.Title = "Gameserver Control Panel"
+		layout.ActiveNav = "dashboard"
+	case strings.HasPrefix(path, "/gameservers"):
+		layout.ActiveNav = "gameservers"
+		switch {
+		case path == "/gameservers":
+			layout.Title = "Gameservers"
+		case path == "/gameservers/new":
+			layout.Title = "Create Server"
+		default:
+			layout.Title = "Gameserver Control Panel"
+		}
 	default:
 		layout.Title = "Gameserver Control Panel"
 	}
