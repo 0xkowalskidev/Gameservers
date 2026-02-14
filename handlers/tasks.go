@@ -23,7 +23,7 @@ func (h *Handlers) ListGameserverTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{"Tasks": tasks}
-	h.renderGameserverPageOrPartial(w, r, gameserver, "tasks", "gameserver-tasks.html", data)
+	h.renderGameserver(w, r, gameserver, "tasks", "gameserver-tasks.html", data)
 }
 
 // NewGameserverTask shows the create task form
@@ -33,7 +33,7 @@ func (h *Handlers) NewGameserverTask(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.renderGameserverPageOrPartial(w, r, gameserver, "tasks", "task-form.html", nil)
+	h.renderGameserver(w, r, gameserver, "tasks", "task-form.html", nil)
 }
 
 // CreateGameserverTask creates a new scheduled task
@@ -71,7 +71,7 @@ func (h *Handlers) EditGameserverTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{"Task": task}
-	h.renderGameserverPageOrPartial(w, r, gameserver, "tasks", "task-form.html", data)
+	h.renderGameserver(w, r, gameserver, "tasks", "task-form.html", data)
 }
 
 // UpdateGameserverTask updates an existing scheduled task

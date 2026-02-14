@@ -48,7 +48,7 @@ func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 		RunningServers:     runningServers,
 	}
 
-	Render(w, r, h.tmpl, "index.html", data)
+	h.render(w, r, "index.html", data)
 }
 
 // ShowGameserver displays gameserver details
@@ -59,7 +59,7 @@ func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderGameserverPageOrPartial(w, r, gameserver, "overview", "gameserver-details.html", nil)
+	h.renderGameserver(w, r, gameserver, "overview", "gameserver-details.html", nil)
 }
 
 // NewGameserver shows the create gameserver form
@@ -69,7 +69,7 @@ func (h *Handlers) NewGameserver(w http.ResponseWriter, r *http.Request) {
 		HandleError(w, InternalError(err, "Failed to list games"), "new_gameserver")
 		return
 	}
-	Render(w, r, h.tmpl, "new-gameserver.html", map[string]interface{}{"Games": games})
+	h.render(w, r, "new-gameserver.html", map[string]interface{}{"Games": games})
 }
 
 // EditGameserver shows the edit gameserver form
@@ -87,19 +87,10 @@ func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"Gameserver": gameserver,
-		"Games":      games,
+		"Games": games,
 	}
 
-	// If HTMX request, render just the template content
-	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "edit-gameserver.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render edit gameserver template"), "edit_gameserver")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverWithWrapper(w, r, gameserver, "edit", "edit-gameserver.html", data)
-	}
+	h.renderGameserver(w, r, gameserver, "edit", "edit-gameserver.html", data)
 }
 
 // CreateGameserver creates a new gameserver

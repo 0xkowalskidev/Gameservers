@@ -69,21 +69,16 @@ func (h *Handlers) ListGameserverBackups(w http.ResponseWriter, r *http.Request)
 		"MaxBackups":   gameserver.MaxBackups,
 	}
 
-	// If HTMX request, check if it's targeting a specific element
-	if r.Header.Get("HX-Request") == "true" {
-		// If the request is targeting #backup-list specifically, return just the list
-		target := r.Header.Get("HX-Target")
-		templateName := "gameserver-backups.html"
-		if target == "#backup-list" || r.URL.Query().Get("list") == "true" {
-			templateName = "backup-list.html"
+	// Special case: if targeting #backup-list specifically, return just the list
+	target := r.Header.Get("HX-Target")
+	if target == "backup-list" || r.URL.Query().Get("list") == "true" {
+		if err := h.tmpl.ExecuteTemplate(w, "backup-list.html", data); err != nil {
+			HandleError(w, InternalError(err, "Failed to render backup list"), "list_backups")
 		}
-		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render backup template"), "list_backups")
-		}
-	} else {
-		// Full page load, use wrapper
-		h.renderGameserverWithWrapper(w, r, gameserver, "backups", "gameserver-backups.html", data)
+		return
 	}
+
+	h.renderGameserver(w, r, gameserver, "backups", "gameserver-backups.html", data)
 }
 
 // DeleteGameserverBackup deletes a backup file

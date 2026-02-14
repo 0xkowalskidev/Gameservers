@@ -29,10 +29,12 @@ var (
 	RequireMethod func(r *http.Request, method string) error
 )
 
-// Utility functions - imported from main package
-var (
-	Render func(w http.ResponseWriter, r *http.Request, tmpl *template.Template, templateName string, data interface{})
-)
+// Layout data for wrapping content in layout.html
+type LayoutData struct {
+	Content          template.HTML
+	Title            string
+	ShowCreateButton bool
+}
 
 // Handlers contains all HTTP handlers and their dependencies
 type Handlers struct {
@@ -72,28 +74,106 @@ func (h *Handlers) htmxRedirect(w http.ResponseWriter, url string) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// renderGameserverPageOrPartial handles the common HTMX vs full page rendering pattern
-func (h *Handlers) renderGameserverPageOrPartial(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage, templateName string, data map[string]interface{}) {
+// render renders a simple page (no gameserver wrapper)
+// Handles HTMX partial vs full page load automatically
+func (h *Handlers) render(w http.ResponseWriter, r *http.Request, templateName string, data interface{}) {
+	if r.Header.Get("HX-Request") == "true" {
+		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
+			HandleError(w, InternalError(err, "Failed to render template"), "render_template")
+		}
+		return
+	}
+
+	// Full page: render template, then wrap in layout
+	var buf bytes.Buffer
+	if err := h.tmpl.ExecuteTemplate(&buf, templateName, data); err != nil {
+		HandleError(w, InternalError(err, "Failed to render template"), "render_template")
+		return
+	}
+
+	layoutData := h.generateLayoutData(r, template.HTML(buf.String()))
+	if err := h.tmpl.ExecuteTemplate(w, "layout.html", layoutData); err != nil {
+		HandleError(w, InternalError(err, "Failed to render layout"), "render_layout")
+	}
+}
+
+// renderGameserver renders a gameserver control panel page (with tabs/wrapper)
+// Handles three cases:
+//   - HTMX targeting #content: returns wrapper (cross-page navigation)
+//   - HTMX targeting #main-content: returns just template (tab switching)
+//   - Full page load: returns template → wrapper → layout
+func (h *Handlers) renderGameserver(w http.ResponseWriter, r *http.Request, gs *models.Gameserver, currentPage, templateName string, data map[string]interface{}) {
 	if data == nil {
 		data = make(map[string]interface{})
 	}
-	data["Gameserver"] = gameserver
+	data["Gameserver"] = gs
+	data["CurrentPage"] = currentPage
 
-	if r.Header.Get("HX-Request") == "true" {
-		// Check what's being targeted
-		target := r.Header.Get("HX-Target")
-		if target == "content" {
-			// Targeting outer content - return full wrapper
-			h.renderGameserverWithWrapper(w, r, gameserver, currentPage, templateName, data)
-		} else {
-			// Targeting inner content (e.g., main-content) - return just template
-			if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
-				HandleError(w, InternalError(err, "Failed to render template"), "render_template")
-			}
+	isHTMX := r.Header.Get("HX-Request") == "true"
+	target := r.Header.Get("HX-Target")
+
+	// Tab switching (HTMX targeting inner content)
+	if isHTMX && target != "content" {
+		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
+			HandleError(w, InternalError(err, "Failed to render template"), "render_template")
 		}
-	} else {
-		h.renderGameserverWithWrapper(w, r, gameserver, currentPage, templateName, data)
+		return
 	}
+
+	// Need wrapper: either HTMX targeting #content, or full page load
+	var contentBuf bytes.Buffer
+	if err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, data); err != nil {
+		HandleError(w, InternalError(err, "Failed to render template"), "render_template")
+		return
+	}
+
+	wrapperData := map[string]interface{}{
+		"Gameserver":  gs,
+		"CurrentPage": currentPage,
+		"Content":     template.HTML(contentBuf.String()),
+	}
+
+	if isHTMX {
+		// HTMX targeting #content - just wrapper, no layout
+		if err := h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData); err != nil {
+			HandleError(w, InternalError(err, "Failed to render wrapper"), "render_wrapper")
+		}
+		return
+	}
+
+	// Full page load - wrapper + layout
+	var wrapperBuf bytes.Buffer
+	if err := h.tmpl.ExecuteTemplate(&wrapperBuf, "gameserver-wrapper.html", wrapperData); err != nil {
+		HandleError(w, InternalError(err, "Failed to render wrapper"), "render_wrapper")
+		return
+	}
+
+	layoutData := h.generateLayoutData(r, template.HTML(wrapperBuf.String()))
+	if err := h.tmpl.ExecuteTemplate(w, "layout.html", layoutData); err != nil {
+		HandleError(w, InternalError(err, "Failed to render layout"), "render_layout")
+	}
+}
+
+// generateLayoutData creates layout data based on the current page
+func (h *Handlers) generateLayoutData(r *http.Request, content template.HTML) LayoutData {
+	path := r.URL.Path
+
+	layout := LayoutData{
+		Content:          content,
+		ShowCreateButton: false,
+	}
+
+	switch {
+	case path == "/":
+		layout.Title = "Dashboard"
+		layout.ShowCreateButton = true
+	case path == "/new":
+		layout.Title = "Create Server"
+	default:
+		layout.Title = "Gameserver Control Panel"
+	}
+
+	return layout
 }
 
 // GameserverFormData represents parsed gameserver form data
@@ -227,42 +307,6 @@ func (h *Handlers) validateFormFields(r *http.Request, fields ...string) error {
 	return nil
 }
 
-// renderGameserverWithWrapper renders a gameserver page with wrapper (for full page loads)
-func (h *Handlers) renderGameserverWithWrapper(w http.ResponseWriter, r *http.Request, gameserver *models.Gameserver, currentPage string, templateName string, data map[string]interface{}) {
-	// Set up page data with gameserver context
-	pageData := map[string]interface{}{
-		"Gameserver":  gameserver,
-		"CurrentPage": currentPage,
-	}
-
-	// Merge any additional data
-	for k, v := range data {
-		pageData[k] = v
-	}
-
-	// Render the content template
-	var contentBuf bytes.Buffer
-	if err := h.tmpl.ExecuteTemplate(&contentBuf, templateName, pageData); err != nil {
-		HandleError(w, err, "render_content_template")
-		return
-	}
-
-	// Create wrapper data with the rendered content
-	wrapperData := map[string]interface{}{
-		"Gameserver":  gameserver,
-		"CurrentPage": currentPage,
-		"Content":     template.HTML(contentBuf.String()),
-	}
-
-	// Render the wrapper (which uses Render for layout if full page)
-	if r.Header.Get("HX-Request") == "true" {
-		if err := h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData); err != nil {
-			HandleError(w, err, "render_wrapper_template")
-		}
-	} else {
-		Render(w, r, h.tmpl, "gameserver-wrapper.html", wrapperData)
-	}
-}
 
 // formatFileSize formats file size in human readable format
 func formatFileSize(size int64) string {

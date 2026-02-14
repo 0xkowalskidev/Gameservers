@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"fmt"
@@ -148,7 +147,6 @@ func main() {
 	handlers.InternalError = InternalError
 	handlers.ParseForm = ParseForm
 	handlers.RequireMethod = RequireMethod
-	handlers.Render = Render
 
 	// Initialize query service
 	queryService := services.NewQueryService()
@@ -254,61 +252,6 @@ func main() {
 	log.Info().Msg("Server exited")
 }
 
-type LayoutData struct {
-	Content          template.HTML
-	Title            string
-	ShowCreateButton bool
-}
-
-func Render(w http.ResponseWriter, r *http.Request, tmpl *template.Template, templateName string, data interface{}) {
-	// If request is made using HTMX
-	if r.Header.Get("HX-Request") == "true" {
-		err := tmpl.ExecuteTemplate(w, templateName, data)
-		if err != nil {
-			log.Error().Err(err).Str("template", templateName).Msg("Failed to render HTMX template")
-			http.Error(w, "Template error", http.StatusInternalServerError)
-		}
-	} else {
-		var buf bytes.Buffer
-		err := tmpl.ExecuteTemplate(&buf, templateName, data)
-		if err != nil {
-			log.Error().Err(err).Str("template", templateName).Msg("Failed to render template content")
-			http.Error(w, "Template error", http.StatusInternalServerError)
-			return
-		}
-
-		// Generate layout data based on the current page
-		layoutData := generateLayoutData(r, template.HTML(buf.String()))
-
-		err = tmpl.ExecuteTemplate(w, "layout.html", layoutData)
-		if err != nil {
-			log.Error().Err(err).Str("template", "layout.html").Msg("Failed to render layout template")
-			http.Error(w, "Template error", http.StatusInternalServerError)
-		}
-	}
-}
-
-func generateLayoutData(r *http.Request, content template.HTML) LayoutData {
-	path := r.URL.Path
-
-	layout := LayoutData{
-		Content:          content,
-		ShowCreateButton: false,
-	}
-
-	// Simple title generation
-	switch {
-	case path == "/":
-		layout.Title = "Dashboard"
-		layout.ShowCreateButton = true
-	case path == "/new":
-		layout.Title = "Create Server"
-	default:
-		layout.Title = "Gameserver Control Panel"
-	}
-
-	return layout
-}
 
 func formatFileSize(size int64) string {
 	const unit = 1024

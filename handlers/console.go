@@ -19,7 +19,7 @@ func (h *Handlers) GameserverConsole(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.renderGameserverPageOrPartial(w, r, gameserver, "console", "gameserver-console.html", nil)
+	h.renderGameserver(w, r, gameserver, "console", "gameserver-console.html", nil)
 }
 
 // SendGameserverCommand sends a command to the gameserver console

@@ -30,7 +30,7 @@ func (h *Handlers) GameserverFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{"Files": files, "CurrentPath": "/data/server"}
-	h.renderGameserverPageOrPartial(w, r, gameserver, "files", "gameserver-files.html", data)
+	h.renderGameserver(w, r, gameserver, "files", "gameserver-files.html", data)
 }
 
 // BrowseGameserverFiles returns file listing for a specific path (HTMX)
