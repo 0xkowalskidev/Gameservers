@@ -229,6 +229,17 @@ func main() {
 		r.Post("/{id}/files/upload", handlerInstance.UploadGameserverFile)
 	})
 
+	// Game routes
+	r.Route("/games", func(r chi.Router) {
+		r.Get("/", handlerInstance.ListGames)
+		r.Post("/", handlerInstance.CreateGame)
+		r.Get("/new", handlerInstance.NewGame)
+		r.Get("/{id}", handlerInstance.ShowGame)
+		r.Get("/{id}/edit", handlerInstance.EditGame)
+		r.Put("/{id}", handlerInstance.UpdateGame)
+		r.Delete("/{id}", handlerInstance.DeleteGame)
+	})
+
 	// Setup HTTP server with graceful shutdown
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", config.Host, config.Port),

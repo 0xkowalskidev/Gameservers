@@ -1,0 +1,125 @@
+<!-- Games Header -->
+<div class="mb-8">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Games</h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage available game configurations</p>
+    </div>
+    <a href="/games/new" hx-get="/games/new" hx-target="#content" hx-push-url="true"
+       class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all duration-200">
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      Add Game
+    </a>
+  </div>
+</div>
+
+{{if .Games}}
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+  {{range .Games}}
+  <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group">
+    <!-- Game Image -->
+    <a href="/games/{{.ID}}" hx-get="/games/{{.ID}}" hx-target="#content" hx-push-url="true" class="block">
+      {{if .GridImagePath}}
+      <div class="relative overflow-hidden">
+        <img src="{{.GridImagePath}}" alt="{{.Name}}" class="w-full h-auto transform group-hover:scale-105 transition-transform duration-200">
+      </div>
+      {{else}}
+      <div class="aspect-video w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+        {{if .IconPath}}
+        <img src="{{.IconPath}}" alt="{{.Name}}" class="w-16 h-16">
+        {{else}}
+        <span class="text-2xl font-bold text-gray-400 dark:text-gray-500">{{.Name}}</span>
+        {{end}}
+      </div>
+      {{end}}
+    </a>
+
+    <!-- Game Info -->
+    <div class="p-4">
+      <a href="/games/{{.ID}}" hx-get="/games/{{.ID}}" hx-target="#content" hx-push-url="true">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+          {{.Name}}
+        </h3>
+      </a>
+
+      <div class="mt-2 space-y-1 text-sm text-gray-500 dark:text-gray-400">
+        <div class="flex items-center">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+          </svg>
+          {{len .PortMappings}} port(s)
+        </div>
+        <div class="flex items-center">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+          </svg>
+          {{.MinMemoryMB}} - {{.RecMemoryMB}} MB
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="mt-4 flex items-center space-x-2">
+        <a href="/games/{{.ID}}/edit" hx-get="/games/{{.ID}}/edit" hx-target="#content" hx-push-url="true"
+           class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg transition-colors">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+          </svg>
+          Edit
+        </a>
+        <button type="button" onclick="deleteGame('{{.ID}}', '{{.Name}}')"
+                class="inline-flex items-center justify-center px-3 py-2 bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800 text-red-700 dark:text-red-300 text-sm font-medium rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{else}}
+<!-- Empty State -->
+<div class="text-center py-16">
+  <div class="mx-auto w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+    <svg class="w-16 h-16 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path>
+    </svg>
+  </div>
+  <div class="max-w-md mx-auto">
+    <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">No Games Configured</h3>
+    <p class="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+      You don't have any game configurations yet. Add a game to allow creating gameservers for it.
+    </p>
+    <a href="/games/new" hx-get="/games/new" hx-target="#content" hx-push-url="true"
+       class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
+      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      Add Your First Game
+    </a>
+  </div>
+</div>
+{{end}}
+
+<script>
+function deleteGame(id, name) {
+  if (!confirm(`Are you sure you want to delete "${name}"?\n\nThis action cannot be undone.`)) {
+    return;
+  }
+
+  htmx.ajax('DELETE', `/games/${id}`, {
+    swap: 'none'
+  }).then(() => {
+    showNotification(`Game "${name}" deleted successfully`, 'success');
+    // Reload the games list
+    htmx.ajax('GET', '/games', {
+      target: '#content',
+      swap: 'innerHTML'
+    });
+  }).catch((err) => {
+    showNotification('Failed to delete game. It may be in use by gameservers.', 'error');
+  });
+}
+</script>

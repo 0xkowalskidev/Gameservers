@@ -33,7 +33,7 @@ var (
 type LayoutData struct {
 	Content   template.HTML
 	Title     string
-	ActiveNav string // "dashboard" | "gameservers"
+	ActiveNav string // "dashboard" | "gameservers" | "games"
 }
 
 // Handlers contains all HTTP handlers and their dependencies
@@ -163,6 +163,16 @@ func (h *Handlers) generateLayoutData(r *http.Request, content template.HTML) La
 			layout.Title = "Create Server"
 		default:
 			layout.Title = "Gameserver Control Panel"
+		}
+	case strings.HasPrefix(path, "/games"):
+		layout.ActiveNav = "games"
+		switch {
+		case path == "/games":
+			layout.Title = "Games"
+		case path == "/games/new":
+			layout.Title = "Add Game"
+		default:
+			layout.Title = "Game Configuration"
 		}
 	default:
 		layout.Title = "Gameserver Control Panel"

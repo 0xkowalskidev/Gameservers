@@ -354,6 +354,22 @@ func (gss *GameserverRepository) CreateGame(game *models.Game) error {
 	return gss.db.CreateGame(game)
 }
 
+// UpdateGame updates an existing game configuration
+func (gss *GameserverRepository) UpdateGame(game *models.Game) error {
+	game.UpdatedAt = time.Now()
+	return gss.db.UpdateGame(game)
+}
+
+// DeleteGame deletes a game if no gameservers are using it
+func (gss *GameserverRepository) DeleteGame(id string) error {
+	return gss.db.DeleteGame(id)
+}
+
+// CountGameserversByGameID returns the count of gameservers using a specific game
+func (gss *GameserverRepository) CountGameserversByGameID(gameID string) (int64, error) {
+	return gss.db.CountGameserversByGameID(gameID)
+}
+
 // Scheduled Task Service Operations
 
 // CreateScheduledTask creates a new scheduled task

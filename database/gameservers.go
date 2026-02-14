@@ -72,3 +72,12 @@ func (dm *DatabaseManager) GetGameserverByContainerID(containerID string) (*mode
 	}
 	return &server, nil
 }
+
+// CountGameserversByGameID counts gameservers using a specific game
+func (dm *DatabaseManager) CountGameserversByGameID(gameID string) (int64, error) {
+	var count int64
+	if err := dm.db.Model(&models.Gameserver{}).Where("game_id = ?", gameID).Count(&count).Error; err != nil {
+		return 0, &models.DatabaseError{Op: "count_gameservers_by_game", Msg: fmt.Sprintf("failed to count gameservers for game %s", gameID), Err: err}
+	}
+	return count, nil
+}

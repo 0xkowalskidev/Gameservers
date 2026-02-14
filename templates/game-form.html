@@ -1,0 +1,325 @@
+<!-- Unified game form for both new and edit -->
+{{$isEdit := .Game}}
+{{$game := .Game}}
+
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
+    <!-- Form header -->
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center space-x-3">
+        <div class="flex-shrink-0 w-10 h-10 {{if $isEdit}}bg-blue-100 dark:bg-blue-900{{else}}bg-green-100 dark:bg-green-900{{end}} rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 {{if $isEdit}}text-blue-600 dark:text-blue-400{{else}}text-green-600 dark:text-green-400{{end}}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {{if $isEdit}}
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            {{else}}
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            {{end}}
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{if $isEdit}}Edit Game{{else}}Add New Game{{end}}</h1>
+          <p class="text-sm text-gray-500 dark:text-gray-400">{{if $isEdit}}Modify {{$game.Name}} configuration{{else}}Configure a new game for gameservers{{end}}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form content -->
+    <form {{if $isEdit}}hx-put="/games/{{$game.ID}}"{{else}}hx-post="/games"{{end}}
+          hx-indicator="#form-loading"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful) { showNotification('Game {{if $isEdit}}updated{{else}}created{{end}} successfully', 'success'); } else { showNotification('Failed to {{if $isEdit}}update{{else}}create{{end}} game', 'error'); }">
+      <div class="p-6 space-y-8">
+
+        <!-- Basic Information -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Basic Information
+          </h3>
+
+          <div class="grid gap-6 sm:grid-cols-2">
+            <div>
+              <label for="id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Game ID <span class="text-red-500">*</span>
+              </label>
+              <input type="text" id="id" name="id" required
+                     {{if $isEdit}}value="{{$game.ID}}" readonly class="bg-gray-100 dark:bg-gray-900 cursor-not-allowed"{{end}}
+                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth font-mono"
+                     placeholder="minecraft" pattern="[a-z0-9_-]+" title="Lowercase letters, numbers, hyphens, and underscores only">
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Unique identifier (lowercase, no spaces)</p>
+            </div>
+
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Display Name <span class="text-red-500">*</span>
+              </label>
+              <input type="text" id="name" name="name" required
+                     {{if $isEdit}}value="{{$game.Name}}"{{end}}
+                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
+                     placeholder="Minecraft">
+            </div>
+
+            <div>
+              <label for="slug" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Query Slug
+              </label>
+              <input type="text" id="slug" name="slug"
+                     {{if $isEdit}}value="{{$game.Slug}}"{{end}}
+                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth font-mono"
+                     placeholder="minecraft">
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Used for server query protocol identification</p>
+            </div>
+
+            <div>
+              <label for="image" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Docker Image <span class="text-red-500">*</span>
+              </label>
+              <input type="text" id="image" name="image" required
+                     {{if $isEdit}}value="{{$game.Image}}"{{end}}
+                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth font-mono"
+                     placeholder="ghcr.io/user/gameservers/minecraft:latest">
+            </div>
+          </div>
+        </div>
+
+        <!-- Images -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Images
+          </h3>
+
+          <div class="grid gap-6 sm:grid-cols-2">
+            <div>
+              <label for="icon_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Icon Path
+              </label>
+              <input type="text" id="icon_path" name="icon_path"
+                     {{if $isEdit}}value="{{$game.IconPath}}"{{end}}
+                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
+                     placeholder="/static/icons/minecraft.ico">
+            </div>
+
+            <div>
+              <label for="grid_image_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Grid Image Path
+              </label>
+              <input type="text" id="grid_image_path" name="grid_image_path"
+                     {{if $isEdit}}value="{{$game.GridImagePath}}"{{end}}
+                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
+                     placeholder="/static/grids/minecraft.png">
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Image shown in game selection grid</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Memory Requirements -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Memory Requirements
+          </h3>
+
+          <div class="grid gap-6 sm:grid-cols-2">
+            <div>
+              <label for="min_memory_mb" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Minimum Memory (MB)
+              </label>
+              <input type="number" id="min_memory_mb" name="min_memory_mb" min="128" step="128"
+                     value="{{if $isEdit}}{{$game.MinMemoryMB}}{{else}}512{{end}}"
+                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+            </div>
+
+            <div>
+              <label for="rec_memory_mb" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Recommended Memory (MB)
+              </label>
+              <input type="number" id="rec_memory_mb" name="rec_memory_mb" min="128" step="128"
+                     value="{{if $isEdit}}{{$game.RecMemoryMB}}{{else}}1024{{end}}"
+                     class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+            </div>
+          </div>
+        </div>
+
+        <!-- Port Mappings -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Port Mappings</h3>
+            <button type="button" onclick="addPortMapping()"
+                    class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Add Port
+            </button>
+          </div>
+
+          <div id="port-mappings" class="space-y-3">
+            <!-- Port mapping entries will be added here -->
+          </div>
+        </div>
+
+        <!-- Config Variables -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Configuration Variables</h3>
+            <button type="button" onclick="addConfigVar()"
+                    class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Add Variable
+            </button>
+          </div>
+
+          <div id="config-vars" class="space-y-3">
+            <!-- Config var entries will be added here -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Form actions -->
+      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
+        <div class="flex items-center justify-between">
+          <a href="/games" hx-get="/games" hx-target="#content" hx-push-url="true" hx-swap="innerHTML" hx-disinherit="hx-on::after-request"
+             class="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+            Cancel
+          </a>
+
+          <div class="flex items-center space-x-3">
+            <button type="submit"
+                    class="inline-flex items-center px-6 py-3 {{if $isEdit}}bg-blue-600 hover:bg-blue-700{{else}}bg-green-600 hover:bg-green-700{{end}} text-white text-sm font-medium rounded-lg transition-smooth shadow-lg">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              {{if $isEdit}}Update Game{{else}}Create Game{{end}}
+            </button>
+
+            <!-- Loading indicator -->
+            <div id="form-loading" class="htmx-indicator">
+              <div class="inline-flex items-center px-3 py-2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm rounded-lg">
+                <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {{if $isEdit}}Updating...{{else}}Creating...{{end}}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+let portMappingIndex = 0;
+let configVarIndex = 0;
+
+function addPortMapping(name = '', protocol = 'tcp', containerPort = '') {
+  const container = document.getElementById('port-mappings');
+  const div = document.createElement('div');
+  div.className = 'flex gap-3 items-center bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700';
+  div.innerHTML = `
+    <div class="flex-1">
+      <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Name</label>
+      <input type="text" name="port_mappings[${portMappingIndex}].name" value="${name}" required
+             class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+             placeholder="game">
+    </div>
+    <div class="w-28">
+      <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Protocol</label>
+      <select name="port_mappings[${portMappingIndex}].protocol"
+              class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
+        <option value="tcp" ${protocol === 'tcp' ? 'selected' : ''}>TCP</option>
+        <option value="udp" ${protocol === 'udp' ? 'selected' : ''}>UDP</option>
+      </select>
+    </div>
+    <div class="w-32">
+      <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Container Port</label>
+      <input type="number" name="port_mappings[${portMappingIndex}].container_port" value="${containerPort}" required min="1" max="65535"
+             class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+             placeholder="25565">
+    </div>
+    <div class="pt-5">
+      <button type="button" onclick="this.parentElement.parentElement.remove()"
+              class="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+  container.appendChild(div);
+  portMappingIndex++;
+}
+
+function addConfigVar(name = '', displayName = '', required = false, defaultValue = '', description = '') {
+  const container = document.getElementById('config-vars');
+  const div = document.createElement('div');
+  div.className = 'bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3';
+  div.innerHTML = `
+    <div class="flex items-start justify-between">
+      <div class="grid gap-3 sm:grid-cols-2 flex-1 mr-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Variable Name</label>
+          <input type="text" name="config_vars[${configVarIndex}].name" value="${name}" required
+                 class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono"
+                 placeholder="SERVER_NAME">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Display Name</label>
+          <input type="text" name="config_vars[${configVarIndex}].display_name" value="${displayName}"
+                 class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                 placeholder="Server Name">
+        </div>
+      </div>
+      <button type="button" onclick="this.parentElement.parentElement.remove()"
+              class="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Default Value</label>
+        <input type="text" name="config_vars[${configVarIndex}].default" value="${defaultValue}"
+               class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Description</label>
+        <input type="text" name="config_vars[${configVarIndex}].description" value="${description}"
+               class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+               placeholder="Help text for users">
+      </div>
+    </div>
+    <div class="flex items-center">
+      <input type="checkbox" name="config_vars[${configVarIndex}].required" value="true" ${required ? 'checked' : ''}
+             class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+      <label class="ml-2 text-sm text-gray-700 dark:text-gray-300">Required</label>
+    </div>
+  `;
+  container.appendChild(div);
+  configVarIndex++;
+}
+
+// Initialize form with existing data
+function initializeForm() {
+  {{if $isEdit}}
+  // Load existing port mappings
+  {{range $i, $pm := $game.PortMappings}}
+  addPortMapping('{{$pm.Name}}', '{{$pm.Protocol}}', '{{$pm.ContainerPort}}');
+  {{end}}
+
+  // Load existing config vars
+  {{range $i, $cv := $game.ConfigVars}}
+  addConfigVar('{{$cv.Name}}', '{{$cv.DisplayName}}', {{$cv.Required}}, '{{$cv.Default}}', '{{$cv.Description}}');
+  {{end}}
+  {{end}}
+}
+
+document.addEventListener('DOMContentLoaded', initializeForm);
+document.addEventListener('htmx:afterSwap', initializeForm);
+</script>
