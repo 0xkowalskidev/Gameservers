@@ -80,7 +80,11 @@ func (h *Handlers) render(w http.ResponseWriter, r *http.Request, templateName s
 	if r.Header.Get("HX-Request") == "true" {
 		if err := h.tmpl.ExecuteTemplate(w, templateName, data); err != nil {
 			HandleError(w, InternalError(err, "Failed to render template"), "render_template")
+			return
 		}
+		// OOB swap for nav highlighting
+		layoutData := h.generateLayoutData(r, "")
+		h.tmpl.ExecuteTemplate(w, "nav.html", layoutData)
 		return
 	}
 
@@ -125,7 +129,11 @@ func (h *Handlers) renderGameserver(w http.ResponseWriter, r *http.Request, gs *
 		// HTMX request - just wrapper
 		if err := h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData); err != nil {
 			HandleError(w, InternalError(err, "Failed to render wrapper"), "render_wrapper")
+			return
 		}
+		// OOB swap for nav highlighting
+		layoutData := h.generateLayoutData(r, "")
+		h.tmpl.ExecuteTemplate(w, "nav.html", layoutData)
 		return
 	}
 
