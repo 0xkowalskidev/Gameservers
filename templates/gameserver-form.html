@@ -780,8 +780,12 @@
     // Load configuration for edit mode
     loadGameConfiguration('{{$gameserver.GameID}}');
     {{else}}
-    // Load Minecraft configuration by default for new servers
-    loadGameConfiguration('minecraft');
+    // Check for game_id URL parameter to pre-select a game
+    const urlParams = new URLSearchParams(window.location.search);
+    const preselectedGameId = urlParams.get('game_id');
+    if (preselectedGameId && gameConfigs[preselectedGameId]) {
+      selectGame(preselectedGameId);
+    }
     {{end}}
 
     // Initialize slider values

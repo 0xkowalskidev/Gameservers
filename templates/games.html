@@ -61,6 +61,13 @@
 
       <!-- Actions -->
       <div class="mt-4 flex items-center space-x-2">
+        <a href="/gameservers/new?game_id={{.ID}}" hx-get="/gameservers/new?game_id={{.ID}}" hx-target="#content" hx-push-url="true"
+           class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-green-100 dark:bg-green-900 hover:bg-green-200 dark:hover:bg-green-800 text-green-700 dark:text-green-300 text-sm font-medium rounded-lg transition-colors">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Create
+        </a>
         <a href="/games/{{.ID}}/edit" hx-get="/games/{{.ID}}/edit" hx-target="#content" hx-push-url="true"
            class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg transition-colors">
           <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
