@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -144,16 +145,22 @@ func (h *Handlers) GameserverStats(w http.ResponseWriter, r *http.Request) {
 			memUsageMB := float64(memUsage) / 1024 / 1024
 			memLimitMB := float64(memLimit) / 1024 / 1024
 
-			// Create stats JSON
-			statsJSON := map[string]interface{}{
-				"cpu":           cpuPercent,
-				"memoryUsageGB": memUsageMB / 1024, // Convert MB to GB
-				"memoryLimitGB": memLimitMB / 1024, // Convert MB to GB
-				"memoryPercent": memPercent,
+			// Create stats data for template
+			statsData := map[string]interface{}{
+				"CPU":           cpuPercent,
+				"MemoryUsageGB": memUsageMB / 1024, // Convert MB to GB
+				"MemoryLimitGB": memLimitMB / 1024, // Convert MB to GB
+				"MemoryPercent": memPercent,
 			}
 
-			statsData, _ := json.Marshal(statsJSON)
-			fmt.Fprintf(w, "event: stats\ndata: %s\n\n", string(statsData))
+			// Render HTML partial
+			var buf bytes.Buffer
+			if err := h.tmpl.ExecuteTemplate(&buf, "gameserver-stats.html", statsData); err != nil {
+				continue
+			}
+			// SSE data must be single line
+			html := strings.ReplaceAll(buf.String(), "\n", "")
+			fmt.Fprintf(w, "event: stats\ndata: %s\n\n", html)
 			flusher.Flush()
 		}
 	}

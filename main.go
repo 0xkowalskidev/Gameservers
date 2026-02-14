@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -97,6 +98,7 @@ func main() {
 	// Parse html templates with custom functions
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"formatFileSize": formatFileSize,
+		"cronToHuman":    cronToHuman,
 		"sub":            func(a, b int) int { return a - b },
 		"mul": func(a, b interface{}) float64 {
 			aVal, bVal := toFloat64(a), toFloat64(b)
@@ -203,6 +205,7 @@ func main() {
 		r.Get("/{id}/logs", handlerInstance.GameserverLogs)
 		r.Get("/{id}/stats", handlerInstance.GameserverStats)
 		r.Get("/{id}/query", handlerInstance.QueryGameserver)
+		r.Get("/{id}/query-partial", handlerInstance.QueryGameserverPartial)
 		r.Get("/{id}/tasks", handlerInstance.ListGameserverTasks)
 		r.Get("/{id}/tasks/new", handlerInstance.NewGameserverTask)
 		r.Post("/{id}/tasks", handlerInstance.CreateGameserverTask)
@@ -285,6 +288,72 @@ func toFloat64(v interface{}) float64 {
 	default:
 		return 0
 	}
+}
+
+// cronToHuman converts a cron schedule to human-readable description
+func cronToHuman(cron string) string {
+	parts := strings.Fields(cron)
+	if len(parts) != 5 {
+		return cron
+	}
+
+	minute, hour, day, month, weekday := parts[0], parts[1], parts[2], parts[3], parts[4]
+	weekdays := []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+
+	// Helper to format time in 12-hour format
+	formatTime := func(h, m int) string {
+		ampm := "AM"
+		if h >= 12 {
+			ampm = "PM"
+		}
+		displayHour := h
+		if h == 0 {
+			displayHour = 12
+		} else if h > 12 {
+			displayHour = h - 12
+		}
+		return fmt.Sprintf("%d:%02d %s", displayHour, m, ampm)
+	}
+
+	// Check for interval patterns in hour (e.g., */6)
+	if strings.HasPrefix(hour, "*/") {
+		interval, _ := strconv.Atoi(strings.TrimPrefix(hour, "*/"))
+		if interval == 1 {
+			return "Every hour"
+		}
+		return fmt.Sprintf("Every %d hours", interval)
+	}
+
+	// Check for interval patterns in minute (e.g., */30)
+	if strings.HasPrefix(minute, "*/") {
+		interval, _ := strconv.Atoi(strings.TrimPrefix(minute, "*/"))
+		if interval == 1 {
+			return "Every minute"
+		}
+		return fmt.Sprintf("Every %d minutes", interval)
+	}
+
+	// Parse hour and minute for specific time patterns
+	h, hErr := strconv.Atoi(hour)
+	m, mErr := strconv.Atoi(minute)
+	if hErr != nil || mErr != nil {
+		return cron
+	}
+
+	// Weekly pattern (specific weekday)
+	if weekday != "*" {
+		wd, err := strconv.Atoi(weekday)
+		if err == nil && wd >= 0 && wd < 7 {
+			return fmt.Sprintf("Weekly on %s at %s", weekdays[wd], formatTime(h, m))
+		}
+	}
+
+	// Daily pattern (day, month, weekday all wildcards)
+	if day == "*" && month == "*" && weekday == "*" {
+		return fmt.Sprintf("Daily at %s", formatTime(h, m))
+	}
+
+	return cron
 }
 
 // loadConfig loads configuration from environment variables with sensible defaults

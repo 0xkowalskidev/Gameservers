@@ -77,7 +77,10 @@
       <div id="server-status"
         class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Server Status</h3>
-        <div id="server-query-data">
+        <div id="server-query-data"
+             hx-get="/gameservers/{{.Gameserver.ID}}/query-partial"
+             hx-trigger="load, every 1s"
+             hx-swap="innerHTML">
           <div class="text-center py-4">
             <div
               class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
@@ -89,24 +92,24 @@
 
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Resource Usage</h3>
-        <div class="space-y-4">
+        <div class="space-y-4" hx-ext="sse" sse-connect="/gameservers/{{.Gameserver.ID}}/stats" sse-swap="stats" hx-swap="innerHTML">
           <div>
             <div class="flex justify-between text-sm mb-1">
               <span class="text-gray-600 dark:text-gray-400">CPU</span>
-              <span id="cpu-percent" class="font-medium text-gray-900 dark:text-gray-100">0%</span>
+              <span class="font-medium text-gray-900 dark:text-gray-100">0%</span>
             </div>
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div id="cpu-bar" class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
+              <div class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
                 style="width: 0%"></div>
             </div>
           </div>
           <div>
             <div class="flex justify-between text-sm mb-1">
               <span class="text-gray-600 dark:text-gray-400">Memory</span>
-              <span id="mem-usage" class="font-medium text-gray-900 dark:text-gray-100">0.0 / 0.0 GB</span>
+              <span class="font-medium text-gray-900 dark:text-gray-100">0.0 / 0.0 GB</span>
             </div>
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div id="mem-bar" class="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all duration-300"
+              <div class="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all duration-300"
                 style="width: 0%"></div>
             </div>
           </div>
@@ -151,97 +154,3 @@
   </div>
 </div>
 
-{{if eq .Gameserver.Status "running"}}
-<!-- Stats SSE connection - htmx-sse handles automatic cleanup on navigation -->
-<div id="stats-sse" hx-ext="sse" sse-connect="/gameservers/{{.Gameserver.ID}}/stats" hx-trigger="sse:stats" hx-swap="none" style="display:none;"></div>
-
-<script>
-(function() {
-  const statsContainer = document.getElementById('stats-sse');
-  let queryInterval;
-
-  // Listen for SSE stats events
-  statsContainer.addEventListener('htmx:sseMessage', function(e) {
-    const stats = JSON.parse(e.detail.data);
-
-    // Update CPU
-    const cpuPercent = document.getElementById('cpu-percent');
-    const cpuBar = document.getElementById('cpu-bar');
-    if (cpuPercent && cpuBar) {
-      cpuPercent.textContent = stats.cpu.toFixed(1) + '%';
-      cpuBar.style.width = Math.min(stats.cpu, 100) + '%';
-    }
-
-    // Update Memory
-    const memUsage = document.getElementById('mem-usage');
-    const memBar = document.getElementById('mem-bar');
-    if (memUsage && memBar) {
-      const memPercent = stats.memoryLimitGB > 0 ? (stats.memoryUsageGB / stats.memoryLimitGB) * 100 : 0;
-      memUsage.textContent = stats.memoryUsageGB.toFixed(1) + ' / ' + stats.memoryLimitGB.toFixed(1) + ' GB';
-      memBar.style.width = Math.min(memPercent, 100) + '%';
-    }
-  });
-
-  // Server query polling
-  async function updateServerQuery() {
-    try {
-      const response = await fetch('/gameservers/{{.Gameserver.ID}}/query');
-      const data = await response.json();
-
-      const queryContainer = document.getElementById('server-query-data');
-      if (!queryContainer) return;
-
-      if (data.online) {
-        queryContainer.innerHTML = `
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Status</span>
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                Online
-              </span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Players</span>
-              <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                ${data.players.current} / ${data.players.max}
-              </span>
-            </div>
-            ${data.map ? `
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Map</span>
-              <span class="text-sm text-gray-900 dark:text-gray-100">${data.map}</span>
-            </div>
-            ` : ''}
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Response Time</span>
-              <span class="text-sm text-gray-900 dark:text-gray-100">${data.ping}</span>
-            </div>
-          </div>
-        `;
-      } else {
-        queryContainer.innerHTML = `
-          <div class="text-center py-4">
-            <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-              Query Failed
-            </div>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Unable to query server status</p>
-          </div>
-        `;
-      }
-    } catch (error) {
-      console.error('Query error:', error);
-    }
-  }
-
-  // Poll server query every second
-  updateServerQuery();
-  queryInterval = setInterval(updateServerQuery, 1000);
-
-  // Clean up interval on htmx navigation
-  document.body.addEventListener('htmx:beforeSwap', function cleanup() {
-    clearInterval(queryInterval);
-    document.body.removeEventListener('htmx:beforeSwap', cleanup);
-  }, { once: true });
-})();
-</script>
-{{end}}

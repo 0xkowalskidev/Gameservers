@@ -104,5 +104,22 @@ func (h *Handlers) DeleteGameserverBackup(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	// Return updated backup list for HTMX swap
+	backups, err := h.service.ListGameserverBackups(id)
+	if err != nil {
+		HandleError(w, InternalError(err, "Failed to list backup files"), "delete_backup")
+		return
+	}
+
+	data := map[string]interface{}{
+		"Gameserver":   gameserver,
+		"Backups":      backups,
+		"GameserverID": id,
+		"BackupCount":  len(backups),
+		"MaxBackups":   gameserver.MaxBackups,
+	}
+
+	if err := h.tmpl.ExecuteTemplate(w, "backup-list.html", data); err != nil {
+		HandleError(w, InternalError(err, "Failed to render backup list"), "delete_backup")
+	}
 }

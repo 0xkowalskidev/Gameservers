@@ -36,7 +36,8 @@
            hx-ext="sse"
            sse-connect="/gameservers/{{.Gameserver.ID}}/logs"
            sse-swap="log"
-           hx-swap="beforeend"
+           hx-swap="beforeend scroll:bottom"
+           hx-on::htmx:sseMessage="while(this.children.length > 1000) this.removeChild(this.children[0])"
            {{end}}>
         {{if eq .Gameserver.Status "running"}}
           <div class="text-gray-500 mb-2">[INFO] Console connected - logs will appear below</div>
@@ -109,39 +110,3 @@
   </div>
 </div>
 
-{{if eq .Gameserver.Status "running"}}
-<script>
-(function() {
-  const output = document.getElementById('console-output');
-  let autoScroll = true;
-
-  // Track if user is scrolling
-  output.addEventListener('scroll', function() {
-    const isScrolledToBottom = output.scrollHeight - output.clientHeight <= output.scrollTop + 1;
-    autoScroll = isScrolledToBottom;
-  });
-
-  // Auto-scroll and line limiting after htmx-sse swaps content
-  output.addEventListener('htmx:sseMessage', function() {
-    if (autoScroll) {
-      output.scrollTop = output.scrollHeight;
-    }
-    // Limit to last 1000 lines for performance
-    while (output.children.length > 1000) {
-      output.removeChild(output.children[0]);
-    }
-  });
-
-  // Handle form submission with Enter key
-  const commandInput = document.getElementById('command-input');
-  if (commandInput) {
-    commandInput.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        htmx.trigger(e.target.closest('form'), 'submit');
-      }
-    });
-  }
-})();
-</script>
-{{end}}
