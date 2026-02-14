@@ -118,7 +118,7 @@
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
         <div class="space-y-3">
-          <a href="/{{.Gameserver.ID}}/tasks" hx-get="/{{.Gameserver.ID}}/tasks" hx-target="#main-content"
+          <a href="/gameservers/{{.Gameserver.ID}}/tasks" hx-get="/gameservers/{{.Gameserver.ID}}/tasks" hx-target="#main-content"
             hx-push-url="true"
             class="w-full inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +127,7 @@
             </svg>
             Manage Scheduled Tasks
           </a>
-          <a href="/{{.Gameserver.ID}}/files" hx-get="/{{.Gameserver.ID}}/files" hx-target="#main-content"
+          <a href="/gameservers/{{.Gameserver.ID}}/files" hx-get="/gameservers/{{.Gameserver.ID}}/files" hx-target="#main-content"
             hx-push-url="true"
             class="w-full inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +136,7 @@
             </svg>
             Open File Manager
           </a>
-          <button hx-post="/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none"
+          <button hx-post="/gameservers/{{.Gameserver.ID}}/backup" hx-indicator="#backup-loading" hx-swap="none"
             hx-on::after-request="if(event.detail.successful) { showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
             class="w-full inline-flex items-center justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,7 +154,7 @@
 {{if eq .Gameserver.Status "running"}}
 <script>
   // Stats monitoring
-  const statsSource = new EventSource('/{{.Gameserver.ID}}/stats');
+  const statsSource = new EventSource('/gameservers/{{.Gameserver.ID}}/stats');
 
   statsSource.addEventListener('stats', function (e) {
     const stats = JSON.parse(e.data);
@@ -184,7 +184,7 @@
   // Server query polling
   async function updateServerQuery() {
     try {
-      const response = await fetch('/{{.Gameserver.ID}}/query');
+      const response = await fetch('/gameservers/{{.Gameserver.ID}}/query');
       const data = await response.json();
 
       const queryContainer = document.getElementById('server-query-data');

@@ -31,9 +31,8 @@ var (
 
 // Layout data for wrapping content in layout.html
 type LayoutData struct {
-	Content          template.HTML
-	Title            string
-	ShowCreateButton bool
+	Content template.HTML
+	Title   string
 }
 
 // Handlers contains all HTTP handlers and their dependencies
@@ -159,16 +158,18 @@ func (h *Handlers) generateLayoutData(r *http.Request, content template.HTML) La
 	path := r.URL.Path
 
 	layout := LayoutData{
-		Content:          content,
-		ShowCreateButton: false,
+		Content: content,
 	}
 
 	switch {
 	case path == "/":
 		layout.Title = "Dashboard"
-		layout.ShowCreateButton = true
-	case path == "/new":
+	case path == "/gameservers":
+		layout.Title = "Gameservers"
+	case path == "/gameservers/new":
 		layout.Title = "Create Server"
+	case strings.HasPrefix(path, "/gameservers/"):
+		layout.Title = "Gameserver Control Panel"
 	default:
 		layout.Title = "Gameserver Control Panel"
 	}

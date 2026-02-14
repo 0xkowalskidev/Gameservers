@@ -28,7 +28,7 @@
             </svg>
             New
           </button>
-          <button hx-get="/{{.Gameserver.ID}}/files/browse?path={{.CurrentPath}}" hx-target="#file-browser" hx-swap="innerHTML" class="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
+          <button hx-get="/gameservers/{{.Gameserver.ID}}/files/browse?path={{.CurrentPath}}" hx-target="#file-browser" hx-swap="innerHTML" class="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
             </svg>
@@ -95,7 +95,7 @@
       </svg>
       <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Create New</h3>
     </div>
-    <form id="create-form" hx-post="/{{.Gameserver.ID}}/files/create" hx-target="#file-browser">
+    <form id="create-form" hx-post="/gameservers/{{.Gameserver.ID}}/files/create" hx-target="#file-browser">
       <input type="hidden" name="path" id="create-path" value="{{.CurrentPath}}">
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type</label>
@@ -129,7 +129,7 @@
       </svg>
       <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Rename Item</h3>
     </div>
-    <form id="rename-form" hx-post="/{{.Gameserver.ID}}/files/rename" hx-target="#file-browser">
+    <form id="rename-form" hx-post="/gameservers/{{.Gameserver.ID}}/files/rename" hx-target="#file-browser">
       <input type="hidden" name="old_path" id="rename-old-path">
       <div class="mb-6">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Name</label>
@@ -206,7 +206,7 @@ function navigateTo(path) {
   document.getElementById('create-path').value = path;
   updateBreadcrumb(path);
   
-  htmx.ajax('GET', `/{{.Gameserver.ID}}/files/browse?path=${encodeURIComponent(path)}`, {
+  htmx.ajax('GET', `/gameservers/{{.Gameserver.ID}}/files/browse?path=${encodeURIComponent(path)}`, {
     target: '#file-browser',
     swap: 'innerHTML'
   }).catch(err => {
@@ -261,7 +261,7 @@ function selectFile(path) {
   // Show loading state
   document.getElementById('file-editor').innerHTML = '<div class="p-4 text-center text-gray-500 dark:text-gray-400"><p>Loading...</p></div>';
   
-  fetch(`/{{.Gameserver.ID}}/files/content?path=${encodeURIComponent(path)}`)
+  fetch(`/gameservers/{{.Gameserver.ID}}/files/content?path=${encodeURIComponent(path)}`)
     .then(response => {
       if (!response.ok) {
         throw new Error('Failed to load file');
@@ -380,7 +380,7 @@ function saveFile() {
   
   const content = editor.getValue();
   
-  fetch(`/{{.Gameserver.ID}}/files/save`, {
+  fetch(`/gameservers/{{.Gameserver.ID}}/files/save`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -399,7 +399,7 @@ function saveFile() {
 }
 
 function downloadFile(path) {
-  window.location.href = `/{{.Gameserver.ID}}/files/download?path=${encodeURIComponent(path)}`;
+  window.location.href = `/gameservers/{{.Gameserver.ID}}/files/download?path=${encodeURIComponent(path)}`;
 }
 
 function deleteFile(path) {
@@ -407,7 +407,7 @@ function deleteFile(path) {
   const escapedName = fileName.replace(/[`\\]/g, '\\$&');
   if (!confirm(`Are you sure you want to delete ${escapedName}?`)) return;
 
-  fetch(`/{{.Gameserver.ID}}/files/delete?path=${encodeURIComponent(path)}`, {
+  fetch(`/gameservers/{{.Gameserver.ID}}/files/delete?path=${encodeURIComponent(path)}`, {
     method: 'DELETE'
   })
   .then(response => {
@@ -528,7 +528,7 @@ function uploadFile(file) {
     uploadSubmit.textContent = 'Upload';
   });
   
-  xhr.open('POST', `/{{.Gameserver.ID}}/files/upload`);
+  xhr.open('POST', `/gameservers/{{.Gameserver.ID}}/files/upload`);
   xhr.send(formData);
 }
 

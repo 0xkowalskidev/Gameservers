@@ -51,6 +51,26 @@ func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "index.html", data)
 }
 
+// GameserversListData represents the data for the gameservers list page
+type GameserversListData struct {
+	Gameservers []*models.Gameserver
+}
+
+// ListGameservers shows the gameservers list page
+func (h *Handlers) ListGameservers(w http.ResponseWriter, r *http.Request) {
+	gameservers, err := h.service.ListGameservers()
+	if err != nil {
+		HandleError(w, InternalError(err, "Failed to list gameservers"), "list_gameservers")
+		return
+	}
+
+	data := GameserversListData{
+		Gameservers: gameservers,
+	}
+
+	h.render(w, r, "gameservers.html", data)
+}
+
 // ShowGameserver displays gameserver details
 func (h *Handlers) ShowGameserver(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")

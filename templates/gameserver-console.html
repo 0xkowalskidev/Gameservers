@@ -42,7 +42,7 @@
       <!-- Command input area -->
       {{if eq .Gameserver.Status "running"}}
       <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
-        <form hx-post="/{{.Gameserver.ID}}/console" hx-swap="none" hx-on::after-request="if(event.detail.successful) { document.getElementById('command-input').value = ''; } else { showNotification('Failed to send command', 'error'); }">
+        <form hx-post="/gameservers/{{.Gameserver.ID}}/console" hx-swap="none" hx-on::after-request="if(event.detail.successful) { document.getElementById('command-input').value = ''; } else { showNotification('Failed to send command', 'error'); }">
           <div class="flex space-x-3">
             <div class="flex-1">
               <label for="command-input" class="sr-only">Command</label>
@@ -106,7 +106,7 @@
 {{if eq .Gameserver.Status "running"}}
 <script>
 // Connect to log stream
-const logSource = new EventSource('/{{.Gameserver.ID}}/logs');
+const logSource = new EventSource('/gameservers/{{.Gameserver.ID}}/logs');
 const output = document.getElementById('console-output');
 let autoScroll = true;
 

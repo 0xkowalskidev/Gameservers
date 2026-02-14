@@ -69,14 +69,14 @@
       </div>
     </div>
     <div class="flex items-center space-x-2">
-      <a href="/{{ $.GameserverID }}/files/download?path=/data/backups/{{ .Name }}" 
+      <a href="/gameservers/{{ $.GameserverID }}/files/download?path=/data/backups/{{ .Name }}" 
          class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
         </svg>
         Download
       </a>
-      <button hx-post="/{{ $.GameserverID }}/restore?backup={{ .Name }}"
+      <button hx-post="/gameservers/{{ $.GameserverID }}/restore?backup={{ .Name }}"
               hx-indicator="#restore-loading"
               hx-swap="none"
               hx-confirm="Restore from backup '{{ .Name }}'?\n\nThis will replace all current server files with the backup contents. This action cannot be undone.\n\nMake sure to stop the server first if it's running."
@@ -107,7 +107,7 @@
   </div>
   <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No backups yet</h3>
   <p class="text-gray-500 dark:text-gray-400 mb-6">Create your first backup to protect your server data.</p>
-  <button hx-post="/{{ $.GameserverID }}/backup" hx-indicator="#backup-loading" hx-swap="none" hx-on::after-request="if(event.detail.successful) { htmx.ajax('GET', '/{{ $.GameserverID }}/backups?list=true', {target: '#backup-list'}).catch(err => showNotification('Failed to refresh backup list: ' + err.message, 'error')); showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
+  <button hx-post="/gameservers/{{ $.GameserverID }}/backup" hx-indicator="#backup-loading" hx-swap="none" hx-on::after-request="if(event.detail.successful) { htmx.ajax('GET', '/gameservers/{{ $.GameserverID }}/backups?list=true', {target: '#backup-list'}).catch(err => showNotification('Failed to refresh backup list: ' + err.message, 'error')); showNotification('Backup created successfully', 'success'); } else { showNotification('Failed to create backup', 'error'); }"
           class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-smooth">
     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
@@ -138,14 +138,14 @@ function deleteBackup(filename) {
   const escapedName = filename.replace(/[`\\]/g, '\\$&');
   if (!confirm(`Delete backup "${escapedName}"?\n\nThis action cannot be undone.`)) return;
 
-  fetch('/{{ $.GameserverID }}/backups/delete?backup=' + encodeURIComponent(filename), {
+  fetch('/gameservers/{{ $.GameserverID }}/backups/delete?backup=' + encodeURIComponent(filename), {
     method: 'DELETE'
   })
   .then(response => {
     if (response.ok) {
       showNotification('Backup deleted successfully', 'success');
       // Refresh backup list
-      htmx.ajax('GET', '/{{ $.GameserverID }}/backups?list=true', {target: '#backup-list'})
+      htmx.ajax('GET', '/gameservers/{{ $.GameserverID }}/backups?list=true', {target: '#backup-list'})
         .catch(err => showNotification('Failed to refresh backup list: ' + err.message, 'error'));
     } else {
       response.text().then(text => showNotification('Failed to delete backup: ' + text, 'error'));

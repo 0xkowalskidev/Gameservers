@@ -34,9 +34,9 @@
     </div>
 
     <!-- Form content -->
-    <form {{if $isEdit}}hx-put="/{{$gameserver.ID}}" {{else}}hx-post="/" {{end}} hx-indicator="#form-loading"
+    <form {{if $isEdit}}hx-put="/gameservers/{{$gameserver.ID}}" {{else}}hx-post="/gameservers" {{end}} hx-indicator="#form-loading"
       hx-swap="none"
-      hx-on::after-request="if(event.detail.successful) { {{if $isEdit}}showNotification('Server updated successfully', 'success');{{else}}window.location.href = '/' + event.detail.xhr.getResponseHeader('X-Server-ID');{{end}} } else { showNotification('Failed to {{if $isEdit}}update{{else}}create{{end}} server', 'error'); }">
+      hx-on::after-request="if(event.detail.successful) { {{if $isEdit}}showNotification('Server updated successfully', 'success');{{else}}window.location.href = '/gameservers/' + event.detail.xhr.getResponseHeader('X-Server-ID');{{end}} } else { showNotification('Failed to {{if $isEdit}}update{{else}}create{{end}} server', 'error'); }">
       <div class="p-6 space-y-8">
         <!-- Single game_id input for both create and edit -->
         <input type="hidden" id="game_id" name="game_id" value="{{if $isEdit}}{{$gameserver.GameID}}{{end}}" required>
@@ -263,13 +263,23 @@
       <!-- Form actions -->
       <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
         <div class="flex items-center justify-between">
-          <a href="{{if $isEdit}}/{{$gameserver.ID}}{{else}}/{{end}}" hx-get="{{if $isEdit}}/{{$gameserver.ID}}{{else}}/{{end}}" hx-target="{{if $isEdit}}#main-content{{else}}#content{{end}}" hx-push-url="true"
+          {{if $isEdit}}
+          <a href="/gameservers/{{$gameserver.ID}}" hx-get="/gameservers/{{$gameserver.ID}}" hx-target="#main-content" hx-push-url="true" hx-swap="innerHTML" hx-disinherit="hx-on::after-request"
             class="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
             Cancel
           </a>
+          {{else}}
+          <a href="/gameservers" hx-get="/gameservers" hx-target="#content" hx-push-url="true" hx-swap="innerHTML" hx-disinherit="hx-on::after-request"
+            class="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+            Cancel
+          </a>
+          {{end}}
 
           {{if $isEdit}}
           <!-- Update button -->

@@ -1,0 +1,49 @@
+<!-- Gameservers Header -->
+<div class="mb-8">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Gameservers</h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage your game servers</p>
+    </div>
+    <a href="/gameservers/new" hx-get="/gameservers/new" hx-target="#content" hx-push-url="true"
+       class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all duration-200">
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      Create Server
+    </a>
+  </div>
+</div>
+
+{{if .Gameservers}}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+  {{range .Gameservers}}
+  {{template "gameserver-card.html" .}}
+  {{end}}
+</div>
+{{else}}
+<!-- Empty State -->
+<div class="text-center py-16">
+  <div class="mx-auto w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+    <svg class="w-16 h-16 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path>
+    </svg>
+  </div>
+  <div class="max-w-md mx-auto">
+    <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">No Gameservers Yet</h3>
+    <p class="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+      You don't have any game servers yet. Create your first server to get started with hosting games for your community.
+    </p>
+    <a href="/gameservers/new" hx-get="/gameservers/new" hx-target="#content" hx-push-url="true"
+       class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
+      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      Create Your First Server
+    </a>
+    <div class="text-xs text-gray-400 dark:text-gray-500 mt-4">
+      Supports Minecraft, Garry's Mod, Terraria, and more
+    </div>
+  </div>
+</div>
+{{end}}

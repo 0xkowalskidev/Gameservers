@@ -49,7 +49,7 @@
         </span>
       </div>
       <div class="w-full bg-blue-200 dark:bg-blue-800/30 rounded-full h-2.5">
-        <div class="bg-gradient-to-r from-blue-500 to-indigo-500 h-2.5 rounded-full transition-all duration-500" 
+        <div class="bg-gradient-to-r from-blue-500 to-indigo-500 h-2.5 rounded-full transition-all duration-500"
              style="width: {{if gt .SystemInfo.TotalMemoryMB 0}}{{div (mul .CurrentMemoryUsage 100) .SystemInfo.TotalMemoryMB}}{{else}}0{{end}}%"></div>
       </div>
       <div class="text-xs text-blue-700 dark:text-blue-300">
@@ -143,39 +143,19 @@
 <div class="mb-6">
   <div class="flex items-center justify-between mb-6">
     <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Game Servers</h2>
-    <div class="flex items-center space-x-3">
-      <!-- View toggle buttons -->
-      <div x-data class="hidden sm:flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-        <button @click="$store.serverView.setMode('grid')" 
-                x-bind:class="$store.serverView.mode === 'grid' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-                class="px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
-          </svg>
-        </button>
-        <button @click="$store.serverView.setMode('list')" 
-                x-bind:class="$store.serverView.mode === 'list' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-                class="px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
-          </svg>
-        </button>
-      </div>
-    </div>
+    <a href="/gameservers/new" hx-get="/gameservers/new" hx-target="#content" hx-push-url="true"
+       class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all duration-200">
+      <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      Create Server
+    </a>
   </div>
 
-  <!-- Server Container -->
-  <div x-data 
-       x-bind:class="$store.serverView.mode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden space-y-0'">
-    
-    <!-- List View Header (only show in list mode) -->
-    <div x-show="$store.serverView.mode === 'list'" class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-      <h3 class="text-lg font-medium text-gray-900 dark:text-white">All Servers</h3>
-    </div>
-    
-    <!-- Servers (rendered once, adapt based on view mode) -->
+  <!-- Server Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
     {{range .Gameservers}}
-    {{template "gameserver-row.html" .}}
+    {{template "gameserver-card.html" .}}
     {{end}}
   </div>
 
@@ -194,7 +174,7 @@
       You don't have any game servers yet. Create your first server to get started with hosting games for your community.
     </p>
     <div class="space-y-4">
-      <a href="/new" hx-get="/new" hx-target="#content" hx-push-url="true"
+      <a href="/gameservers/new" hx-get="/gameservers/new" hx-target="#content" hx-push-url="true"
          class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -210,16 +190,3 @@
 
 {{end}}
 </div>
-
-<!-- Alpine.js Store for Server View State -->
-<script>
-  document.addEventListener('alpine:init', () => {
-    Alpine.store('serverView', {
-      mode: 'grid', // Default to grid view
-      
-      setMode(newMode) {
-        this.mode = newMode;
-      }
-    });
-  });
-</script>

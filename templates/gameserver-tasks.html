@@ -15,7 +15,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">Manage automated tasks for {{.Gameserver.Name}}</p>
           </div>
         </div>
-        <a href="/{{.Gameserver.ID}}/tasks/new" hx-get="/{{.Gameserver.ID}}/tasks/new" hx-target="#main-content" hx-push-url="true"
+        <a href="/gameservers/{{.Gameserver.ID}}/tasks/new" hx-get="/gameservers/{{.Gameserver.ID}}/tasks/new" hx-target="#main-content" hx-push-url="true"
            class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-smooth">
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -61,14 +61,14 @@
             </div>
             
             <div class="flex items-center space-x-2">
-              <a href="/{{$.Gameserver.ID}}/tasks/{{.ID}}/edit" hx-get="/{{$.Gameserver.ID}}/tasks/{{.ID}}/edit" hx-target="#main-content" hx-push-url="true"
+              <a href="/gameservers/{{$.Gameserver.ID}}/tasks/{{.ID}}/edit" hx-get="/gameservers/{{$.Gameserver.ID}}/tasks/{{.ID}}/edit" hx-target="#main-content" hx-push-url="true"
                  class="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                 </svg>
                 Edit
               </a>
-              <button hx-delete="/{{$.Gameserver.ID}}/tasks/{{.ID}}" 
+              <button hx-delete="/gameservers/{{$.Gameserver.ID}}/tasks/{{.ID}}" 
                       hx-confirm="Delete this task?" 
                       hx-target="closest div" 
                       hx-swap="outerHTML"
@@ -90,7 +90,7 @@
           </div>
           <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No scheduled tasks</h3>
           <p class="text-gray-500 dark:text-gray-400 mb-6">Create your first task to automate restarts and backups</p>
-          <a href="/{{.Gameserver.ID}}/tasks/new" hx-get="/{{.Gameserver.ID}}/tasks/new" hx-target="#main-content" hx-push-url="true"
+          <a href="/gameservers/{{.Gameserver.ID}}/tasks/new" hx-get="/gameservers/{{.Gameserver.ID}}/tasks/new" hx-target="#main-content" hx-push-url="true"
              class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-smooth">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
