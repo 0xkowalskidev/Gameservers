@@ -112,21 +112,27 @@
 
 <script>
 function deleteGame(id, name) {
-  if (!confirm(`Are you sure you want to delete "${name}"?\n\nThis action cannot be undone.`)) {
-    return;
-  }
+  DialogManager.confirm({
+    title: 'Delete Game',
+    message: `Are you sure you want to delete "${name}"?\n\nThis action cannot be undone.`,
+    confirmText: 'Delete',
+    cancelText: 'Cancel',
+    color: 'red',
+    icon: 'delete'
+  }).then(function(confirmed) {
+    if (!confirmed) return;
 
-  htmx.ajax('DELETE', `/games/${id}`, {
-    swap: 'none'
-  }).then(() => {
-    showNotification(`Game "${name}" deleted successfully`, 'success');
-    // Reload the games list
-    htmx.ajax('GET', '/games', {
-      target: '#content',
-      swap: 'innerHTML'
+    htmx.ajax('DELETE', `/games/${id}`, {
+      swap: 'none'
+    }).then(() => {
+      showNotification(`Game "${name}" deleted successfully`, 'success');
+      htmx.ajax('GET', '/games', {
+        target: '#content',
+        swap: 'innerHTML'
+      });
+    }).catch((err) => {
+      showNotification('Failed to delete game. It may be in use by gameservers.', 'error');
     });
-  }).catch((err) => {
-    showNotification('Failed to delete game. It may be in use by gameservers.', 'error');
   });
 }
 </script>

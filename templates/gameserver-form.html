@@ -802,10 +802,9 @@
   // Setup form submission handler
   function setupFormSubmission() {
     const form = document.querySelector('form');
-    if (!form) return;
+    if (!form || form.dataset.initialized) return;
+    form.dataset.initialized = 'true';
 
-    // Remove existing listeners to avoid duplicates
-    form.removeEventListener('submit', handleFormSubmit);
     form.addEventListener('submit', handleFormSubmit);
   }
 

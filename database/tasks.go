@@ -42,7 +42,7 @@ func (dm *DatabaseManager) UpdateScheduledTask(task *models.ScheduledTask) error
 
 // DeleteScheduledTask deletes a scheduled task by ID
 func (dm *DatabaseManager) DeleteScheduledTask(id string) error {
-	result := dm.db.Delete(&models.ScheduledTask{}, "id = ?", id)
+	result := dm.db.Unscoped().Delete(&models.ScheduledTask{}, "id = ?", id)
 	if result.Error != nil {
 		return &models.DatabaseError{Op: "delete_task", Msg: "failed to delete scheduled task", Err: result.Error}
 	}

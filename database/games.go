@@ -42,7 +42,7 @@ func (dm *DatabaseManager) UpdateGame(game *models.Game) error {
 
 // DeleteGame deletes a game by ID
 func (dm *DatabaseManager) DeleteGame(id string) error {
-	if err := dm.db.Delete(&models.Game{}, "id = ?", id).Error; err != nil {
+	if err := dm.db.Unscoped().Delete(&models.Game{}, "id = ?", id).Error; err != nil {
 		return &models.DatabaseError{Op: "delete_game", Msg: fmt.Sprintf("failed to delete game %s", id), Err: err}
 	}
 	return nil

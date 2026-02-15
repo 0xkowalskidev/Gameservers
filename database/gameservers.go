@@ -42,7 +42,7 @@ func (dm *DatabaseManager) UpdateGameserver(server *models.Gameserver) error {
 
 // DeleteGameserver deletes a gameserver by ID
 func (dm *DatabaseManager) DeleteGameserver(id string) error {
-	result := dm.db.Delete(&models.Gameserver{}, "id = ?", id)
+	result := dm.db.Unscoped().Delete(&models.Gameserver{}, "id = ?", id)
 	if result.Error != nil {
 		return &models.DatabaseError{Op: "delete_gameserver", Msg: fmt.Sprintf("failed to delete gameserver %s", id), Err: result.Error}
 	}

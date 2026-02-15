@@ -86,67 +86,6 @@
   </div>
 </div>
 
-<!-- Create file/folder dialog -->
-<div id="create-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-96 max-w-md mx-4 border border-gray-200 dark:border-gray-700">
-    <div class="flex items-center mb-4">
-      <svg class="w-6 h-6 text-purple-500 dark:text-purple-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-      </svg>
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Create New</h3>
-    </div>
-    <form id="create-form" hx-post="/gameservers/{{.Gameserver.ID}}/files/create" hx-target="#file-browser">
-      <input type="hidden" name="path" id="create-path" value="{{.CurrentPath}}">
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type</label>
-        <select name="type" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-500 dark:focus:border-purple-400 transition-smooth">
-          <option value="file">📄 File</option>
-          <option value="directory">📁 Folder</option>
-        </select>
-      </div>
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name</label>
-        <input type="text" name="name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-500 dark:focus:border-purple-400 transition-smooth" placeholder="Enter name...">
-      </div>
-      <div class="flex justify-end space-x-3">
-        <button type="button" onclick="hideCreateDialog()" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
-          Cancel
-        </button>
-        <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white rounded-lg transition-smooth">
-          Create
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Rename file/folder dialog -->
-<div id="rename-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-96 max-w-md mx-4 border border-gray-200 dark:border-gray-700">
-    <div class="flex items-center mb-4">
-      <svg class="w-6 h-6 text-amber-500 dark:text-amber-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-      </svg>
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Rename Item</h3>
-    </div>
-    <form id="rename-form" hx-post="/gameservers/{{.Gameserver.ID}}/files/rename" hx-target="#file-browser">
-      <input type="hidden" name="old_path" id="rename-old-path">
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Name</label>
-        <input type="text" name="new_name" id="rename-new-name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:border-amber-500 dark:focus:border-amber-400 transition-smooth">
-      </div>
-      <div class="flex justify-end space-x-3">
-        <button type="button" onclick="hideRenameDialog()" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
-          Cancel
-        </button>
-        <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-600 text-white rounded-lg transition-smooth">
-          Rename
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <!-- Upload file dialog -->
 <div id="upload-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-96 max-w-md mx-4 border border-gray-200 dark:border-gray-700">
@@ -404,43 +343,148 @@ function downloadFile(path) {
 
 function deleteFile(path) {
   const fileName = path.split('/').pop();
-  const escapedName = fileName.replace(/[`\\]/g, '\\$&');
-  if (!confirm(`Are you sure you want to delete ${escapedName}?`)) return;
 
-  fetch(`/gameservers/{{.Gameserver.ID}}/files/delete?path=${encodeURIComponent(path)}`, {
-    method: 'DELETE'
-  })
-  .then(response => {
-    if (response.ok) {
-      refreshFiles();
-      if (currentFile === path) {
-        document.getElementById('file-editor').innerHTML = '<div class="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400"><div class="text-center"><svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><p class="text-lg font-medium text-gray-400 dark:text-gray-500 mb-2">Select a file to view or edit</p><p class="text-sm text-gray-400 dark:text-gray-500">Choose a file from the browser on the left</p></div></div>';
-        currentFile = null;
-        editor = null;
+  DialogManager.confirm({
+    title: 'Delete File',
+    message: `Are you sure you want to delete "${fileName}"?`,
+    confirmText: 'Delete',
+    cancelText: 'Cancel',
+    color: 'red',
+    icon: 'delete'
+  }).then(function(confirmed) {
+    if (!confirmed) return;
+
+    fetch(`/gameservers/{{.Gameserver.ID}}/files/delete?path=${encodeURIComponent(path)}`, {
+      method: 'DELETE'
+    })
+    .then(response => {
+      if (response.ok) {
+        refreshFiles();
+        if (currentFile === path) {
+          document.getElementById('file-editor').innerHTML = '<div class="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400"><div class="text-center"><svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><p class="text-lg font-medium text-gray-400 dark:text-gray-500 mb-2">Select a file to view or edit</p><p class="text-sm text-gray-400 dark:text-gray-500">Choose a file from the browser on the left</p></div></div>';
+          currentFile = null;
+          editor = null;
+        }
+        showNotification('File deleted successfully', 'success');
+      } else {
+        showNotification('Error deleting file', 'error');
       }
-      showNotification('File deleted successfully', 'success');
-    } else {
-      showNotification('Error deleting file', 'error');
-    }
+    });
   });
 }
 
 function showCreateDialog() {
-  document.getElementById('create-dialog').classList.remove('hidden');
-}
+  DialogManager.form({
+    title: 'Create New',
+    color: 'purple',
+    icon: 'create',
+    content: `
+      <form id="dialog-create-form">
+        <input type="hidden" name="path" value="${currentPath}">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type</label>
+          <select name="type" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-smooth">
+            <option value="file">📄 File</option>
+            <option value="directory">📁 Folder</option>
+          </select>
+        </div>
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name</label>
+          <input type="text" name="name" id="dialog-create-name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-smooth" placeholder="Enter name...">
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button type="button" onclick="DialogManager.close()" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white rounded-lg transition-smooth">
+            Create
+          </button>
+        </div>
+      </form>
+    `
+  });
 
-function hideCreateDialog() {
-  document.getElementById('create-dialog').classList.add('hidden');
+  setTimeout(function() {
+    const form = document.getElementById('dialog-create-form');
+    const nameInput = document.getElementById('dialog-create-name');
+    nameInput.focus();
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(form);
+
+      fetch('/gameservers/{{.Gameserver.ID}}/files/create', {
+        method: 'POST',
+        body: new URLSearchParams(formData)
+      })
+      .then(response => {
+        if (response.ok) {
+          DialogManager.close();
+          refreshFiles();
+          showNotification('Created successfully', 'success');
+        } else {
+          showNotification('Failed to create', 'error');
+        }
+      })
+      .catch(() => {
+        showNotification('Failed to create', 'error');
+      });
+    });
+  }, 50);
 }
 
 function showRenameDialog(path, currentName) {
-  document.getElementById('rename-old-path').value = path;
-  document.getElementById('rename-new-name').value = currentName;
-  document.getElementById('rename-dialog').classList.remove('hidden');
-}
+  DialogManager.form({
+    title: 'Rename Item',
+    color: 'amber',
+    icon: 'rename',
+    content: `
+      <form id="dialog-rename-form">
+        <input type="hidden" name="old_path" value="${path}">
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Name</label>
+          <input type="text" name="new_name" id="dialog-rename-name" required value="${currentName}" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 transition-smooth">
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button type="button" onclick="DialogManager.close()" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-smooth">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-600 text-white rounded-lg transition-smooth">
+            Rename
+          </button>
+        </div>
+      </form>
+    `
+  });
 
-function hideRenameDialog() {
-  document.getElementById('rename-dialog').classList.add('hidden');
+  setTimeout(function() {
+    const form = document.getElementById('dialog-rename-form');
+    const nameInput = document.getElementById('dialog-rename-name');
+    nameInput.focus();
+    nameInput.select();
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(form);
+
+      fetch('/gameservers/{{.Gameserver.ID}}/files/rename', {
+        method: 'POST',
+        body: new URLSearchParams(formData)
+      })
+      .then(response => {
+        if (response.ok) {
+          DialogManager.close();
+          refreshFiles();
+          showNotification('Renamed successfully', 'success');
+        } else {
+          showNotification('Failed to rename', 'error');
+        }
+      })
+      .catch(() => {
+        showNotification('Failed to rename', 'error');
+      });
+    });
+  }, 50);
 }
 
 function refreshFiles() {
