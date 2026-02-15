@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# --- Update Server ---
+echo "-> Updating Palworld server via SteamCMD..."
+steamcmd +force_install_dir /data/server +login anonymous +app_update 2394010 validate +quit
+
 # Change to server directory
 cd /data/server
 

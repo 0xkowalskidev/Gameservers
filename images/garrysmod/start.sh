@@ -4,6 +4,10 @@ set -e
 # Enable job control for signal handling
 set -m
 
+# --- Update Server ---
+echo "-> Updating Garry's Mod server via SteamCMD..."
+/data/steamcmd/steamcmd.sh +force_install_dir /data/server +login anonymous +app_update 4020 validate +quit
+
 # --- Environment Variable Defaults ---
 NAME=${NAME:-"Garry's Mod Server"}
 PASSWORD=${PASSWORD:-""}

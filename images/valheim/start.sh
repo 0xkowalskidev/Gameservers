@@ -1,7 +1,13 @@
 #!/bin/bash
 
-export templdpath=$LD_LIBRARY_PATH  
-export LD_LIBRARY_PATH=./linux64:$LD_LIBRARY_PATH  
+# --- Update Server ---
+echo "-> Updating Valheim server via SteamCMD..."
+steamcmd +force_install_dir /data/server +login anonymous +app_update 896660 validate +quit
+
+cd /data/server
+
+export templdpath=$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=./linux64:$LD_LIBRARY_PATH
 export SteamAppID=892970
 
 # Set default values

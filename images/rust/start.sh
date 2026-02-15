@@ -2,6 +2,10 @@
 # Set up library path for Rust server
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/server/RustDedicated_Data/Plugins:/data/server/RustDedicated_Data/Plugins/x86_64
 
+# --- Update Server ---
+echo "-> Updating Rust server via SteamCMD..."
+steamcmd +force_install_dir /data/server +login anonymous +app_update 258550 validate +quit
+
 # --- Environment Variable Defaults ---
 NAME=${NAME:-"Rust Server"}
 PASSWORD=${PASSWORD:-""}
