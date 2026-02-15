@@ -140,9 +140,8 @@ function navigateTo(path) {
   if (!path.startsWith(serverDir)) {
     path = serverDir;
   }
-  
+
   currentPath = path;
-  document.getElementById('create-path').value = path;
   updateBreadcrumb(path);
   
   htmx.ajax('GET', `/gameservers/{{.Gameserver.ID}}/files/browse?path=${encodeURIComponent(path)}`, {
