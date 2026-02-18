@@ -34,8 +34,8 @@ func (h *Handlers) IndexGameservers(w http.ResponseWriter, r *http.Request) {
 	var currentMemoryUsage int
 	var runningServers int
 	for _, server := range gameservers {
-		// Only count memory from running/starting servers
-		if server.Status == models.StatusRunning || server.Status == models.StatusStarting {
+		// Only count memory from running/starting/transitional servers
+		if server.Status == models.StatusRunning || server.Status.IsTransitional() {
 			currentMemoryUsage += server.MemoryMB
 			runningServers++
 		}
@@ -248,6 +248,35 @@ func (h *Handlers) renderGameserverPartial(w http.ResponseWriter, r *http.Reques
 	// List page targets #gameserver-{id} - render card
 	if err := h.tmpl.ExecuteTemplate(w, "gameserver-card.html", gameserver); err != nil {
 		HandleError(w, InternalError(err, "Failed to render gameserver card"), "gameserver_card")
+	}
+}
+
+// StatusPartial returns the current status (card or header) for HTMX polling
+func (h *Handlers) StatusPartial(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	gameserver, err := h.service.GetGameserver(id)
+	if err != nil {
+		// Server doesn't exist (likely deleted) - return empty response to remove the element
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	target := r.Header.Get("HX-Target")
+
+	// Detail page targets #gameserver-header
+	if target == "gameserver-header" {
+		data := map[string]interface{}{
+			"Gameserver": gameserver,
+		}
+		if err := h.tmpl.ExecuteTemplate(w, "gameserver-header.html", data); err != nil {
+			HandleError(w, InternalError(err, "Failed to render gameserver header"), "status_partial")
+		}
+		return
+	}
+
+	// List page targets #gameserver-{id} - render card
+	if err := h.tmpl.ExecuteTemplate(w, "gameserver-card.html", gameserver); err != nil {
+		HandleError(w, InternalError(err, "Failed to render gameserver card"), "status_partial")
 	}
 }
 

@@ -1,5 +1,9 @@
 <!-- Server header with status and actions -->
-<div id="gameserver-header" class="lg:flex lg:items-center lg:justify-between mb-8">
+<div id="gameserver-header" class="lg:flex lg:items-center lg:justify-between mb-8"
+     hx-get="/gameservers/{{.Gameserver.ID}}/status"
+     hx-trigger="every 2s"
+     hx-target="#gameserver-header"
+     hx-swap="outerHTML">
   <div class="min-w-0 flex-1">
     <div class="flex items-center space-x-3">
       {{if .Gameserver.IconPath}}
@@ -19,14 +23,32 @@
           <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium transition-smooth
             {{if eq .Gameserver.Status "running"}}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
             {{else if eq .Gameserver.Status "stopped"}}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
-            {{else if eq .Gameserver.Status "starting"}}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+            {{else if eq .Gameserver.Status "pulling_image"}}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+            {{else if eq .Gameserver.Status "creating_container"}}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+            {{else if eq .Gameserver.Status "starting_container"}}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+            {{else if eq .Gameserver.Status "waiting_ready"}}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+            {{else if eq .Gameserver.Status "stopping"}}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+            {{else if eq .Gameserver.Status "deleting"}}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+            {{else if eq .Gameserver.Status "error"}}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
             {{else}}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{{end}}">
             <div class="w-2 h-2 rounded-full mr-2
               {{if eq .Gameserver.Status "running"}}bg-green-400
               {{else if eq .Gameserver.Status "stopped"}}bg-red-400
-              {{else if eq .Gameserver.Status "starting"}}bg-yellow-400 animate-pulse
+              {{else if eq .Gameserver.Status "pulling_image"}}bg-blue-400 animate-pulse
+              {{else if eq .Gameserver.Status "creating_container"}}bg-blue-400 animate-pulse
+              {{else if eq .Gameserver.Status "starting_container"}}bg-yellow-400 animate-pulse
+              {{else if eq .Gameserver.Status "waiting_ready"}}bg-yellow-400 animate-pulse
+              {{else if eq .Gameserver.Status "stopping"}}bg-orange-400 animate-pulse
+              {{else if eq .Gameserver.Status "deleting"}}bg-red-400 animate-pulse
+              {{else if eq .Gameserver.Status "error"}}bg-red-400
               {{else}}bg-gray-400{{end}}"></div>
-            {{.Gameserver.Status}}
+            {{if eq .Gameserver.Status "pulling_image"}}Pulling image...
+            {{else if eq .Gameserver.Status "creating_container"}}Creating container...
+            {{else if eq .Gameserver.Status "starting_container"}}Starting...
+            {{else if eq .Gameserver.Status "waiting_ready"}}Waiting for server...
+            {{else if eq .Gameserver.Status "stopping"}}Stopping...
+            {{else if eq .Gameserver.Status "deleting"}}Deleting...
+            {{else}}{{.Gameserver.Status}}{{end}}
           </span>
           <span class="text-sm text-gray-500 dark:text-gray-400">
             {{$gamePort := .Gameserver.GetGamePort}}
@@ -54,7 +76,22 @@
       Edit
     </a>
 
-    {{if eq .Gameserver.Status "running"}}
+    {{if .Gameserver.Status.IsTransitional}}
+      <!-- Disabled state during transitions - show spinner -->
+      <button disabled class="inline-flex items-center px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed">
+        <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        {{if eq .Gameserver.Status "pulling_image"}}Pulling...
+        {{else if eq .Gameserver.Status "creating_container"}}Creating...
+        {{else if eq .Gameserver.Status "starting_container"}}Starting...
+        {{else if eq .Gameserver.Status "waiting_ready"}}Initializing...
+        {{else if eq .Gameserver.Status "stopping"}}Stopping...
+        {{else if eq .Gameserver.Status "deleting"}}Deleting...
+        {{else}}Processing...{{end}}
+      </button>
+    {{else if eq .Gameserver.Status "running"}}
       <button hx-post="/gameservers/{{.Gameserver.ID}}/stop" hx-target="#gameserver-header" hx-swap="outerHTML" hx-indicator="#loading"
               class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-smooth">
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

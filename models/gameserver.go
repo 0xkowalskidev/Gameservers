@@ -9,12 +9,25 @@ import (
 type GameserverStatus string
 
 const (
-	StatusStopped  GameserverStatus = "stopped"
-	StatusStarting GameserverStatus = "starting"
-	StatusRunning  GameserverStatus = "running"
-	StatusStopping GameserverStatus = "stopping"
-	StatusError    GameserverStatus = "error"
+	StatusStopped           GameserverStatus = "stopped"
+	StatusPullingImage      GameserverStatus = "pulling_image"
+	StatusCreatingContainer GameserverStatus = "creating_container"
+	StatusStartingContainer GameserverStatus = "starting_container"
+	StatusWaitingReady      GameserverStatus = "waiting_ready"
+	StatusRunning           GameserverStatus = "running"
+	StatusStopping          GameserverStatus = "stopping"
+	StatusDeleting          GameserverStatus = "deleting"
+	StatusError             GameserverStatus = "error"
 )
+
+// IsTransitional returns true if the status represents an in-progress state
+func (s GameserverStatus) IsTransitional() bool {
+	switch s {
+	case StatusPullingImage, StatusCreatingContainer, StatusStartingContainer, StatusWaitingReady, StatusStopping, StatusDeleting:
+		return true
+	}
+	return false
+}
 
 type Gameserver struct {
 	ID           string           `json:"id" gorm:"primaryKey;type:varchar(50)"`

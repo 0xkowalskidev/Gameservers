@@ -17,12 +17,12 @@
         </div>
         <div class="flex items-center space-x-3">
           <div class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-smooth
-            {{if eq .Gameserver.Status "running"}}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
+            {{if .Gameserver.ContainerID}}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
             {{else}}bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200{{end}}">
-            <div class="w-2 h-2 rounded-full mr-2 
-              {{if eq .Gameserver.Status "running"}}bg-green-400
+            <div class="w-2 h-2 rounded-full mr-2
+              {{if .Gameserver.ContainerID}}bg-green-400
               {{else}}bg-red-400{{end}}"></div>
-            {{if eq .Gameserver.Status "running"}}Connected{{else}}Disconnected{{end}}
+            {{if .Gameserver.ContainerID}}Connected{{else}}Disconnected{{end}}
           </div>
         </div>
       </div>
@@ -32,14 +32,14 @@
     <div class="flex flex-col" style="height: 600px;">
       <!-- Log output area -->
       <div class="flex-1 bg-black text-green-400 font-mono text-sm p-4 overflow-y-auto" id="console-output"
-           {{if eq .Gameserver.Status "running"}}
+           {{if .Gameserver.ContainerID}}
            hx-ext="sse"
            sse-connect="/gameservers/{{.Gameserver.ID}}/logs"
            sse-swap="log"
            hx-swap="beforeend scroll:bottom"
            hx-on::htmx:sseMessage="while(this.children.length > 1000) this.removeChild(this.children[0])"
            {{end}}>
-        {{if eq .Gameserver.Status "running"}}
+        {{if .Gameserver.ContainerID}}
           <div class="text-gray-500 mb-2">[INFO] Console connected - logs will appear below</div>
         {{else}}
           <div class="text-red-400 mb-2">[ERROR] Server is not running - start the server to see logs</div>
@@ -57,12 +57,12 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <span class="text-gray-500 dark:text-gray-400 font-mono text-sm">></span>
                 </div>
-                <input type="text" id="command-input" name="command" 
+                <input type="text" id="command-input" name="command"
                        class="block w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
                        placeholder="Enter server command..." autocomplete="off">
               </div>
             </div>
-            <button type="submit" 
+            <button type="submit"
                     class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
@@ -72,9 +72,20 @@
           </div>
         </form>
         <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Press Enter to send command. Common commands: <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">help</code>, 
-          <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">list</code>, 
+          Press Enter to send command. Common commands: <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">help</code>,
+          <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">list</code>,
           <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">say Hello!</code>
+        </div>
+      </div>
+      {{else if .Gameserver.ContainerID}}
+      <!-- Container exists but not fully running - show logs but disable command input -->
+      <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
+        <div class="text-center text-gray-500 dark:text-gray-400">
+          <svg class="w-8 h-8 text-yellow-400 dark:text-yellow-500 mx-auto mb-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <p class="text-sm font-medium">Server is starting...</p>
+          <p class="text-xs mt-1">Commands will be available once the server is fully running</p>
         </div>
       </div>
       {{else}}

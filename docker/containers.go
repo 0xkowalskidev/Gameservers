@@ -17,12 +17,27 @@ import (
 
 // CreateContainer creates a new Docker container for a gameserver
 func (d *DockerManager) CreateContainer(server *models.Gameserver) error {
+	return d.CreateContainerWithCallback(server, nil)
+}
+
+// CreateContainerWithCallback creates a new Docker container with status callbacks
+func (d *DockerManager) CreateContainerWithCallback(server *models.Gameserver, callback models.StatusCallback) error {
 	ctx := context.Background()
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Str("image", server.Image).Msg("Creating Docker container")
+
+	// Report pulling status
+	if callback != nil {
+		callback(models.StatusPullingImage)
+	}
 
 	// Try to pull image if it doesn't exist locally
 	if err := d.pullImageIfNeeded(ctx, server.Image); err != nil {
 		log.Warn().Err(err).Str("image", server.Image).Msg("Failed to pull Docker image, proceeding anyway")
+	}
+
+	// Report creating container status
+	if callback != nil {
+		callback(models.StatusCreatingContainer)
 	}
 
 	// Prepare environment variables with automatic resource settings
@@ -218,7 +233,7 @@ func (d *DockerManager) GetContainerStatus(containerID string) (models.Gameserve
 	case "created":
 		return models.StatusStopped, nil
 	case "restarting":
-		return models.StatusStarting, nil
+		return models.StatusStartingContainer, nil
 	default:
 		return models.StatusError, nil
 	}

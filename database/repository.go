@@ -12,17 +12,24 @@ import (
 	"0xkowalskidev/gameservers/models"
 )
 
+// QueryServiceInterface defines the query service contract for readiness checks
+type QueryServiceInterface interface {
+	IsServerReady(gameserver *models.Gameserver, game *models.Game) bool
+}
+
 // GameserverRepository wraps DatabaseManager with Docker operations
 type GameserverRepository struct {
-	db     *DatabaseManager
-	docker models.DockerManagerInterface
+	db           *DatabaseManager
+	docker       models.DockerManagerInterface
+	queryService QueryServiceInterface
 }
 
 // NewGameserverRepository creates a new gameserver repository instance
-func NewGameserverRepository(db *DatabaseManager, docker models.DockerManagerInterface) *GameserverRepository {
+func NewGameserverRepository(db *DatabaseManager, docker models.DockerManagerInterface, queryService QueryServiceInterface) *GameserverRepository {
 	return &GameserverRepository{
-		db:     db,
-		docker: docker,
+		db:           db,
+		docker:       docker,
+		queryService: queryService,
 	}
 }
 
@@ -169,7 +176,7 @@ func (gss *GameserverRepository) allocatePortsForServer(server *models.Gameserve
 	return models.AllocatePortsForServer(server, usedPorts)
 }
 
-// StartGameserver starts a gameserver with Docker container creation
+// StartGameserver starts a gameserver asynchronously with status tracking
 func (gss *GameserverRepository) StartGameserver(id string) error {
 	server, err := gss.db.GetGameserver(id)
 	if err != nil {
@@ -186,25 +193,109 @@ func (gss *GameserverRepository) StartGameserver(id string) error {
 		return err
 	}
 
-	// Create new container with latest settings
-	if err := gss.docker.CreateContainer(server); err != nil {
-		return err
-	}
-
-	// Start the new container
-	if err := gss.docker.StartContainer(server.ContainerID); err != nil {
-		return err
-	}
-
-	server.Status = models.StatusStarting
+	// Set initial status to pulling_image
+	server.Status = models.StatusPullingImage
 	server.UpdatedAt = time.Now()
-	return gss.db.UpdateGameserver(server)
+	if err := gss.db.UpdateGameserver(server); err != nil {
+		return err
+	}
+
+	// Start async startup process
+	go gss.performStartup(server)
+
+	return nil
+}
+
+// performStartup handles the actual startup process with status updates
+func (gss *GameserverRepository) performStartup(server *models.Gameserver) {
+	// Helper to update status in database
+	updateStatus := func(status models.GameserverStatus) {
+		server.Status = status
+		server.UpdatedAt = time.Now()
+		if err := gss.db.UpdateGameserver(server); err != nil {
+			log.Error().Err(err).Str("gameserver_id", server.ID).Str("status", string(status)).Msg("Failed to update status during startup")
+		}
+	}
+
+	// Create container with status callback
+	err := gss.docker.CreateContainerWithCallback(server, func(status models.GameserverStatus) {
+		updateStatus(status)
+	})
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", server.ID).Msg("Failed to create container")
+		updateStatus(models.StatusError)
+		return
+	}
+
+	// Update status to starting container
+	updateStatus(models.StatusStartingContainer)
+
+	// Start the container
+	if err := gss.docker.StartContainer(server.ContainerID); err != nil {
+		log.Error().Err(err).Str("gameserver_id", server.ID).Msg("Failed to start container")
+		updateStatus(models.StatusError)
+		return
+	}
+
+	// Update status to waiting for ready
+	updateStatus(models.StatusWaitingReady)
+
+	// Wait for server to be ready
+	gss.waitForReady(server, updateStatus)
+}
+
+// waitForReady polls until the server is responding or times out
+func (gss *GameserverRepository) waitForReady(server *models.Gameserver, updateStatus func(models.GameserverStatus)) {
+	timeout := time.After(5 * time.Minute)
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	// Get game info for query
+	game, err := gss.db.GetGame(server.GameID)
+	if err != nil {
+		log.Error().Err(err).Str("gameserver_id", server.ID).Msg("Failed to get game for readiness check")
+		updateStatus(models.StatusRunning) // Mark as running anyway
+		return
+	}
+
+	for {
+		select {
+		case <-timeout:
+			// Timeout reached, but container is running - mark as running
+			log.Warn().Str("gameserver_id", server.ID).Msg("Readiness timeout reached, marking as running")
+			updateStatus(models.StatusRunning)
+			return
+
+		case <-ticker.C:
+			// Check if container is still running
+			dockerStatus, err := gss.docker.GetContainerStatus(server.ContainerID)
+			if err != nil || dockerStatus == models.StatusStopped || dockerStatus == models.StatusError {
+				log.Error().Str("gameserver_id", server.ID).Str("docker_status", string(dockerStatus)).Msg("Container stopped during startup")
+				updateStatus(models.StatusError)
+				return
+			}
+
+			// Check if server is responding to queries
+			if gss.queryService != nil && gss.queryService.IsServerReady(server, game) {
+				log.Info().Str("gameserver_id", server.ID).Msg("Server is ready")
+				updateStatus(models.StatusRunning)
+				return
+			}
+		}
+	}
 }
 
 // StopGameserver stops a gameserver and removes its container
 func (gss *GameserverRepository) StopGameserver(id string) error {
 	server, err := gss.db.GetGameserver(id)
 	if err != nil {
+		return err
+	}
+
+	// Set status to stopping
+	server.Status = models.StatusStopping
+	server.UpdatedAt = time.Now()
+	if err := gss.db.UpdateGameserver(server); err != nil {
 		return err
 	}
 
@@ -265,6 +356,13 @@ func (gss *GameserverRepository) DeleteGameserver(id string) error {
 		return err
 	}
 
+	// Set status to deleting
+	server.Status = models.StatusDeleting
+	server.UpdatedAt = time.Now()
+	if err := gss.db.UpdateGameserver(server); err != nil {
+		return err
+	}
+
 	// Remove container if it exists
 	if server.ContainerID != "" {
 		gss.docker.RemoveContainer(server.ContainerID)
@@ -281,6 +379,11 @@ func (gss *GameserverRepository) DeleteGameserver(id string) error {
 
 // syncStatus synchronizes the gameserver status with Docker container status
 func (gss *GameserverRepository) syncStatus(server *models.Gameserver) {
+	// Don't sync if in a transitional state (startup/shutdown goroutine controls status)
+	if server.Status.IsTransitional() {
+		return
+	}
+
 	if server.ContainerID != "" {
 		if dockerStatus, err := gss.docker.GetContainerStatus(server.ContainerID); err == nil && server.Status != dockerStatus {
 			server.Status, server.UpdatedAt = dockerStatus, time.Now()
@@ -513,8 +616,8 @@ func (gss *GameserverRepository) validateSystemMemoryForStart(server *models.Gam
 	// Calculate current memory usage from running servers only
 	currentMemoryUsage := 0
 	for _, existingServer := range servers {
-		// Only count running servers (starting servers will become running)
-		if existingServer.Status == models.StatusRunning || existingServer.Status == models.StatusStarting {
+		// Only count running servers (transitional servers will become running)
+		if existingServer.Status == models.StatusRunning || existingServer.Status.IsTransitional() {
 			currentMemoryUsage += existingServer.MemoryMB
 		}
 	}

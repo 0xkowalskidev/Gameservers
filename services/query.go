@@ -31,6 +31,20 @@ func (qs *QueryService) QueryGameserver(gameserver *models.Gameserver, game *mod
 		}, nil
 	}
 
+	return qs.doQuery(gameserver, game)
+}
+
+// IsServerReady checks if a gameserver is responding to queries (used during startup)
+func (qs *QueryService) IsServerReady(gameserver *models.Gameserver, game *models.Game) bool {
+	result, err := qs.doQuery(gameserver, game)
+	if err != nil {
+		return false
+	}
+	return result.Online
+}
+
+// doQuery performs the actual query regardless of server status
+func (qs *QueryService) doQuery(gameserver *models.Gameserver, game *models.Game) (*protocol.ServerInfo, error) {
 	// Get the query port (preferred) or game port
 	var queryPort *models.PortMapping
 

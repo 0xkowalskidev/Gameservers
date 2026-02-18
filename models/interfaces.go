@@ -4,8 +4,12 @@ import (
 	"io"
 )
 
+// StatusCallback is called during startup to report status changes
+type StatusCallback func(status GameserverStatus)
+
 type DockerManagerInterface interface {
 	CreateContainer(server *Gameserver) error
+	CreateContainerWithCallback(server *Gameserver, callback StatusCallback) error
 	StartContainer(containerID string) error
 	StopContainer(containerID string) error
 	RemoveContainer(containerID string) error

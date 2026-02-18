@@ -84,8 +84,12 @@ func main() {
 	}
 	log.Info().Msg("Docker manager initialized successfully")
 
+	// Initialize query service
+	queryService := services.NewQueryService()
+	log.Info().Msg("Query service initialized")
+
 	// Initialize gameserver repository
-	gameserverRepo := database.NewGameserverRepository(db, dockerManager)
+	gameserverRepo := database.NewGameserverRepository(db, dockerManager, queryService)
 	log.Info().Msg("Gameserver repository initialized")
 
 	// Initialize and start task scheduler
@@ -152,10 +156,6 @@ func main() {
 	handlers.ParseForm = ParseForm
 	handlers.RequireMethod = RequireMethod
 
-	// Initialize query service
-	queryService := services.NewQueryService()
-	log.Info().Msg("Query service initialized")
-
 	// Initialize handlers
 	handlerInstance := handlers.New(gameserverRepo, dockerManager, tmpl, config.MaxFileEditSize, config.MaxUploadSize, queryService)
 
@@ -208,6 +208,7 @@ func main() {
 		r.Get("/{id}/stats", handlerInstance.GameserverStats)
 		r.Get("/{id}/query", handlerInstance.QueryGameserver)
 		r.Get("/{id}/query-partial", handlerInstance.QueryGameserverPartial)
+		r.Get("/{id}/status", handlerInstance.StatusPartial)
 		r.Get("/{id}/tasks", handlerInstance.ListGameserverTasks)
 		r.Get("/{id}/tasks/new", handlerInstance.NewGameserverTask)
 		r.Post("/{id}/tasks", handlerInstance.CreateGameserverTask)
