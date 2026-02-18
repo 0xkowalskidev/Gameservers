@@ -12,14 +12,18 @@
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{.Gameserver.GameType}}</dd>
           </div>
           <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Connection Port</dt>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Connection Address</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
               {{$gamePort := .Gameserver.GetGamePort}}
               {{if $gamePort}}
-              <span class="font-semibold text-blue-600 dark:text-blue-400">{{$gamePort.HostPort}}</span>
+                {{if publicAddress}}
+                <span class="font-semibold text-blue-600 dark:text-blue-400">{{publicAddress}}:{{$gamePort.HostPort}}</span>
+                {{else}}
+                <span class="text-gray-400">Not configured</span>
+                {{end}}
               <span class="text-gray-500">{{if eq $gamePort.Protocol "tcp"}}(TCP){{else}}(UDP){{end}}</span>
               {{else}}
-              <span class="text-gray-500">Not configured</span>
+              <span class="text-gray-500">No ports configured</span>
               {{end}}
             </dd>
           </div>

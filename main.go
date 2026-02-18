@@ -35,8 +35,9 @@ var staticFiles embed.FS
 // Config holds all configuration for the application
 type Config struct {
 	// Server Configuration
-	Host            string
-	Port            int
+	Host          string
+	Port          int
+	PublicAddress string // Public IP/domain for gameserver connection details
 	ShutdownTimeout time.Duration
 
 	// Database Configuration
@@ -99,6 +100,7 @@ func main() {
 	tmpl, err := template.New("").Funcs(template.FuncMap{
 		"formatFileSize": formatFileSize,
 		"cronToHuman":    cronToHuman,
+		"publicAddress":  func() string { return config.PublicAddress },
 		"sub":            func(a, b int) int { return a - b },
 		"mul": func(a, b interface{}) float64 {
 			aVal, bVal := toFloat64(a), toFloat64(b)
@@ -414,6 +416,7 @@ func loadConfig() Config {
 		// Server defaults
 		Host:            getStr("GAMESERVER_HOST", "localhost"),
 		Port:            getInt("GAMESERVER_PORT", 3000),
+		PublicAddress:   getStr("GAMESERVER_PUBLIC_ADDRESS", "localhost"),
 		ShutdownTimeout: getDuration("GAMESERVER_SHUTDOWN_TIMEOUT", 30*time.Second),
 
 		// Database defaults

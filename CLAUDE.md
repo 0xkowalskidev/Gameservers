@@ -93,6 +93,7 @@ All configuration is done via environment variables with sensible defaults:
 # Server
 GAMESERVER_HOST=localhost                    # default: localhost
 GAMESERVER_PORT=3000                        # default: 3000
+GAMESERVER_PUBLIC_ADDRESS=play.example.com  # default: localhost (public IP/domain for connection details)
 GAMESERVER_SHUTDOWN_TIMEOUT=30s             # default: 30s
 
 # Database

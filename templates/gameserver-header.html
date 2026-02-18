@@ -31,7 +31,11 @@
           <span class="text-sm text-gray-500 dark:text-gray-400">
             {{$gamePort := .Gameserver.GetGamePort}}
             {{if $gamePort}}
-              {{.Gameserver.GameType}} • Connect: {{$gamePort.HostPort}}
+              {{if publicAddress}}
+              {{.Gameserver.GameType}} • Connect: {{publicAddress}}:{{$gamePort.HostPort}}
+              {{else}}
+              {{.Gameserver.GameType}} • Address not configured
+              {{end}}
             {{else}}
               {{.Gameserver.GameType}} • No ports configured
             {{end}}

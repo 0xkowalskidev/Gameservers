@@ -31,8 +31,10 @@
             <span class="text-sm text-gray-500 dark:text-gray-400">{{.GameType}}</span>
             {{$gamePort := .GetGamePort}}
             {{if $gamePort}}
+              {{if publicAddress}}
               <span class="text-xs text-gray-400 dark:text-gray-500">•</span>
-              <span class="text-xs font-mono text-gray-500 dark:text-gray-400">:{{$gamePort.HostPort}}</span>
+              <span class="text-xs font-mono text-gray-500 dark:text-gray-400">{{publicAddress}}:{{$gamePort.HostPort}}</span>
+              {{end}}
             {{end}}
           </div>
         </div>
