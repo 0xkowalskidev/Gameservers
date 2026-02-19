@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -190,7 +191,7 @@ func (h *Handlers) StartGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderGameserverPartial(w, r)
+	w.WriteHeader(http.StatusOK)
 }
 
 // StopGameserver stops a gameserver
@@ -200,7 +201,7 @@ func (h *Handlers) StopGameserver(w http.ResponseWriter, r *http.Request) {
 		HandleError(w, InternalError(err, "Failed to stop gameserver"), "stop_gameserver")
 		return
 	}
-	h.renderGameserverPartial(w, r)
+	w.WriteHeader(http.StatusOK)
 }
 
 // RestartGameserver restarts a gameserver
@@ -210,7 +211,7 @@ func (h *Handlers) RestartGameserver(w http.ResponseWriter, r *http.Request) {
 		HandleError(w, InternalError(err, "Failed to restart gameserver"), "restart_gameserver")
 		return
 	}
-	h.renderGameserverPartial(w, r)
+	w.WriteHeader(http.StatusOK)
 }
 
 // DestroyGameserver deletes a gameserver
@@ -223,61 +224,20 @@ func (h *Handlers) DestroyGameserver(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// renderGameserverPartial renders either the card (for list pages) or header (for detail pages)
-// based on the HX-Target header
-func (h *Handlers) renderGameserverPartial(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	gameserver, ok := h.getGameserver(w, id)
-	if !ok {
-		return
-	}
-
-	target := r.Header.Get("HX-Target")
-
-	// Detail page targets #gameserver-header
-	if target == "gameserver-header" {
-		data := map[string]interface{}{
-			"Gameserver": gameserver,
-		}
-		if err := h.tmpl.ExecuteTemplate(w, "gameserver-header.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render gameserver header"), "gameserver_header")
-		}
-		return
-	}
-
-	// List page targets #gameserver-{id} - render card
-	if err := h.tmpl.ExecuteTemplate(w, "gameserver-card.html", gameserver); err != nil {
-		HandleError(w, InternalError(err, "Failed to render gameserver card"), "gameserver_card")
-	}
-}
-
-// StatusPartial returns the current status (card or header) for HTMX polling
+// StatusPartial returns JSON status for Alpine.js polling
 func (h *Handlers) StatusPartial(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	gameserver, err := h.service.GetGameserver(id)
 	if err != nil {
-		// Server doesn't exist (likely deleted) - return empty response to remove the element
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	target := r.Header.Get("HX-Target")
-
-	// Detail page targets #gameserver-header
-	if target == "gameserver-header" {
-		data := map[string]interface{}{
-			"Gameserver": gameserver,
-		}
-		if err := h.tmpl.ExecuteTemplate(w, "gameserver-header.html", data); err != nil {
-			HandleError(w, InternalError(err, "Failed to render gameserver header"), "status_partial")
-		}
-		return
-	}
-
-	// List page targets #gameserver-{id} - render card
-	if err := h.tmpl.ExecuteTemplate(w, "gameserver-card.html", gameserver); err != nil {
-		HandleError(w, InternalError(err, "Failed to render gameserver card"), "status_partial")
-	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":         gameserver.Status,
+		"isTransitional": gameserver.Status.IsTransitional(),
+	})
 }
 
 // QueryGameserverPartial returns HTML partial for HTMX polling

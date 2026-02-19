@@ -1,9 +1,7 @@
-<!-- Server header with status and actions -->
+<!-- Server header with Alpine.js state management -->
 <div id="gameserver-header" class="lg:flex lg:items-center lg:justify-between mb-8"
-     hx-get="/gameservers/{{.Gameserver.ID}}/status"
-     hx-trigger="every 2s"
-     hx-target="#gameserver-header"
-     hx-swap="outerHTML">
+     x-data="gameserverHeader('{{.Gameserver.ID}}', '{{.Gameserver.Status}}', {{.Gameserver.Status.IsTransitional}})"
+     x-init="startPolling()">
   <div class="min-w-0 flex-1">
     <div class="flex items-center space-x-3">
       {{if .Gameserver.IconPath}}
@@ -20,35 +18,10 @@
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{.Gameserver.Name}}</h1>
         <div class="flex items-center space-x-3 mt-1">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium transition-smooth
-            {{if eq .Gameserver.Status "running"}}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
-            {{else if eq .Gameserver.Status "stopped"}}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
-            {{else if eq .Gameserver.Status "pulling_image"}}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
-            {{else if eq .Gameserver.Status "creating_container"}}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
-            {{else if eq .Gameserver.Status "starting_container"}}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
-            {{else if eq .Gameserver.Status "waiting_ready"}}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
-            {{else if eq .Gameserver.Status "stopping"}}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
-            {{else if eq .Gameserver.Status "deleting"}}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
-            {{else if eq .Gameserver.Status "error"}}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
-            {{else}}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{{end}}">
-            <div class="w-2 h-2 rounded-full mr-2
-              {{if eq .Gameserver.Status "running"}}bg-green-400
-              {{else if eq .Gameserver.Status "stopped"}}bg-red-400
-              {{else if eq .Gameserver.Status "pulling_image"}}bg-blue-400 animate-pulse
-              {{else if eq .Gameserver.Status "creating_container"}}bg-blue-400 animate-pulse
-              {{else if eq .Gameserver.Status "starting_container"}}bg-yellow-400 animate-pulse
-              {{else if eq .Gameserver.Status "waiting_ready"}}bg-yellow-400 animate-pulse
-              {{else if eq .Gameserver.Status "stopping"}}bg-orange-400 animate-pulse
-              {{else if eq .Gameserver.Status "deleting"}}bg-red-400 animate-pulse
-              {{else if eq .Gameserver.Status "error"}}bg-red-400
-              {{else}}bg-gray-400{{end}}"></div>
-            {{if eq .Gameserver.Status "pulling_image"}}Pulling image...
-            {{else if eq .Gameserver.Status "creating_container"}}Creating container...
-            {{else if eq .Gameserver.Status "starting_container"}}Starting...
-            {{else if eq .Gameserver.Status "waiting_ready"}}Waiting for server...
-            {{else if eq .Gameserver.Status "stopping"}}Stopping...
-            {{else if eq .Gameserver.Status "deleting"}}Deleting...
-            {{else}}{{.Gameserver.Status}}{{end}}
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium transition-smooth"
+                :class="statusBadgeClasses">
+            <div class="w-2 h-2 rounded-full mr-2" :class="indicatorClass"></div>
+            <span x-text="statusText"></span>
           </span>
           <span class="text-sm text-gray-500 dark:text-gray-400">
             {{$gamePort := .Gameserver.GetGamePort}}
@@ -76,45 +49,153 @@
       Edit
     </a>
 
-    {{if .Gameserver.Status.IsTransitional}}
-      <!-- Disabled state during transitions - show spinner -->
+    <!-- Transitional state - disabled spinner button -->
+    <template x-if="isTransitional">
       <button disabled class="inline-flex items-center px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed">
         <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        {{if eq .Gameserver.Status "pulling_image"}}Pulling...
-        {{else if eq .Gameserver.Status "creating_container"}}Creating...
-        {{else if eq .Gameserver.Status "starting_container"}}Starting...
-        {{else if eq .Gameserver.Status "waiting_ready"}}Initializing...
-        {{else if eq .Gameserver.Status "stopping"}}Stopping...
-        {{else if eq .Gameserver.Status "deleting"}}Deleting...
-        {{else}}Processing...{{end}}
+        <span x-text="transitionText"></span>
       </button>
-    {{else if eq .Gameserver.Status "running"}}
-      <button hx-post="/gameservers/{{.Gameserver.ID}}/stop" hx-target="#gameserver-header" hx-swap="outerHTML" hx-indicator="#loading"
-              class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-smooth">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
-        </svg>
-        Stop
-      </button>
-      <button hx-post="/gameservers/{{.Gameserver.ID}}/restart" hx-target="#gameserver-header" hx-swap="outerHTML" hx-indicator="#loading"
-              class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-smooth">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        Restart
-      </button>
-    {{else}}
-      <button hx-post="/gameservers/{{.Gameserver.ID}}/start" hx-target="#gameserver-header" hx-swap="outerHTML" hx-indicator="#loading"
+    </template>
+
+    <!-- Running state - show stop and restart -->
+    <template x-if="!isTransitional && status === 'running'">
+      <div class="flex space-x-3">
+        <button @click="doAction('stop')"
+                class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-smooth">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+          </svg>
+          Stop
+        </button>
+        <button @click="doAction('restart')"
+                class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-smooth">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          Restart
+        </button>
+      </div>
+    </template>
+
+    <!-- Stopped state - show start -->
+    <template x-if="!isTransitional && status !== 'running'">
+      <button @click="doAction('start')"
               class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-smooth">
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-5-9V3m0 0V1m0 2h-2m2 0h2"></path>
         </svg>
         Start
       </button>
-    {{end}}
+    </template>
   </div>
 </div>
+
+<script>
+function gameserverHeader(id, initialStatus, initialIsTransitional) {
+  return {
+    id: id,
+    status: initialStatus,
+    isTransitional: initialIsTransitional,
+    pollInterval: null,
+
+    get statusBadgeClasses() {
+      const classes = {
+        running: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        stopped: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+        pulling_image: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+        creating_container: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+        starting_container: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        waiting_ready: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        stopping: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+        deleting: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+        error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+      };
+      return classes[this.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+    },
+
+    get indicatorClass() {
+      const classes = {
+        running: 'bg-green-400',
+        stopped: 'bg-red-400',
+        pulling_image: 'bg-blue-400 animate-pulse',
+        creating_container: 'bg-blue-400 animate-pulse',
+        starting_container: 'bg-yellow-400 animate-pulse',
+        waiting_ready: 'bg-yellow-400 animate-pulse',
+        stopping: 'bg-orange-400 animate-pulse',
+        deleting: 'bg-red-400 animate-pulse',
+        error: 'bg-red-400',
+      };
+      return classes[this.status] || 'bg-gray-400';
+    },
+
+    get statusText() {
+      const texts = {
+        pulling_image: 'Pulling image...',
+        creating_container: 'Creating container...',
+        starting_container: 'Starting...',
+        waiting_ready: 'Waiting for server...',
+        stopping: 'Stopping...',
+        deleting: 'Deleting...',
+      };
+      return texts[this.status] || this.status;
+    },
+
+    get transitionText() {
+      const texts = {
+        pulling_image: 'Pulling...',
+        creating_container: 'Creating...',
+        starting_container: 'Starting...',
+        waiting_ready: 'Initializing...',
+        stopping: 'Stopping...',
+        deleting: 'Deleting...',
+      };
+      return texts[this.status] || 'Processing...';
+    },
+
+    async doAction(action) {
+      this.isTransitional = true;
+      try {
+        await fetch(`/gameservers/${this.id}/${action}`, { method: 'POST' });
+        // Immediately fetch new status
+        const resp = await fetch(`/gameservers/${this.id}/status`);
+        if (resp.ok) {
+          const data = await resp.json();
+          this.status = data.status;
+          this.isTransitional = data.isTransitional;
+        }
+      } catch (e) {
+        console.error(`Action ${action} failed:`, e);
+        this.isTransitional = false;
+      }
+    },
+
+    startPolling() {
+      this.pollInterval = setInterval(async () => {
+        try {
+          const resp = await fetch(`/gameservers/${this.id}/status`);
+          if (resp.ok) {
+            const data = await resp.json();
+            const prevStatus = this.status;
+            this.status = data.status;
+            this.isTransitional = data.isTransitional;
+
+          } else if (resp.status === 404) {
+            // Server deleted - redirect to list
+            window.location.href = '/gameservers';
+          }
+        } catch (e) {
+          console.error('Status poll failed:', e);
+        }
+      }, 2000);
+    },
+
+    destroy() {
+      if (this.pollInterval) clearInterval(this.pollInterval);
+    }
+  };
+}
+</script>
