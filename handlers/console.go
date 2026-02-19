@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -145,22 +144,20 @@ func (h *Handlers) GameserverStats(w http.ResponseWriter, r *http.Request) {
 			memUsageMB := float64(memUsage) / 1024 / 1024
 			memLimitMB := float64(memLimit) / 1024 / 1024
 
-			// Create stats data for template
+			// Create stats data as JSON for Alpine.js
 			statsData := map[string]interface{}{
-				"CPU":           cpuPercent,
-				"MemoryUsageGB": memUsageMB / 1024, // Convert MB to GB
-				"MemoryLimitGB": memLimitMB / 1024, // Convert MB to GB
-				"MemoryPercent": memPercent,
+				"cpu":           cpuPercent,
+				"memoryUsageGB": memUsageMB / 1024, // Convert MB to GB
+				"memoryLimitGB": memLimitMB / 1024, // Convert MB to GB
+				"memoryPercent": memPercent,
 			}
 
-			// Render HTML partial
-			var buf bytes.Buffer
-			if err := h.tmpl.ExecuteTemplate(&buf, "gameserver-stats.html", statsData); err != nil {
+			// Send JSON data
+			jsonData, err := json.Marshal(statsData)
+			if err != nil {
 				continue
 			}
-			// SSE data must be single line
-			html := strings.ReplaceAll(buf.String(), "\n", "")
-			fmt.Fprintf(w, "event: stats\ndata: %s\n\n", html)
+			fmt.Fprintf(w, "event: stats\ndata: %s\n\n", string(jsonData))
 			flusher.Flush()
 		}
 	}

@@ -2,6 +2,7 @@
 <div id="gameserver-{{.ID}}"
      x-data="gameserverCard('{{.ID}}', '{{.Status}}', {{.Status.IsTransitional}})"
      x-init="startPolling()"
+     @cleanup="cleanup()"
      @destroyed.window="handleDestroyed($event)"
      class="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md transition-all duration-200">
 
@@ -314,12 +315,11 @@ function gameserverCard(id, initialStatus, initialIsTransitional) {
     },
 
     cleanup() {
-      if (this.pollInterval) clearInterval(this.pollInterval);
+      if (this.pollInterval) {
+        clearInterval(this.pollInterval);
+        this.pollInterval = null;
+      }
       this.stopLogStream();
-    },
-
-    destroy() {
-      this.cleanup();
     }
   };
 }

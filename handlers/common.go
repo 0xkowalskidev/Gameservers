@@ -126,7 +126,14 @@ func (h *Handlers) renderGameserver(w http.ResponseWriter, r *http.Request, gs *
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
-		// HTMX request - just wrapper
+		// Check if targeting just the main content (sub-nav navigation)
+		if r.Header.Get("HX-Target") == "main-content" {
+			// Just return the inner content
+			w.Write(contentBuf.Bytes())
+			return
+		}
+
+		// Full wrapper swap (coming from outside gameserver pages)
 		if err := h.tmpl.ExecuteTemplate(w, "gameserver-wrapper.html", wrapperData); err != nil {
 			HandleError(w, InternalError(err, "Failed to render wrapper"), "render_wrapper")
 			return

@@ -207,7 +207,6 @@ func main() {
 		r.Get("/{id}/logs", handlerInstance.GameserverLogs)
 		r.Get("/{id}/stats", handlerInstance.GameserverStats)
 		r.Get("/{id}/query", handlerInstance.QueryGameserver)
-		r.Get("/{id}/query-partial", handlerInstance.QueryGameserverPartial)
 		r.Get("/{id}/status", handlerInstance.StatusPartial)
 		r.Get("/{id}/tasks", handlerInstance.ListGameserverTasks)
 		r.Get("/{id}/tasks/new", handlerInstance.NewGameserverTask)

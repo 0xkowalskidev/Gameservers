@@ -165,10 +165,12 @@ Current images: minecraft, terraria, garrysmod, palworld, rust, valheim
 ### Terminology
 - Call it "Gameserver" or "Gameservers", not "GameServer" or "Server"
 
-### HTMX Integration
-- Console streaming uses SSE (Server-Sent Events), not WebSocket
-- SSE endpoints: `/{id}/console`, `/{id}/stats`, `/{id}/logs`
-- SSE connections auto-reconnect on failure
+### HTMX vs Alpine.js Usage
+- **HTMX**: Navigation (`hx-get` with `hx-push-url`) and RESTful CRUD operations (form submissions, deletions)
+- **Alpine.js**: UI state management, SSE streaming (logs/stats), server actions (start/stop/restart), status polling
+- SSE streaming uses native EventSource via Alpine components (not htmx-sse extension)
+- Status/query polling uses Alpine fetch + setInterval
+- SSE endpoints: `/{id}/stats`, `/{id}/logs` - both return JSON data for Alpine consumption
 
 ### Database
 - Uses GORM for ORM operations

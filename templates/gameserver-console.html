@@ -1,5 +1,8 @@
-<!-- Console page -->
-<div>
+<!-- Console page with Alpine.js -->
+<div x-data="gameserverConsole('{{.Gameserver.ID}}', '{{.Gameserver.Status}}', '{{.Gameserver.ContainerID}}')"
+     x-init="init()"
+     @cleanup="cleanup()"
+     @gameserver-status.window="onStatusChange($event.detail)">
   <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
     <!-- Header -->
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -16,92 +19,96 @@
           </div>
         </div>
         <div class="flex items-center space-x-3">
-          <div class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-smooth
-            {{if .Gameserver.ContainerID}}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
-            {{else}}bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200{{end}}">
-            <div class="w-2 h-2 rounded-full mr-2
-              {{if .Gameserver.ContainerID}}bg-green-400
-              {{else}}bg-red-400{{end}}"></div>
-            {{if .Gameserver.ContainerID}}Connected{{else}}Disconnected{{end}}
+          <div class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-smooth"
+               :class="connected ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'">
+            <div class="w-2 h-2 rounded-full mr-2"
+                 :class="connected ? 'bg-green-400' : 'bg-red-400'"></div>
+            <span x-text="connected ? 'Connected' : 'Disconnected'"></span>
           </div>
         </div>
       </div>
     </div>
-    
+
     <!-- Console content -->
     <div class="flex flex-col" style="height: 600px;">
       <!-- Log output area -->
-      <div class="flex-1 bg-black text-green-400 font-mono text-sm p-4 overflow-y-auto" id="console-output"
-           {{if .Gameserver.ContainerID}}
-           hx-ext="sse"
-           sse-connect="/gameservers/{{.Gameserver.ID}}/logs"
-           sse-swap="log"
-           hx-swap="beforeend scroll:bottom"
-           hx-on::htmx:sseMessage="while(this.children.length > 1000) this.removeChild(this.children[0])"
-           {{end}}>
-        {{if .Gameserver.ContainerID}}
-          <div class="text-gray-500 mb-2">[INFO] Console connected - logs will appear below</div>
-        {{else}}
+      <div class="flex-1 bg-black text-green-400 font-mono text-sm p-4 overflow-y-auto" id="console-output" x-ref="logContainer">
+        <template x-if="!hasContainer">
           <div class="text-red-400 mb-2">[ERROR] Server is not running - start the server to see logs</div>
-        {{end}}
+        </template>
+        <template x-if="hasContainer && logs.length === 0">
+          <div class="text-gray-500 mb-2">[INFO] Console connected - logs will appear below</div>
+        </template>
+        <template x-for="(log, index) in logs" :key="index">
+          <div x-html="log"></div>
+        </template>
       </div>
-      
-      <!-- Command input area -->
-      {{if eq .Gameserver.Status "running"}}
-      <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
-        <form hx-post="/gameservers/{{.Gameserver.ID}}/console" hx-swap="none" hx-on::after-request="if(event.detail.successful) { document.getElementById('command-input').value = ''; } else { showNotification('Failed to send command', 'error'); }">
-          <div class="flex space-x-3">
-            <div class="flex-1">
-              <label for="command-input" class="sr-only">Command</label>
-              <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span class="text-gray-500 dark:text-gray-400 font-mono text-sm">></span>
+
+      <!-- Command input area - running state -->
+      <template x-if="status === 'running'">
+        <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
+          <form @submit.prevent="sendCommand()">
+            <div class="flex space-x-3">
+              <div class="flex-1">
+                <label for="command-input" class="sr-only">Command</label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span class="text-gray-500 dark:text-gray-400 font-mono text-sm">></span>
+                  </div>
+                  <input type="text" id="command-input" x-model="command" x-ref="commandInput"
+                         class="block w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
+                         placeholder="Enter server command..." autocomplete="off">
                 </div>
-                <input type="text" id="command-input" name="command"
-                       class="block w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth"
-                       placeholder="Enter server command..." autocomplete="off">
               </div>
+              <button type="submit" :disabled="sending"
+                      class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg x-show="!sending" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+                <svg x-show="sending" class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                Send
+              </button>
             </div>
-            <button type="submit"
-                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-smooth">
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-              </svg>
-              Send
-            </button>
+          </form>
+          <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Press Enter to send command. Common commands: <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">help</code>,
+            <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">list</code>,
+            <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">say Hello!</code>
           </div>
-        </form>
-        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Press Enter to send command. Common commands: <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">help</code>,
-          <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">list</code>,
-          <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">say Hello!</code>
         </div>
-      </div>
-      {{else if .Gameserver.ContainerID}}
-      <!-- Container exists but not fully running - show logs but disable command input -->
-      <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
-        <div class="text-center text-gray-500 dark:text-gray-400">
-          <svg class="w-8 h-8 text-yellow-400 dark:text-yellow-500 mx-auto mb-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <p class="text-sm font-medium">Server is starting...</p>
-          <p class="text-xs mt-1">Commands will be available once the server is fully running</p>
+      </template>
+
+      <!-- Command input area - starting state -->
+      <template x-if="hasContainer && status !== 'running' && status !== 'stopped'">
+        <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
+          <div class="text-center text-gray-500 dark:text-gray-400">
+            <svg class="w-8 h-8 text-yellow-400 dark:text-yellow-500 mx-auto mb-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <p class="text-sm font-medium">Server is starting...</p>
+            <p class="text-xs mt-1">Commands will be available once the server is fully running</p>
+          </div>
         </div>
-      </div>
-      {{else}}
-      <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
-        <div class="text-center text-gray-500 dark:text-gray-400">
-          <svg class="w-8 h-8 text-gray-400 dark:text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 5.636l12.728 12.728"></path>
-          </svg>
-          <p class="text-sm font-medium">Console unavailable</p>
-          <p class="text-xs mt-1">Start the server to access the console</p>
+      </template>
+
+      <!-- Command input area - stopped state -->
+      <template x-if="!hasContainer || status === 'stopped'">
+        <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
+          <div class="text-center text-gray-500 dark:text-gray-400">
+            <svg class="w-8 h-8 text-gray-400 dark:text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 5.636l12.728 12.728"></path>
+            </svg>
+            <p class="text-sm font-medium">Console unavailable</p>
+            <p class="text-xs mt-1">Start the server to access the console</p>
+          </div>
         </div>
-      </div>
-      {{end}}
+      </template>
     </div>
   </div>
-  
+
   <!-- Info panel -->
   <div class="mt-6 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
     <div class="flex">
@@ -121,3 +128,115 @@
   </div>
 </div>
 
+<script>
+function gameserverConsole(id, initialStatus, initialContainerID) {
+  return {
+    id: id,
+    status: initialStatus,
+    hasContainer: initialContainerID !== '',
+    connected: false,
+    logs: [],
+    command: '',
+    sending: false,
+    eventSource: null,
+    maxLogs: 1000,
+
+    init() {
+      if (this.hasContainer) {
+        this.startLogStream();
+      }
+    },
+
+    onStatusChange(detail) {
+      if (detail.id !== this.id) return;
+
+      const prevStatus = this.status;
+      this.status = detail.status;
+
+      // Update hasContainer based on transitional states
+      if (detail.isTransitional || this.status === 'running') {
+        if (!this.hasContainer) {
+          this.hasContainer = true;
+          this.startLogStream();
+        }
+      } else if (this.status === 'stopped') {
+        this.hasContainer = false;
+        this.stopLogStream();
+      }
+    },
+
+    startLogStream() {
+      if (this.eventSource) {
+        return; // Already connected
+      }
+
+      this.eventSource = new EventSource(`/gameservers/${this.id}/logs`);
+
+      this.eventSource.addEventListener('log', (e) => {
+        this.logs.push(e.data);
+        // Trim to max logs
+        while (this.logs.length > this.maxLogs) {
+          this.logs.shift();
+        }
+        // Auto-scroll to bottom
+        this.$nextTick(() => {
+          const container = this.$refs.logContainer;
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+          }
+        });
+      });
+
+      this.eventSource.onopen = () => {
+        this.connected = true;
+      };
+
+      this.eventSource.onerror = () => {
+        this.connected = false;
+        // EventSource auto-reconnects, but mark disconnected
+      };
+    },
+
+    stopLogStream() {
+      if (this.eventSource) {
+        this.eventSource.close();
+        this.eventSource = null;
+        this.connected = false;
+      }
+    },
+
+    async sendCommand() {
+      if (!this.command.trim() || this.sending) {
+        return;
+      }
+
+      this.sending = true;
+      try {
+        const formData = new FormData();
+        formData.append('command', this.command);
+
+        const resp = await fetch(`/gameservers/${this.id}/console`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (resp.ok) {
+          this.command = '';
+          this.$refs.commandInput?.focus();
+        } else {
+          showNotification('Failed to send command', 'error');
+        }
+      } catch (e) {
+        console.error('Failed to send command:', e);
+        showNotification('Failed to send command', 'error');
+      } finally {
+        this.sending = false;
+      }
+    },
+
+    cleanup() {
+      this.stopLogStream();
+    }
+  };
+}
+</script>

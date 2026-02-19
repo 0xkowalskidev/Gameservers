@@ -1,97 +1,166 @@
 <!-- Server header with Alpine.js state management -->
-<div id="gameserver-header" class="lg:flex lg:items-center lg:justify-between mb-8"
+<div id="gameserver-header"
      x-data="gameserverHeader('{{.Gameserver.ID}}', '{{.Gameserver.Status}}', {{.Gameserver.Status.IsTransitional}})"
-     x-init="startPolling()">
-  <div class="min-w-0 flex-1">
-    <div class="flex items-center space-x-3">
-      {{if .Gameserver.IconPath}}
-        <div class="flex-shrink-0 w-12 h-12">
-          <img src="{{.Gameserver.IconPath}}" alt="{{.Gameserver.GameType}} icon" class="w-full h-full object-contain">
-        </div>
-      {{else}}
-        <div class="flex-shrink-0 w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-          <svg class="w-7 h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path>
-          </svg>
-        </div>
-      {{end}}
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{.Gameserver.Name}}</h1>
-        <div class="flex items-center space-x-3 mt-1">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium transition-smooth"
-                :class="statusBadgeClasses">
-            <div class="w-2 h-2 rounded-full mr-2" :class="indicatorClass"></div>
-            <span x-text="statusText"></span>
-          </span>
-          <span class="text-sm text-gray-500 dark:text-gray-400">
-            {{$gamePort := .Gameserver.GetGamePort}}
-            {{if $gamePort}}
-              {{if publicAddress}}
-              {{.Gameserver.GameType}} • Connect: {{publicAddress}}:{{$gamePort.HostPort}}
+     x-init="init()"
+     @cleanup="cleanup()"
+     class="mb-8">
+
+  <!-- Top row: Server info and actions -->
+  <div class="lg:flex lg:items-center lg:justify-between">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center space-x-3">
+        {{if .Gameserver.IconPath}}
+          <div class="flex-shrink-0 w-12 h-12">
+            <img src="{{.Gameserver.IconPath}}" alt="{{.Gameserver.GameType}} icon" class="w-full h-full object-contain">
+          </div>
+        {{else}}
+          <div class="flex-shrink-0 w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+            <svg class="w-7 h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path>
+            </svg>
+          </div>
+        {{end}}
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{.Gameserver.Name}}</h1>
+          <div class="flex items-center space-x-3 mt-1">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium transition-smooth"
+                  :class="statusBadgeClasses">
+              <div class="w-2 h-2 rounded-full mr-2" :class="indicatorClass"></div>
+              <span x-text="statusText"></span>
+            </span>
+            <span class="text-sm text-gray-500 dark:text-gray-400">
+              {{$gamePort := .Gameserver.GetGamePort}}
+              {{if $gamePort}}
+                {{if publicAddress}}
+                {{.Gameserver.GameType}} • {{publicAddress}}:{{$gamePort.HostPort}}
+                {{else}}
+                {{.Gameserver.GameType}}
+                {{end}}
               {{else}}
-              {{.Gameserver.GameType}} • Address not configured
+                {{.Gameserver.GameType}}
               {{end}}
-            {{else}}
-              {{.Gameserver.GameType}} • No ports configured
-            {{end}}
-          </span>
+            </span>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Quick actions -->
-  <div class="mt-5 flex lg:mt-0 lg:ml-4 space-x-3">
-    <a href="/gameservers/{{.Gameserver.ID}}/edit" hx-get="/gameservers/{{.Gameserver.ID}}/edit" hx-target="#content" hx-push-url="true" class="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-smooth">
-      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-      </svg>
-      Edit
-    </a>
-
-    <!-- Transitional state - disabled spinner button -->
-    <template x-if="isTransitional">
-      <button disabled class="inline-flex items-center px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed">
-        <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-        </svg>
-        <span x-text="transitionText"></span>
-      </button>
-    </template>
-
-    <!-- Running state - show stop and restart -->
-    <template x-if="!isTransitional && status === 'running'">
-      <div class="flex space-x-3">
-        <button @click="doAction('stop')"
-                class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-smooth">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
-          </svg>
-          Stop
-        </button>
-        <button @click="doAction('restart')"
-                class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-smooth">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-          </svg>
-          Restart
-        </button>
-      </div>
-    </template>
-
-    <!-- Stopped state - show start -->
-    <template x-if="!isTransitional && status !== 'running'">
-      <button @click="doAction('start')"
-              class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-smooth">
+    <!-- Quick actions -->
+    <div class="mt-5 flex lg:mt-0 lg:ml-4 space-x-3">
+      <a href="/gameservers/{{.Gameserver.ID}}/edit" hx-get="/gameservers/{{.Gameserver.ID}}/edit" hx-target="#content" hx-push-url="true" class="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-smooth">
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-5-9V3m0 0V1m0 2h-2m2 0h2"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
         </svg>
-        Start
-      </button>
-    </template>
+        Edit
+      </a>
+
+      <!-- Transitional state -->
+      <template x-if="isTransitional">
+        <button disabled class="inline-flex items-center px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed">
+          <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span x-text="transitionText"></span>
+        </button>
+      </template>
+
+      <!-- Running state -->
+      <template x-if="!isTransitional && status === 'running'">
+        <div class="flex space-x-3">
+          <button @click="doAction('stop')" class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>
+            Stop
+          </button>
+          <button @click="doAction('restart')" class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-smooth">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Restart
+          </button>
+        </div>
+      </template>
+
+      <!-- Stopped state -->
+      <template x-if="!isTransitional && status !== 'running'">
+        <button @click="doAction('start')" class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-smooth">
+          <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          Start
+        </button>
+      </template>
+    </div>
   </div>
+
+  <!-- Stats row: Only shown when running -->
+  <template x-if="status === 'running'">
+    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <!-- Players -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3">
+        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Players</div>
+        <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <template x-if="query.online">
+            <span x-text="`${query.players?.current || 0} / ${query.players?.max || 0}`"></span>
+          </template>
+          <template x-if="!query.online">
+            <span class="text-gray-400">--</span>
+          </template>
+        </div>
+      </div>
+
+      <!-- Map -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3">
+        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Map</div>
+        <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+          <template x-if="query.online && query.map">
+            <span x-text="query.map"></span>
+          </template>
+          <template x-if="!query.online || !query.map">
+            <span class="text-gray-400">--</span>
+          </template>
+        </div>
+      </div>
+
+      <!-- CPU -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">CPU</div>
+          <span class="text-sm font-medium text-gray-900 dark:text-gray-100" x-text="`${stats.cpu.toFixed(0)}%`"></span>
+        </div>
+        <div class="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+          <div class="bg-blue-600 dark:bg-blue-500 h-1.5 rounded-full transition-all duration-300" :style="`width: ${Math.min(stats.cpu, 100)}%`"></div>
+        </div>
+      </div>
+
+      <!-- Memory -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Memory</div>
+          <span class="text-sm font-medium text-gray-900 dark:text-gray-100" x-text="`${stats.memoryUsageGB.toFixed(1)} / ${stats.memoryLimitGB.toFixed(1)} GB`"></span>
+        </div>
+        <div class="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+          <div class="bg-green-600 dark:bg-green-500 h-1.5 rounded-full transition-all duration-300" :style="`width: ${Math.min(stats.memoryPercent, 100)}%`"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Startup Logs: Shown during startup states -->
+  <template x-if="showLogs">
+    <div class="mt-4 bg-gray-900 rounded-lg border border-gray-700 p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        <span class="text-xs font-medium text-gray-400">Startup Logs</span>
+      </div>
+      <div class="font-mono text-xs text-green-400 space-y-0.5 max-h-32 overflow-hidden"
+           style="display: flex; flex-direction: column-reverse;">
+        <template x-for="(log, index) in logs.slice(-8)" :key="index">
+          <div x-text="log" class="truncate leading-5"></div>
+        </template>
+      </div>
+    </div>
+  </template>
 </div>
 
 <script>
@@ -101,6 +170,12 @@ function gameserverHeader(id, initialStatus, initialIsTransitional) {
     status: initialStatus,
     isTransitional: initialIsTransitional,
     pollInterval: null,
+    statsEventSource: null,
+    logsEventSource: null,
+    queryInterval: null,
+    stats: { cpu: 0, memoryUsageGB: 0, memoryLimitGB: 0, memoryPercent: 0 },
+    query: { online: false, players: null, map: null, ping: null },
+    logs: [],
 
     get statusBadgeClasses() {
       const classes = {
@@ -156,16 +231,27 @@ function gameserverHeader(id, initialStatus, initialIsTransitional) {
       return texts[this.status] || 'Processing...';
     },
 
+    get showLogs() {
+      return ['starting_container', 'waiting_ready'].includes(this.status);
+    },
+
+    init() {
+      this.startStatusPolling();
+      this.updateLogStreaming();
+      if (this.status === 'running') {
+        this.startStatsStream();
+        this.startQueryPolling();
+      }
+    },
+
     async doAction(action) {
       this.isTransitional = true;
       try {
         await fetch(`/gameservers/${this.id}/${action}`, { method: 'POST' });
-        // Immediately fetch new status
         const resp = await fetch(`/gameservers/${this.id}/status`);
         if (resp.ok) {
           const data = await resp.json();
-          this.status = data.status;
-          this.isTransitional = data.isTransitional;
+          this.handleStatusChange(data.status, data.isTransitional);
         }
       } catch (e) {
         console.error(`Action ${action} failed:`, e);
@@ -173,18 +259,16 @@ function gameserverHeader(id, initialStatus, initialIsTransitional) {
       }
     },
 
-    startPolling() {
+    startStatusPolling() {
+      if (this.pollInterval) return; // Already polling
+
       this.pollInterval = setInterval(async () => {
         try {
           const resp = await fetch(`/gameservers/${this.id}/status`);
           if (resp.ok) {
             const data = await resp.json();
-            const prevStatus = this.status;
-            this.status = data.status;
-            this.isTransitional = data.isTransitional;
-
+            this.handleStatusChange(data.status, data.isTransitional);
           } else if (resp.status === 404) {
-            // Server deleted - redirect to list
             window.location.href = '/gameservers';
           }
         } catch (e) {
@@ -193,8 +277,133 @@ function gameserverHeader(id, initialStatus, initialIsTransitional) {
       }, 2000);
     },
 
-    destroy() {
-      if (this.pollInterval) clearInterval(this.pollInterval);
+    handleStatusChange(newStatus, newIsTransitional) {
+      const prevStatus = this.status;
+      this.status = newStatus;
+      this.isTransitional = newIsTransitional;
+
+      // Start/stop monitoring based on status change
+      if (prevStatus !== 'running' && this.status === 'running') {
+        this.startStatsStream();
+        this.startQueryPolling();
+      } else if (prevStatus === 'running' && this.status !== 'running') {
+        this.stopStatsStream();
+        this.stopQueryPolling();
+      }
+
+      // Update log streaming when status changes
+      if (prevStatus !== this.status) {
+        this.updateLogStreaming();
+      }
+
+      // Broadcast to other components (console)
+      if (prevStatus !== this.status) {
+        window.dispatchEvent(new CustomEvent('gameserver-status', {
+          detail: { id: this.id, status: this.status, isTransitional: this.isTransitional }
+        }));
+      }
+    },
+
+    startStatsStream() {
+      if (this.statsEventSource) return;
+
+      this.statsEventSource = new EventSource(`/gameservers/${this.id}/stats`);
+      this.statsEventSource.addEventListener('stats', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          this.stats = {
+            cpu: data.cpu || 0,
+            memoryUsageGB: data.memoryUsageGB || 0,
+            memoryLimitGB: data.memoryLimitGB || 0,
+            memoryPercent: data.memoryPercent || 0
+          };
+        } catch (err) {
+          console.error('Failed to parse stats:', err);
+        }
+      });
+    },
+
+    stopStatsStream() {
+      if (this.statsEventSource) {
+        this.statsEventSource.close();
+        this.statsEventSource = null;
+      }
+    },
+
+    startQueryPolling() {
+      if (this.queryInterval) return;
+
+      this.fetchQuery();
+      this.queryInterval = setInterval(() => this.fetchQuery(), 5000);
+    },
+
+    stopQueryPolling() {
+      if (this.queryInterval) {
+        clearInterval(this.queryInterval);
+        this.queryInterval = null;
+      }
+      this.query = { online: false, players: null, map: null, ping: null };
+    },
+
+    async fetchQuery() {
+      try {
+        const resp = await fetch(`/gameservers/${this.id}/query`);
+        if (resp.ok) {
+          const data = await resp.json();
+          this.query = {
+            online: data.online || false,
+            players: data.players || null,
+            map: data.map || null,
+            ping: data.ping || null
+          };
+        }
+      } catch (e) {
+        console.error('Query poll failed:', e);
+      }
+    },
+
+    updateLogStreaming() {
+      if (this.showLogs && !this.logsEventSource) {
+        this.startLogStream();
+      } else if (!this.showLogs && this.logsEventSource) {
+        this.stopLogStream();
+      }
+    },
+
+    startLogStream() {
+      this.logs = [];
+      this.logsEventSource = new EventSource(`/gameservers/${this.id}/logs`);
+      this.logsEventSource.addEventListener('log', (event) => {
+        const div = document.createElement('div');
+        div.innerHTML = event.data;
+        const text = div.textContent || div.innerText;
+        if (text.trim()) {
+          this.logs.push(text);
+          if (this.logs.length > 20) {
+            this.logs = this.logs.slice(-20);
+          }
+        }
+      });
+      this.logsEventSource.onerror = () => {
+        this.stopLogStream();
+      };
+    },
+
+    stopLogStream() {
+      if (this.logsEventSource) {
+        this.logsEventSource.close();
+        this.logsEventSource = null;
+      }
+    },
+
+    cleanup() {
+      if (this.pollInterval) {
+        clearInterval(this.pollInterval);
+        this.pollInterval = null;
+      }
+      this.stopStatsStream();
+      this.stopQueryPolling();
+      this.stopLogStream();
     }
   };
 }

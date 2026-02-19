@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{if .Title}}{{.Title}} - {{end}}Gameserver Control Panel</title>
   <script src="/static/htmx.js"></script>
-  <script src="/static/htmx-sse.js"></script>
   <script defer src="/static/alpine.min.js"></script>
   <link rel="stylesheet" href="/static/tailwind.css">
   <style>
@@ -301,6 +300,20 @@
 
       return { confirm, form, close };
     })();
+
+    // Clean up Alpine components before HTMX removes them
+    document.body.addEventListener('htmx:beforeCleanupElement', function(evt) {
+      var el = evt.detail.elt;
+      // If this element or its children have Alpine data, dispatch cleanup
+      if (el.hasAttribute && el.hasAttribute('x-data')) {
+        el.dispatchEvent(new CustomEvent('cleanup'));
+      }
+      if (el.querySelectorAll) {
+        el.querySelectorAll('[x-data]').forEach(function(child) {
+          child.dispatchEvent(new CustomEvent('cleanup'));
+        });
+      }
+    });
 
     // Intercept HTMX hx-confirm and show custom dialog
     document.body.addEventListener('htmx:confirm', function(evt) {
