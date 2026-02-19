@@ -36,110 +36,90 @@
     <!-- Right: Actions -->
     <div class="flex items-center gap-2 flex-shrink-0">
       <!-- Transitional state -->
-      <template x-if="isTransitional">
-        <button disabled class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed">
-          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-          </svg>
-          <span x-text="transitionText"></span>
-        </button>
-      </template>
+      <button x-show="isTransitional" x-cloak disabled class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed">
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span x-text="transitionText"></span>
+      </button>
 
       <!-- Running state -->
-      <template x-if="!isTransitional && status === 'running'">
-        <div class="flex items-center gap-2">
-          <button @click="doAction('restart')" class="inline-flex items-center gap-2 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium rounded-lg transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-            </svg>
-            Restart
-          </button>
-          <button @click="doAction('stop')" class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
-            Stop
-          </button>
-        </div>
-      </template>
+      <div x-show="!isTransitional && status === 'running'" x-cloak class="flex items-center gap-2">
+        <button @click="doAction('restart')" class="inline-flex items-center gap-2 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          Restart
+        </button>
+        <button @click="doAction('stop')" class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+          Stop
+        </button>
+      </div>
 
       <!-- Stopped state -->
-      <template x-if="!isTransitional && status !== 'running'">
-        <button @click="doAction('start')" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-          Start
-        </button>
-      </template>
+      <button x-show="!isTransitional && status !== 'running'" x-cloak @click="doAction('start')" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        Start
+      </button>
     </div>
   </div>
 
   <!-- Live stats bar: Only shown when running -->
-  <template x-if="status === 'running'">
-    <div class="flex items-center gap-6 text-sm mb-4">
-      <!-- Players -->
-      <div class="flex items-center gap-2">
-        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
-        </svg>
-        <template x-if="query.online">
-          <span class="text-gray-900 dark:text-gray-100">
-            <span class="font-semibold" x-text="query.players?.current || 0"></span><span class="text-gray-400"> / </span><span x-text="query.players?.max || 0"></span>
-          </span>
-        </template>
-        <template x-if="!query.online">
-          <span class="text-gray-400">--</span>
-        </template>
-      </div>
-
-      <!-- Ping -->
-      <div class="flex items-center gap-2">
-        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-        </svg>
-        <template x-if="query.online && query.ping">
-          <span class="text-gray-900 dark:text-gray-100"><span class="font-semibold" x-text="query.ping"></span><span class="text-gray-500 text-xs ml-0.5">ms</span></span>
-        </template>
-        <template x-if="!query.online || !query.ping">
-          <span class="text-gray-400">--</span>
-        </template>
-      </div>
-
-      <div class="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
-
-      <!-- CPU -->
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-gray-500 dark:text-gray-400 w-7">CPU</span>
-        <div class="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div class="h-full rounded-full transition-all duration-300"
-               :class="stats.cpu > 80 ? 'bg-red-500' : stats.cpu > 50 ? 'bg-amber-500' : 'bg-emerald-500'"
-               :style="`width: ${Math.min(stats.cpu, 100)}%`"></div>
-        </div>
-        <span class="text-xs text-gray-600 dark:text-gray-300 w-7 font-mono" x-text="`${stats.cpu.toFixed(0)}%`"></span>
-      </div>
-
-      <!-- Memory -->
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-gray-500 dark:text-gray-400 w-7">MEM</span>
-        <div class="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div class="h-full rounded-full transition-all duration-300"
-               :class="stats.memoryPercent > 80 ? 'bg-red-500' : stats.memoryPercent > 50 ? 'bg-amber-500' : 'bg-blue-500'"
-               :style="`width: ${Math.min(stats.memoryPercent, 100)}%`"></div>
-        </div>
-        <span class="text-xs text-gray-600 dark:text-gray-300 font-mono" x-text="`${stats.memoryUsageGB.toFixed(1)}G`"></span>
-      </div>
+  <div x-show="status === 'running'" x-cloak class="flex items-center gap-6 text-sm mb-4">
+    <!-- Players -->
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+      </svg>
+      <span x-show="query.online" class="text-gray-900 dark:text-gray-100">
+        <span class="font-semibold" x-text="query.players?.current || 0"></span><span class="text-gray-400"> / </span><span x-text="query.players?.max || 0"></span>
+      </span>
+      <span x-show="!query.online" class="text-gray-400">--</span>
     </div>
-  </template>
+
+    <!-- Ping -->
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+      </svg>
+      <span x-show="query.online && query.ping" class="text-gray-900 dark:text-gray-100"><span class="font-semibold" x-text="query.ping"></span><span class="text-gray-500 text-xs ml-0.5">ms</span></span>
+      <span x-show="!query.online || !query.ping" class="text-gray-400">--</span>
+    </div>
+
+    <div class="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
+
+    <!-- CPU -->
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-gray-500 dark:text-gray-400 w-7">CPU</span>
+      <div class="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+        <div class="h-full rounded-full transition-all duration-300"
+             :class="stats.cpu > 80 ? 'bg-red-500' : stats.cpu > 50 ? 'bg-amber-500' : 'bg-emerald-500'"
+             :style="`width: ${Math.min(stats.cpu, 100)}%`"></div>
+      </div>
+      <span class="text-xs text-gray-600 dark:text-gray-300 w-7 font-mono" x-text="`${stats.cpu.toFixed(0)}%`"></span>
+    </div>
+
+    <!-- Memory -->
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-gray-500 dark:text-gray-400 w-7">MEM</span>
+      <div class="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+        <div class="h-full rounded-full transition-all duration-300"
+             :class="stats.memoryPercent > 80 ? 'bg-red-500' : stats.memoryPercent > 50 ? 'bg-amber-500' : 'bg-blue-500'"
+             :style="`width: ${Math.min(stats.memoryPercent, 100)}%`"></div>
+      </div>
+      <span class="text-xs text-gray-600 dark:text-gray-300 font-mono" x-text="`${stats.memoryUsageGB.toFixed(1)}G`"></span>
+    </div>
+  </div>
 
   <!-- Startup Logs: Shown during startup states -->
-  <template x-if="showLogs">
-    <div class="bg-gray-900 rounded-lg p-3 mb-4 font-mono text-xs leading-relaxed max-h-28 overflow-hidden">
-      <template x-for="(log, index) in logs.slice(-6)" :key="index">
-        <div class="text-green-400 truncate" x-text="log"></div>
-      </template>
-      <template x-if="logs.length === 0">
-        <div class="text-gray-600">Waiting for output...</div>
-      </template>
-    </div>
-  </template>
+  <div x-show="showLogs" x-cloak class="bg-gray-900 rounded-lg p-3 mb-4 font-mono text-xs leading-relaxed max-h-28 overflow-hidden">
+    <template x-for="(log, index) in logs.slice(-6)" :key="index">
+      <div class="text-green-400 truncate" x-text="log"></div>
+    </template>
+    <div x-show="logs.length === 0" class="text-gray-600">Waiting for output...</div>
+  </div>
 </div>
 
 <script>
@@ -218,6 +198,13 @@ function gameserverHeader(id, initialStatus, initialIsTransitional) {
     },
 
     init() {
+      // Clean up any existing instance for this gameserver
+      const key = 'header-' + this.id;
+      if (window.activeComponents[key]) {
+        window.activeComponents[key].cleanup();
+      }
+      window.activeComponents[key] = this;
+
       this.startStatusPolling();
       this.updateLogStreaming();
       if (this.status === 'running') {
@@ -380,6 +367,12 @@ function gameserverHeader(id, initialStatus, initialIsTransitional) {
       this.stopStatsStream();
       this.stopQueryPolling();
       this.stopLogStream();
+
+      // Deregister from active components
+      const key = 'header-' + this.id;
+      if (window.activeComponents && window.activeComponents[key] === this) {
+        delete window.activeComponents[key];
+      }
     }
   };
 }

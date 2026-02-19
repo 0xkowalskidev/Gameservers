@@ -9,6 +9,9 @@
   <script defer src="/static/alpine.min.js"></script>
   <link rel="stylesheet" href="/static/tailwind.css">
   <style>
+    /* Hide Alpine elements until initialized */
+    [x-cloak] { display: none !important; }
+
     /* Dark mode support */
     @media (prefers-color-scheme: dark) {
       :root {
@@ -301,6 +304,9 @@
       return { confirm, form, close };
     })();
 
+    // Registry for active component instances (prevents duplicates on history restore)
+    window.activeComponents = window.activeComponents || {};
+
     // Clean up Alpine components before HTMX removes them
     document.body.addEventListener('htmx:beforeCleanupElement', function(evt) {
       var el = evt.detail.elt;
@@ -313,6 +319,18 @@
           child.dispatchEvent(new CustomEvent('cleanup'));
         });
       }
+    });
+
+    // Clean up all components before history restore (browser back/forward)
+    document.body.addEventListener('htmx:beforeHistoryRestore', function(evt) {
+      // Clean up all registered components
+      Object.keys(window.activeComponents).forEach(function(key) {
+        var component = window.activeComponents[key];
+        if (component && typeof component.cleanup === 'function') {
+          component.cleanup();
+        }
+      });
+      window.activeComponents = {};
     });
 
     // Intercept HTMX hx-confirm and show custom dialog

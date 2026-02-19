@@ -142,6 +142,14 @@ function gameserverConsole(id, initialStatus, initialContainerID) {
     maxLogs: 1000,
 
     init() {
+      // Clean up any existing instance for this console
+      const key = 'console-' + this.id;
+      if (window.activeComponents && window.activeComponents[key]) {
+        window.activeComponents[key].cleanup();
+      }
+      window.activeComponents = window.activeComponents || {};
+      window.activeComponents[key] = this;
+
       if (this.hasContainer) {
         this.startLogStream();
       }
@@ -234,6 +242,12 @@ function gameserverConsole(id, initialStatus, initialContainerID) {
 
     cleanup() {
       this.stopLogStream();
+
+      // Deregister from active components
+      const key = 'console-' + this.id;
+      if (window.activeComponents && window.activeComponents[key] === this) {
+        delete window.activeComponents[key];
+      }
     }
   };
 }
