@@ -43,4 +43,4 @@ echo "-------------------------------------------------"
 echo "Note: ARK server may take several minutes to start (loading assets)"
 echo "-------------------------------------------------"
 
-/data/server/ShooterGame/Binaries/Linux/ShooterGameServer "${SERVER_OPTS}" -server -log -NoBattlEye
+/data/server/ShooterGame/Binaries/Linux/ShooterGameServer "${SERVER_OPTS}" -server -log 
