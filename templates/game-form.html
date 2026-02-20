@@ -255,24 +255,36 @@ function addPortMapping(name = '', protocol = 'tcp', containerPort = '') {
   portMappingIndex++;
 }
 
-function addConfigVar(name = '', displayName = '', required = false, defaultValue = '', description = '') {
+function addConfigVar(name = '', displayName = '', varType = 'text', options = '', required = false, defaultValue = '', description = '') {
   const container = document.getElementById('config-vars');
   const div = document.createElement('div');
   div.className = 'bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3';
+  const idx = configVarIndex;
   div.innerHTML = `
     <div class="flex items-start justify-between">
-      <div class="grid gap-3 sm:grid-cols-2 flex-1 mr-3">
+      <div class="grid gap-3 sm:grid-cols-3 flex-1 mr-3">
         <div>
           <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Variable Name</label>
-          <input type="text" name="config_vars[${configVarIndex}].name" value="${name}" required
+          <input type="text" name="config_vars[${idx}].name" value="${name}" required
                  class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono"
                  placeholder="SERVER_NAME">
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Display Name</label>
-          <input type="text" name="config_vars[${configVarIndex}].display_name" value="${displayName}"
+          <input type="text" name="config_vars[${idx}].display_name" value="${displayName}"
                  class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
                  placeholder="Server Name">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
+          <select name="config_vars[${idx}].type" onchange="toggleOptionsField(this, ${idx})"
+                  class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
+            <option value="text" ${varType === 'text' ? 'selected' : ''}>Text</option>
+            <option value="number" ${varType === 'number' ? 'selected' : ''}>Number</option>
+            <option value="boolean" ${varType === 'boolean' ? 'selected' : ''}>Boolean</option>
+            <option value="password" ${varType === 'password' ? 'selected' : ''}>Password</option>
+            <option value="select" ${varType === 'select' ? 'selected' : ''}>Select</option>
+          </select>
         </div>
       </div>
       <button type="button" onclick="this.parentElement.parentElement.remove()"
@@ -282,27 +294,45 @@ function addConfigVar(name = '', displayName = '', required = false, defaultValu
         </svg>
       </button>
     </div>
+    <div id="options-field-${idx}" class="grid gap-3 ${varType === 'select' ? '' : 'hidden'}">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Options (for Select type)</label>
+        <input type="text" name="config_vars[${idx}].options" value="${options}"
+               class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono"
+               placeholder="value1=Label 1,value2=Label 2">
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Format: value=Label pairs separated by commas</p>
+      </div>
+    </div>
     <div class="grid gap-3 sm:grid-cols-3">
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Default Value</label>
-        <input type="text" name="config_vars[${configVarIndex}].default" value="${defaultValue}"
+        <input type="text" name="config_vars[${idx}].default" value="${defaultValue}"
                class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
       </div>
       <div class="sm:col-span-2">
         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Description</label>
-        <input type="text" name="config_vars[${configVarIndex}].description" value="${description}"
+        <input type="text" name="config_vars[${idx}].description" value="${description}"
                class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
                placeholder="Help text for users">
       </div>
     </div>
     <div class="flex items-center">
-      <input type="checkbox" name="config_vars[${configVarIndex}].required" value="true" ${required ? 'checked' : ''}
+      <input type="checkbox" name="config_vars[${idx}].required" value="true" ${required ? 'checked' : ''}
              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
       <label class="ml-2 text-sm text-gray-700 dark:text-gray-300">Required</label>
     </div>
   `;
   container.appendChild(div);
   configVarIndex++;
+}
+
+function toggleOptionsField(selectEl, idx) {
+  const optionsField = document.getElementById(`options-field-${idx}`);
+  if (selectEl.value === 'select') {
+    optionsField.classList.remove('hidden');
+  } else {
+    optionsField.classList.add('hidden');
+  }
 }
 
 // Initialize form with existing data
@@ -315,7 +345,7 @@ function initializeForm() {
 
   // Load existing config vars
   {{range $i, $cv := $game.ConfigVars}}
-  addConfigVar('{{$cv.Name}}', '{{$cv.DisplayName}}', {{$cv.Required}}, '{{$cv.Default}}', '{{$cv.Description}}');
+  addConfigVar('{{$cv.Name}}', '{{$cv.DisplayName}}', '{{if $cv.Type}}{{$cv.Type}}{{else}}text{{end}}', '{{$cv.Options}}', {{$cv.Required}}, '{{$cv.Default}}', '{{$cv.Description}}');
   {{end}}
   {{end}}
 }

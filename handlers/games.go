@@ -248,6 +248,15 @@ func parseConfigVars(r *http.Request) []models.ConfigVar {
 		displayNameKey := "config_vars[" + strconv.Itoa(i) + "].display_name"
 		displayName := strings.TrimSpace(r.FormValue(displayNameKey))
 
+		typeKey := "config_vars[" + strconv.Itoa(i) + "].type"
+		varType := strings.TrimSpace(r.FormValue(typeKey))
+		if varType == "" {
+			varType = "text"
+		}
+
+		optionsKey := "config_vars[" + strconv.Itoa(i) + "].options"
+		options := strings.TrimSpace(r.FormValue(optionsKey))
+
 		requiredKey := "config_vars[" + strconv.Itoa(i) + "].required"
 		required := r.FormValue(requiredKey) == "true" || r.FormValue(requiredKey) == "on"
 
@@ -260,6 +269,8 @@ func parseConfigVars(r *http.Request) []models.ConfigVar {
 		configVars = append(configVars, models.ConfigVar{
 			Name:        name,
 			DisplayName: displayName,
+			Type:        varType,
+			Options:     options,
 			Required:    required,
 			Default:     defaultValue,
 			Description: description,

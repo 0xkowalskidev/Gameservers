@@ -422,6 +422,8 @@
       {
         name: "{{.Name}}",
         displayName: "{{.DisplayName}}",
+        type: "{{if .Type}}{{.Type}}{{else}}text{{end}}",
+        options: "{{.Options}}",
         required: {{.Required}},
         default: "{{.Default}}",
         description: "{{.Description}}"
@@ -671,126 +673,146 @@
     button.parentElement.remove();
   }
 
-  // Create appropriate input for config variable with game-specific logic
-  function createConfigInput(configVar, gameId, currentValue = '') {
-    let inputHtml = '';
-    const value = currentValue || configVar.default;
+  // Toggle boolean config value (for PVP, WHITELIST, etc.)
+  function toggleBoolConfig(configName) {
+    const toggle = document.getElementById(`config_${configName}`);
+    if (!toggle) return;
 
-    // Special handling for common config types
-    if (configVar.name === 'EULA' || configVar.name === 'SERVER_PUBLIC') {
-      // Boolean checkbox for EULA and similar
-      const isChecked = value === 'true' || value === '1';
-      inputHtml = `
-      <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
-        <div class="flex items-center space-x-3">
-          <input type="checkbox" id="config_${configVar.name}" name="config_${configVar.name}" 
-                 ${isChecked ? 'checked' : ''}
-                 class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-          <label for="config_${configVar.name}" class="text-sm font-medium text-gray-700 dark:text-gray-300">
-            ${configVar.displayName}
-            ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
-          </label>
-        </div>
-        <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">${configVar.description}</p>
-      </div>
-    `;
-    } else if (configVar.name.includes('PASSWORD') && configVar.name !== 'SERVER_PASSWORD') {
-      // Password input for sensitive fields
-      inputHtml = `
-      <div class="space-y-2">
-        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          ${configVar.displayName}
-          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
-        </label>
-        <input type="password" id="config_${configVar.name}" name="config_${configVar.name}" 
-               value="${value}" ${configVar.required ? 'required' : ''}
-               class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
-        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
-      </div>
-    `;
-    } else if (configVar.name === 'MINECRAFT_VERSION') {
-      // Simple text input for Minecraft version
-      inputHtml = `
-      <div class="space-y-2">
-        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          ${configVar.displayName}
-          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
-        </label>
-        <input type="text" id="config_${configVar.name}" name="config_${configVar.name}" 
-               value="${value}" ${configVar.required ? 'required' : ''}
-               placeholder="latest"
-               class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
-        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
-        <p class="text-xs text-gray-600 dark:text-gray-300">Examples: latest, 1.21.6, 1.20.4, 1.19.2</p>
-      </div>
-    `;
-    } else if (configVar.name.includes('DIFFICULTY')) {
-      // Game-specific difficulty options
-      let options = '';
-      if (gameId === 'minecraft') {
-        options = '<option value="peaceful">Peaceful</option><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option>';
-      } else if (gameId === 'terraria') {
-        options = '<option value="0">Classic</option><option value="1">Expert</option><option value="2">Master</option>';
-      }
+    const currentValue = toggle.dataset.value === 'true';
+    const newValue = !currentValue;
 
-      // Set selected option
-      options = options.replace(`value="${value}"`, `value="${value}" selected`);
+    toggle.dataset.value = newValue.toString();
+    toggle.setAttribute('aria-checked', newValue.toString());
 
-      inputHtml = `
-      <div class="space-y-2">
-        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          ${configVar.displayName}
-          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
-        </label>
-        <select id="config_${configVar.name}" name="config_${configVar.name}" ${configVar.required ? 'required' : ''}
-                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
-          ${options}
-        </select>
-        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
-      </div>
-    `;
-    } else if (configVar.name.includes('GAMEMODE')) {
-      // Game-specific gamemode options
-      let options = '';
-      if (gameId === 'minecraft') {
-        options = '<option value="survival">Survival</option><option value="creative">Creative</option><option value="adventure">Adventure</option><option value="spectator">Spectator</option>';
-      } else if (gameId === 'garrysmod') {
-        options = '<option value="sandbox">Sandbox</option><option value="darkrp">DarkRP</option><option value="ttt">Trouble in Terrorist Town</option><option value="prop_hunt">Prop Hunt</option>';
-      }
-
-      // Set selected option
-      options = options.replace(`value="${value}"`, `value="${value}" selected`);
-
-      inputHtml = `
-      <div class="space-y-2">
-        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          ${configVar.displayName}
-          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
-        </label>
-        <select id="config_${configVar.name}" name="config_${configVar.name}" ${configVar.required ? 'required' : ''}
-                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
-          ${options}
-        </select>
-        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
-      </div>
-    `;
+    // Update visual state
+    const knob = toggle.querySelector('span');
+    if (newValue) {
+      toggle.classList.remove('bg-gray-200', 'dark:bg-gray-700');
+      toggle.classList.add('bg-blue-600');
+      knob.classList.remove('translate-x-0');
+      knob.classList.add('translate-x-5');
     } else {
-      // Regular text input
-      inputHtml = `
+      toggle.classList.add('bg-gray-200', 'dark:bg-gray-700');
+      toggle.classList.remove('bg-blue-600');
+      knob.classList.add('translate-x-0');
+      knob.classList.remove('translate-x-5');
+    }
+  }
+
+  // Create appropriate input for config variable based on type
+  function createConfigInput(configVar, currentValue = '') {
+    const value = currentValue || configVar.default;
+    const inputType = configVar.type || 'text';
+
+    switch (inputType) {
+      case 'boolean':
+        return createBooleanInput(configVar, value);
+      case 'number':
+        return createNumberInput(configVar, value);
+      case 'password':
+        return createPasswordInput(configVar, value);
+      case 'select':
+        return createSelectInput(configVar, value);
+      default:
+        return createTextInput(configVar, value);
+    }
+  }
+
+  function createTextInput(configVar, value) {
+    return `
       <div class="space-y-2">
         <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
           ${configVar.displayName}
           ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
         </label>
-        <input type="text" id="config_${configVar.name}" name="config_${configVar.name}" 
+        <input type="text" id="config_${configVar.name}" name="config_${configVar.name}"
                value="${value}" ${configVar.required ? 'required' : ''}
                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
         <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
       </div>
     `;
+  }
+
+  function createNumberInput(configVar, value) {
+    return `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <input type="number" id="config_${configVar.name}" name="config_${configVar.name}"
+               value="${value}" ${configVar.required ? 'required' : ''}
+               class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+      </div>
+    `;
+  }
+
+  function createPasswordInput(configVar, value) {
+    return `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <input type="password" id="config_${configVar.name}" name="config_${configVar.name}"
+               value="${value}" ${configVar.required ? 'required' : ''}
+               class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+      </div>
+    `;
+  }
+
+  function createBooleanInput(configVar, value) {
+    const isChecked = value === 'true' || value === '1';
+    return `
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              ${configVar.displayName}
+              ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+            </label>
+            <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+          </div>
+          <button type="button" id="config_${configVar.name}" onclick="toggleBoolConfig('${configVar.name}')"
+                  class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isChecked ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}"
+                  role="switch" aria-checked="${isChecked}" data-value="${isChecked}">
+            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChecked ? 'translate-x-5' : 'translate-x-0'}"></span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function createSelectInput(configVar, value) {
+    // Parse options from "value1=Label 1,value2=Label 2" format
+    let optionsHtml = '';
+    if (configVar.options) {
+      const pairs = configVar.options.split(',');
+      pairs.forEach(pair => {
+        const [optValue, optLabel] = pair.split('=');
+        if (optValue !== undefined) {
+          const label = optLabel || optValue;
+          const selected = optValue.trim() === value ? 'selected' : '';
+          optionsHtml += `<option value="${optValue.trim()}" ${selected}>${label.trim()}</option>`;
+        }
+      });
     }
 
-    return inputHtml;
+    return `
+      <div class="space-y-2">
+        <label for="config_${configVar.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          ${configVar.displayName}
+          ${configVar.required ? '<span class="text-red-500 ml-1">*</span>' : ''}
+        </label>
+        <select id="config_${configVar.name}" name="config_${configVar.name}" ${configVar.required ? 'required' : ''}
+                class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-smooth">
+          ${optionsHtml}
+        </select>
+        <p class="text-xs text-gray-500 dark:text-gray-400">${configVar.description}</p>
+      </div>
+    `;
   }
 
   // Update memory recommendations and color tick marks
@@ -861,9 +883,9 @@
         const fieldDiv = document.createElement('div');
         {{if $isEdit}}
         const currentValue = currentEnv[configVar.name] || '';
-        fieldDiv.innerHTML = createConfigInput(configVar, gameId, currentValue);
+        fieldDiv.innerHTML = createConfigInput(configVar, currentValue);
         {{else}}
-        fieldDiv.innerHTML = createConfigInput(configVar, gameId);
+        fieldDiv.innerHTML = createConfigInput(configVar);
         {{end}}
         configFields.appendChild(fieldDiv);
       });
@@ -961,6 +983,9 @@
           let value;
           if (input.type === 'checkbox') {
             value = input.checked ? 'true' : 'false';
+          } else if (input.dataset.value !== undefined) {
+            // Boolean toggle using data-value attribute
+            value = input.dataset.value;
           } else {
             value = input.value.trim();
           }

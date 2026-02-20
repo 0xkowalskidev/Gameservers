@@ -10,6 +10,8 @@ import (
 type ConfigVar struct {
 	Name        string `json:"name" gorm:"type:varchar(100);not null"`         // Environment variable name
 	DisplayName string `json:"display_name" gorm:"type:varchar(200);not null"` // Human-readable name
+	Type        string `json:"type" gorm:"type:varchar(50);default:'text'"`    // Input type: text, number, boolean, password, select
+	Options     string `json:"options" gorm:"type:text"`                       // For select type: "value1=Label 1,value2=Label 2"
 	Required    bool   `json:"required" gorm:"not null;default:false"`         // Whether this config is required
 	Default     string `json:"default" gorm:"type:text"`                       // Default value (empty if no default)
 	Description string `json:"description" gorm:"type:text"`                   // Help text for users
