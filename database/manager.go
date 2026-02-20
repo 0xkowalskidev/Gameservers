@@ -183,6 +183,21 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SAVEINTERVAL", DisplayName: "Save Interval", Required: false, Default: "300", Description: "How often to save the world (in seconds)"},
 				{Name: "UPDATE_ON_START", DisplayName: "Update on Start", Required: false, Default: "false", Description: "Update server files on container start"},
 			}, MinMemoryMB: 4096, RecMemoryMB: 8192},
+		{ID: "ark", Name: "ARK: Survival Evolved", Slug: "ark", Image: "ghcr.io/0xkowalskidev/gameservers/ark:latest",
+			IconPath: "/static/games/ark/ark-icon.ico", GridImagePath: "/static/games/ark/ark-grid.png",
+			PortMappings: []models.PortMapping{
+				{Name: "game", Protocol: "udp", ContainerPort: 7777, HostPort: 0},
+				{Name: "query", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
+				{Name: "rcon", Protocol: "tcp", ContainerPort: 27020, HostPort: 0},
+			},
+			ConfigVars: []models.ConfigVar{
+				{Name: "SERVER_NAME", DisplayName: "Server Name", Required: false, Default: "ARK Server", Description: "The name of your ARK server"},
+				{Name: "MAX_PLAYERS", DisplayName: "Max Players", Required: false, Default: "70", Description: "Maximum number of players (1-127)"},
+				{Name: "MAP_NAME", DisplayName: "Map", Required: false, Default: "TheIsland", Description: "Map to load (TheIsland, Ragnarok, TheCenter, Valguero, etc.)"},
+				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
+				{Name: "ADMIN_PASSWORD", DisplayName: "Admin Password", Required: true, Default: "", Description: "Password for admin commands and RCON access"},
+				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "1.0", Description: "Difficulty multiplier (0.1-5.0)"},
+			}, MinMemoryMB: 8192, RecMemoryMB: 16384},
 	}
 
 	for _, game := range games {
