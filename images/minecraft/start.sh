@@ -9,6 +9,9 @@ cd /data/server
 # Resolved version (set by download_server)
 RESOLVED_VERSION=""
 
+# Minimum supported version (first version with server JAR in Mojang's manifest)
+MIN_VERSION="1.2.5"
+
 # Function to get correct Java path for Minecraft version
 get_java_for_version() {
     local mc_version="$1"
@@ -28,7 +31,7 @@ get_java_for_version() {
         # 1.17 - 1.20.4 requires Java 17
         echo "/usr/lib/jvm/java-17-openjdk-amd64"
     else
-        # 1.16 and below requires Java 8
+        # 1.2.5 - 1.16.x requires Java 8
         echo "/usr/lib/jvm/java-8-openjdk-amd64"
     fi
 }
@@ -101,7 +104,7 @@ download_server() {
 
     if [ -z "$server_url" ] || [ "$server_url" = "null" ]; then
         echo "[$(date)] ERROR: No server download found for version $version!" >&2
-        echo "[$(date)] This version may not have a server JAR available." >&2
+        echo "[$(date)] Minimum supported version is $MIN_VERSION (first version with official server JAR)." >&2
         exit 1
     fi
 
