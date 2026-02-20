@@ -74,15 +74,27 @@ func (gss *GameserverRepository) CreateGameserver(server *models.Gameserver) err
 		return err
 	}
 
-	// Initialize port mappings from game template if not already set
-	if len(server.PortMappings) == 0 {
+	// Handle port mappings: manual (user-specified) vs auto (sequential allocation)
+	if len(server.PortMappings) > 0 && server.PortMappings[0].HostPort > 0 {
+		// Manual mode: user specified ports - validate them
+		if err := models.ValidateManualPorts(server.PortMappings); err != nil {
+			return err
+		}
+		// Copy container ports from game template (user only specifies host ports)
+		for i := range server.PortMappings {
+			if i < len(game.PortMappings) {
+				server.PortMappings[i].ContainerPort = game.PortMappings[i].ContainerPort
+			}
+		}
+	} else {
+		// Auto mode: initialize from game template and allocate sequentially
 		server.PortMappings = make([]models.PortMapping, len(game.PortMappings))
 		copy(server.PortMappings, game.PortMappings)
-	}
 
-	// Allocate ports for the server
-	if err := gss.allocatePortsForServer(server); err != nil {
-		return err
+		// Allocate ports for the server
+		if err := gss.allocatePortsForServer(server); err != nil {
+			return err
+		}
 	}
 
 	// Create the gameserver in database

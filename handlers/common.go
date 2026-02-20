@@ -198,12 +198,13 @@ func (h *Handlers) generateLayoutData(r *http.Request, content template.HTML) La
 
 // GameserverFormData represents parsed gameserver form data
 type GameserverFormData struct {
-	Name        string
-	GameID      string
-	MemoryMB    int
-	CPUCores    float64
-	MaxBackups  int
-	Environment []string
+	Name         string
+	GameID       string
+	MemoryMB     int
+	CPUCores     float64
+	MaxBackups   int
+	Environment  []string
+	PortMappings []models.PortMapping // Manual port mappings (empty = auto allocate)
 }
 
 // parseGameserverForm parses and validates gameserver form data
@@ -239,9 +240,23 @@ func (h *Handlers) parseGameserverForm(r *http.Request) (*GameserverFormData, er
 		}
 	}
 
+	// Parse port mappings if manual mode
+	var portMappings []models.PortMapping
+	portMode := strings.TrimSpace(r.FormValue("port_mode"))
+	if portMode == "manual" {
+		// Parse port mappings from form: port_mappings is JSON array
+		portMappingsJSON := r.FormValue("port_mappings")
+		if portMappingsJSON != "" {
+			if err := json.Unmarshal([]byte(portMappingsJSON), &portMappings); err != nil {
+				return nil, BadRequest("invalid port mappings format")
+			}
+		}
+	}
+
 	return &GameserverFormData{
 		Name: name, GameID: gameID, MemoryMB: memoryMB,
 		CPUCores: cpuCores, MaxBackups: maxBackups, Environment: validEnv,
+		PortMappings: portMappings,
 	}, nil
 }
 

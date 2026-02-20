@@ -123,13 +123,14 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 	}
 
 	server := &models.Gameserver{
-		ID:          models.GenerateID(),
-		Name:        formData.Name,
-		GameID:      formData.GameID,
-		MemoryMB:    formData.MemoryMB,
-		CPUCores:    formData.CPUCores,
-		MaxBackups:  formData.MaxBackups,
-		Environment: formData.Environment,
+		ID:           models.GenerateID(),
+		Name:         formData.Name,
+		GameID:       formData.GameID,
+		MemoryMB:     formData.MemoryMB,
+		CPUCores:     formData.CPUCores,
+		MaxBackups:   formData.MaxBackups,
+		Environment:  formData.Environment,
+		PortMappings: formData.PortMappings,
 	}
 
 	log.Info().Str("gameserver_id", server.ID).Str("name", server.Name).Int("memory_mb", formData.MemoryMB).Float64("cpu_cores", formData.CPUCores).Msg("Creating gameserver")

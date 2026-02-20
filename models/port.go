@@ -24,6 +24,7 @@ func isPortAvailable(port int, usedPorts map[int]bool) bool {
 
 // AllocatePortsForServer assigns available ports to all zero-valued port mappings
 // Port mappings with the same name will get the same host port (for TCP+UDP on same port)
+// Ports are allocated sequentially from minPort (49152) upward
 func AllocatePortsForServer(server *Gameserver, usedPorts map[int]bool) error {
 	// Group port mappings by name to assign same port to same-named mappings
 	portGroups := make(map[string]int) // name -> assigned port
@@ -38,16 +39,7 @@ func AllocatePortsForServer(server *Gameserver, usedPorts map[int]bool) error {
 				continue
 			}
 
-			// Try container port first if it's in valid range
-			containerPort := server.PortMappings[i].ContainerPort
-			if containerPort > 0 && isPortAvailable(containerPort, usedPorts) {
-				server.PortMappings[i].HostPort = containerPort
-				portGroups[portName] = containerPort
-				usedPorts[containerPort] = true
-				continue
-			}
-
-			// Container port not available, find next available port
+			// Find next available port sequentially
 			port, err := findAvailablePort(usedPorts)
 			if err != nil {
 				return err
@@ -58,6 +50,45 @@ func AllocatePortsForServer(server *Gameserver, usedPorts map[int]bool) error {
 			usedPorts[port] = true
 		}
 	}
+	return nil
+}
+
+// ValidateManualPorts validates user-specified port mappings
+// Returns error if ports are invalid (out of range 1-65535, duplicates, or inconsistent same-named ports)
+func ValidateManualPorts(mappings []PortMapping) error {
+	usedPorts := make(map[int]bool)
+	portGroups := make(map[string]int) // name -> assigned port (for TCP+UDP consistency)
+
+	for _, pm := range mappings {
+		// Check port is in valid range (1-65535 for manual)
+		if pm.HostPort < 1 || pm.HostPort > 65535 {
+			return &OperationError{
+				Op:  "validate_port",
+				Msg: fmt.Sprintf("port %d is out of valid range (1-65535)", pm.HostPort),
+			}
+		}
+
+		// Check same-named ports have same host port (e.g., TCP+UDP on same port)
+		if existingPort, exists := portGroups[pm.Name]; exists {
+			if existingPort != pm.HostPort {
+				return &OperationError{
+					Op:  "validate_port",
+					Msg: fmt.Sprintf("port mappings with name '%s' must use the same host port (got %d and %d)", pm.Name, existingPort, pm.HostPort),
+				}
+			}
+		} else {
+			// First time seeing this name, check for duplicates with different names
+			if usedPorts[pm.HostPort] {
+				return &OperationError{
+					Op:  "validate_port",
+					Msg: fmt.Sprintf("duplicate host port %d", pm.HostPort),
+				}
+			}
+			portGroups[pm.Name] = pm.HostPort
+			usedPorts[pm.HostPort] = true
+		}
+	}
+
 	return nil
 }
 

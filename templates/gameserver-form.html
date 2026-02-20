@@ -93,6 +93,38 @@
           </div>
         </div>
 
+        {{if not $isEdit}}
+        <!-- Network / Ports -->
+        <div class="space-y-4" id="network-section" style="display: none;">
+          <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Network</h3>
+            <div class="flex items-center space-x-3">
+              <span class="text-xs text-gray-500 dark:text-gray-400" id="port-mode-label">Manual</span>
+              <button type="button" id="port-mode-toggle" onclick="togglePortMode()"
+                class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 bg-blue-600"
+                role="switch" aria-checked="true" title="Toggle between manual and automatic port assignment">
+                <span id="port-mode-knob" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-4"></span>
+              </button>
+            </div>
+          </div>
+
+          <input type="hidden" name="port_mode" id="port_mode" value="manual">
+          <input type="hidden" name="port_mappings" id="port_mappings" value="">
+
+          <!-- Manual port inputs -->
+          <div id="port-inputs">
+            <div id="port-fields" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <!-- Dynamic port fields will be inserted here by JavaScript -->
+            </div>
+          </div>
+
+          <!-- Auto mode info -->
+          <p id="port-auto-info" class="hidden text-sm text-gray-500 dark:text-gray-400">
+            Ports will be automatically assigned sequentially starting from 49152
+          </p>
+        </div>
+        {{end}}
+
         <!-- Game Configuration -->
         <div class="space-y-4" id="config-section" {{if not $isEdit}}style="display: none;" {{else}}style="display: block;" {{end}}>
           <h3
@@ -383,18 +415,27 @@
   {{range $games}}
   "{{.ID}}": {
     name: "{{.Name}}",
-      minMemoryMB: {{.MinMemoryMB}},
+    minMemoryMB: {{.MinMemoryMB}},
     recMemoryMB: {{.RecMemoryMB}},
     configVars: [
       {{range .ConfigVars}}
-  {
-    name: "{{.Name}}",
-      displayName: "{{.DisplayName}}",
+      {
+        name: "{{.Name}}",
+        displayName: "{{.DisplayName}}",
         required: {{.Required}},
         default: "{{.Default}}",
-      description: "{{.Description}}"
-  },
-  {{end}}
+        description: "{{.Description}}"
+      },
+      {{end}}
+    ],
+    portMappings: [
+      {{range .PortMappings}}
+      {
+        name: "{{.Name}}",
+        protocol: "{{.Protocol}}",
+        containerPort: {{.ContainerPort}}
+      },
+      {{end}}
     ]
   },
   {{end}}
@@ -440,7 +481,7 @@
     if (errorEl) errorEl.classList.add('hidden');
     
     // Show other sections
-    const sections = ['basic-info-section', 'resource-section', 'advanced-section'];
+    const sections = ['basic-info-section', 'network-section', 'resource-section', 'advanced-section'];
     sections.forEach(sectionId => {
       const section = document.getElementById(sectionId);
       if (section) section.style.display = 'block';
@@ -467,6 +508,89 @@
       settings.classList.add('hidden');
       arrow.style.transform = 'rotate(0deg)';
     }
+  }
+
+  // Port mode state (default to manual)
+  let isManualPortMode = true;
+
+  // Toggle port mode between auto and manual
+  function togglePortMode() {
+    isManualPortMode = !isManualPortMode;
+
+    const toggle = document.getElementById('port-mode-toggle');
+    const knob = document.getElementById('port-mode-knob');
+    const label = document.getElementById('port-mode-label');
+    const portInputs = document.getElementById('port-inputs');
+    const portAutoInfo = document.getElementById('port-auto-info');
+    const portModeHidden = document.getElementById('port_mode');
+
+    if (isManualPortMode) {
+      toggle.classList.remove('bg-gray-200', 'dark:bg-gray-700');
+      toggle.classList.add('bg-blue-600');
+      knob.classList.remove('translate-x-0');
+      knob.classList.add('translate-x-4');
+      label.textContent = 'Manual';
+      portInputs.classList.remove('hidden');
+      portAutoInfo.classList.add('hidden');
+      portModeHidden.value = 'manual';
+
+      // Populate port fields if game is selected
+      if (selectedGameId) {
+        populatePortFields(selectedGameId);
+      }
+    } else {
+      toggle.classList.add('bg-gray-200', 'dark:bg-gray-700');
+      toggle.classList.remove('bg-blue-600');
+      knob.classList.add('translate-x-0');
+      knob.classList.remove('translate-x-4');
+      label.textContent = 'Auto';
+      portInputs.classList.add('hidden');
+      portAutoInfo.classList.remove('hidden');
+      portModeHidden.value = 'auto';
+    }
+  }
+
+  // Populate port fields based on selected game
+  function populatePortFields(gameId) {
+    const portFields = document.getElementById('port-fields');
+    if (!portFields || !gameConfigs[gameId]) return;
+
+    const game = gameConfigs[gameId];
+    portFields.innerHTML = '';
+
+    // Group ports by name to avoid duplicates in UI (TCP+UDP on same port)
+    const seenNames = new Set();
+
+    game.portMappings.forEach((pm, index) => {
+      // Skip if we've already shown this port name
+      if (seenNames.has(pm.name)) return;
+      seenNames.add(pm.name);
+
+      // Find all protocols for this port name
+      const protocols = game.portMappings
+        .filter(p => p.name === pm.name)
+        .map(p => p.protocol.toUpperCase())
+        .join('/');
+
+      // Capitalize port name for display
+      const displayName = pm.name.charAt(0).toUpperCase() + pm.name.slice(1);
+
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <label for="port_${pm.name}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          ${displayName} <span class="text-xs font-normal text-gray-500 dark:text-gray-400">${protocols}</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <input type="number" id="port_${pm.name}" min="1" max="65535" value="${pm.containerPort}"
+                 class="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 font-mono">
+          <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+          </svg>
+          <span class="text-sm font-mono text-gray-500 dark:text-gray-400 flex-shrink-0">${pm.containerPort}</span>
+        </div>
+      `;
+      portFields.appendChild(div);
+    });
   }
 
   // Memory slider functionality
@@ -757,6 +881,11 @@
 
     // Update memory recommendations
     updateMemoryRecommendations(gameId);
+
+    // Update port fields if in manual mode
+    if (isManualPortMode) {
+      populatePortFields(gameId);
+    }
   }
 
   // Handle game selection change (only for new servers)
@@ -853,6 +982,32 @@
     });
 
     envTextarea.value = envVars.join('\n');
+
+    // Collect port mappings if in manual mode
+    const portModeHidden = document.getElementById('port_mode');
+    const portMappingsHidden = document.getElementById('port_mappings');
+
+    if (portModeHidden && portModeHidden.value === 'manual' && gameConfigs[gameId]) {
+      const portMappings = [];
+      const game = gameConfigs[gameId];
+
+      // Build port mappings from form inputs
+      game.portMappings.forEach(pm => {
+        const input = document.getElementById(`port_${pm.name}`);
+        if (input && input.value) {
+          portMappings.push({
+            name: pm.name,
+            protocol: pm.protocol,
+            container_port: pm.containerPort,
+            host_port: parseInt(input.value, 10)
+          });
+        }
+      });
+
+      if (portMappingsHidden) {
+        portMappingsHidden.value = JSON.stringify(portMappings);
+      }
+    }
   }
 
   {{if $isEdit}}
