@@ -183,8 +183,8 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SAVEINTERVAL", DisplayName: "Save Interval", Required: false, Default: "300", Description: "How often to save the world (in seconds)"},
 				{Name: "UPDATE_ON_START", DisplayName: "Update on Start", Required: false, Default: "false", Description: "Update server files on container start"},
 			}, MinMemoryMB: 4096, RecMemoryMB: 8192},
-		{ID: "ark", Name: "ARK: Survival Evolved", Slug: "ark", Image: "ghcr.io/0xkowalskidev/gameservers/ark:latest",
-			IconPath: "/static/games/ark/ark-icon.ico", GridImagePath: "/static/games/ark/ark-grid.png",
+		{ID: "ark-survival-evolved", Name: "ARK: Survival Evolved", Slug: "ark-survival-evolved", Image: "ghcr.io/0xkowalskidev/gameservers/ark-survival-evolved:latest",
+			IconPath: "/static/games/ark-survival-evolved/ark-icon.ico", GridImagePath: "/static/games/ark-survival-evolved/ark-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 7777, HostPort: 0},
 				{Name: "query", Protocol: "udp", ContainerPort: 27015, HostPort: 0},

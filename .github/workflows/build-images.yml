@@ -25,7 +25,7 @@ jobs:
           echo "rust=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/rust/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "valheim=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/valheim/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "palworld=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/palworld/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
-          echo "ark=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/ark/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "ark-survival-evolved=$(git diff --name-only HEAD~1 HEAD | grep -q '^images/ark-survival-evolved/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -73,8 +73,8 @@ jobs:
           docker build images/palworld --tag ghcr.io/0xkowalskidev/gameservers/palworld:latest
           docker push ghcr.io/0xkowalskidev/gameservers/palworld:latest
 
-      - name: Build and push ark
-        if: steps.changes.outputs.ark == 'true'
+      - name: Build and push ark-survival-evolved
+        if: steps.changes.outputs.ark-survival-evolved == 'true'
         run: |
-          docker build images/ark --tag ghcr.io/0xkowalskidev/gameservers/ark:latest
-          docker push ghcr.io/0xkowalskidev/gameservers/ark:latest
+          docker build images/ark-survival-evolved --tag ghcr.io/0xkowalskidev/gameservers/ark-survival-evolved:latest
+          docker push ghcr.io/0xkowalskidev/gameservers/ark-survival-evolved:latest

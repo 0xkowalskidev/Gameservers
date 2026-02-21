@@ -125,19 +125,18 @@ Each gameserver type has a directory under `images/` containing:
 - Example: `ghcr.io/0xkowalskidev/gameservers/minecraft:1.20.4`
 
 ### Available Games
-Current images: minecraft, terraria, garrysmod, palworld, rust, valheim
+Current images: minecraft, terraria, garrysmod, palworld, rust, valheim, ark-survival-evolved
 
 ### Planned Games
 Games to add (in priority order):
-1. ark - ARK: Survival Evolved (SteamCMD, resource-heavy)
-2. 7daystodie - 7 Days to Die (SteamCMD)
-3. cs2 - Counter-Strike 2 (SteamCMD)
-4. projectzomboid - Project Zomboid (SteamCMD)
-5. factorio - Factorio (native Linux headless, no Steam required)
-6. satisfactory - Satisfactory (SteamCMD)
-7. dontstarvetogether - Don't Starve Together (SteamCMD)
-8. left4dead2 - Left 4 Dead 2 (SteamCMD, Source engine)
-9. conanexiles - Conan Exiles (SteamCMD)
+1. 7daystodie - 7 Days to Die (SteamCMD)
+2. cs2 - Counter-Strike 2 (SteamCMD)
+3. projectzomboid - Project Zomboid (SteamCMD)
+4. factorio - Factorio (native Linux headless, no Steam required)
+5. satisfactory - Satisfactory (SteamCMD)
+6. dontstarvetogether - Don't Starve Together (SteamCMD)
+7. left4dead2 - Left 4 Dead 2 (SteamCMD, Source engine)
+8. conanexiles - Conan Exiles (SteamCMD)
 
 ### Adding New Games
 
