@@ -40,6 +40,7 @@ type Gameserver struct {
 	CPUCores     float64          `json:"cpu_cores" gorm:"not null;default:0"`      // CPU cores (0 = unlimited)
 	MaxBackups   int              `json:"max_backups" gorm:"not null;default:10"`   // Maximum number of backups to keep (0 = unlimited)
 	Environment  []string         `json:"environment,omitempty" gorm:"serializer:json"`
+	EnabledMods  []string         `json:"enabled_mods,omitempty" gorm:"serializer:json"`
 	Volumes      []string         `json:"volumes,omitempty" gorm:"serializer:json"`
 	CreatedAt    time.Time        `json:"created_at"`
 	UpdatedAt    time.Time        `json:"updated_at"`

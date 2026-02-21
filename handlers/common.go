@@ -204,6 +204,7 @@ type GameserverFormData struct {
 	CPUCores     float64
 	MaxBackups   int
 	Environment  []string
+	EnabledMods  []string
 	PortMappings []models.PortMapping // Manual port mappings (empty = auto allocate)
 }
 
@@ -240,6 +241,17 @@ func (h *Handlers) parseGameserverForm(r *http.Request) (*GameserverFormData, er
 		}
 	}
 
+	// Parse enabled mods (checkboxes)
+	var enabledMods []string
+	if mods, ok := r.Form["mods"]; ok {
+		for _, mod := range mods {
+			mod = strings.TrimSpace(mod)
+			if mod != "" {
+				enabledMods = append(enabledMods, mod)
+			}
+		}
+	}
+
 	// Parse port mappings if manual mode
 	var portMappings []models.PortMapping
 	portMode := strings.TrimSpace(r.FormValue("port_mode"))
@@ -256,7 +268,7 @@ func (h *Handlers) parseGameserverForm(r *http.Request) (*GameserverFormData, er
 	return &GameserverFormData{
 		Name: name, GameID: gameID, MemoryMB: memoryMB,
 		CPUCores: cpuCores, MaxBackups: maxBackups, Environment: validEnv,
-		PortMappings: portMappings,
+		EnabledMods: enabledMods, PortMappings: portMappings,
 	}, nil
 }
 

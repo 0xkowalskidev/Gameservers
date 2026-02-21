@@ -120,9 +120,9 @@ Each gameserver type has a directory under `images/` containing:
 - Game-specific config files
 
 ### Registry Convention
-- Registry: `ghcr.io/0xkowalskidev/gameservers`
-- Format: `ghcr.io/0xkowalskidev/gameservers/GAME:VERSION`
-- Example: `ghcr.io/0xkowalskidev/gameservers/minecraft:1.20.4`
+- Registry: `registry.0xkowalski.dev/gameservers`
+- Format: `registry.0xkowalski.dev/gameservers/GAME:VERSION`
+- Example: `registry.0xkowalski.dev/gameservers/minecraft:1.20.4`
 
 ### Available Games
 Current images: minecraft, terraria, garrysmod, palworld, rust, valheim, ark-survival-evolved

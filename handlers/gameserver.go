@@ -90,7 +90,12 @@ func (h *Handlers) NewGameserver(w http.ResponseWriter, r *http.Request) {
 		HandleError(w, InternalError(err, "Failed to list games"), "new_gameserver")
 		return
 	}
-	h.render(w, r, "new-gameserver.html", map[string]interface{}{"Games": games})
+	mods, err := h.service.ListMods()
+	if err != nil {
+		HandleError(w, InternalError(err, "Failed to list mods"), "new_gameserver")
+		return
+	}
+	h.render(w, r, "new-gameserver.html", map[string]interface{}{"Games": games, "Mods": mods})
 }
 
 // EditGameserver shows the edit gameserver form
@@ -107,8 +112,15 @@ func (h *Handlers) EditGameserver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mods, err := h.service.ListMods()
+	if err != nil {
+		HandleError(w, InternalError(err, "Failed to list mods"), "edit_gameserver")
+		return
+	}
+
 	data := map[string]interface{}{
 		"Games": games,
+		"Mods":  mods,
 	}
 
 	h.renderGameserver(w, r, gameserver, "edit", "edit-gameserver.html", data)
@@ -130,6 +142,7 @@ func (h *Handlers) CreateGameserver(w http.ResponseWriter, r *http.Request) {
 		CPUCores:     formData.CPUCores,
 		MaxBackups:   formData.MaxBackups,
 		Environment:  formData.Environment,
+		EnabledMods:  formData.EnabledMods,
 		PortMappings: formData.PortMappings,
 	}
 
@@ -169,6 +182,7 @@ func (h *Handlers) UpdateGameserver(w http.ResponseWriter, r *http.Request) {
 		CPUCores:     formData.CPUCores,
 		MaxBackups:   formData.MaxBackups,
 		Environment:  formData.Environment,
+		EnabledMods:  formData.EnabledMods,
 		PortMappings: existingServer.PortMappings, // Preserve existing port allocations
 	}
 

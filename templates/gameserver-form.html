@@ -2,6 +2,7 @@
 {{$isEdit := .Gameserver}}
 {{$gameserver := .Gameserver}}
 {{$games := .Games}}
+{{$mods := .Mods}}
 
 <div>
   <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
@@ -133,6 +134,19 @@
           <div id="config-fields" class="grid gap-6 sm:grid-cols-2">
             <!-- Dynamic config fields will be inserted here -->
           </div>
+        </div>
+
+        <!-- Mods Section -->
+        <div class="space-y-4" id="mods-section" style="display: none;">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            Mods
+          </h3>
+          <div id="mods-fields" class="grid gap-4 sm:grid-cols-2">
+            <!-- Dynamic mod checkboxes will be inserted here -->
+          </div>
+          <p id="no-mods-message" class="text-sm text-gray-500 dark:text-gray-400 hidden">
+            No mods available for this game.
+          </p>
         </div>
 
         <!-- Resource Allocation -->
@@ -442,6 +456,24 @@
   },
   {{end}}
 };
+
+  // Available mods by game
+  const gameMods = {};
+  {{range $games}}
+  gameMods["{{.ID}}"] = [];
+  {{end}}
+  {{range $mods}}
+  gameMods["{{.GameID}}"].push({id: "{{.ID}}", name: "{{.Name}}", description: "{{.Description}}"});
+  {{end}}
+
+  {{if $isEdit}}
+  // Currently enabled mods
+  const currentEnabledMods = [
+    {{range $gameserver.EnabledMods}}
+    "{{.}}",
+    {{end}}
+  ];
+  {{end}}
 
   const isEditMode = {{if $isEdit}}true{{else}} false{{end}};
   let selectedGameId = {{if $isEdit}}"{{$gameserver.GameID}}"{{else}}null{{end}};
@@ -856,6 +888,48 @@
     }
   }
 
+  // Load mods for selected game
+  function loadModsForGame(gameId) {
+    const modsSection = document.getElementById('mods-section');
+    const modsFields = document.getElementById('mods-fields');
+    const noModsMessage = document.getElementById('no-mods-message');
+
+    if (!modsSection || !modsFields) return;
+
+    const mods = gameMods[gameId] || [];
+
+    if (mods.length === 0) {
+      modsSection.style.display = 'none';
+      return;
+    }
+
+    modsSection.style.display = 'block';
+    modsFields.innerHTML = '';
+    noModsMessage.classList.add('hidden');
+
+    mods.forEach(mod => {
+      {{if $isEdit}}
+      const isChecked = currentEnabledMods.includes(mod.id);
+      {{else}}
+      const isChecked = false;
+      {{end}}
+
+      const div = document.createElement('div');
+      div.className = 'flex items-start space-x-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700';
+      div.innerHTML = `
+        <input type="checkbox" id="mod_${mod.id}" name="mods" value="${mod.id}" ${isChecked ? 'checked' : ''}
+               class="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+        <div class="flex-1">
+          <label for="mod_${mod.id}" class="block text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
+            ${mod.name}
+          </label>
+          <p class="text-xs text-gray-500 dark:text-gray-400">${mod.description}</p>
+        </div>
+      `;
+      modsFields.appendChild(div);
+    });
+  }
+
   // Load game configuration
   function loadGameConfiguration(gameId) {
     const configSection = document.getElementById('config-section');
@@ -908,6 +982,9 @@
     if (isManualPortMode) {
       populatePortFields(gameId);
     }
+
+    // Load mods for this game
+    loadModsForGame(gameId);
   }
 
   // Handle game selection change (only for new servers)

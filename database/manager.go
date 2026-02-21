@@ -55,6 +55,11 @@ func NewDatabaseManager(dbPath string) (*DatabaseManager, error) {
 		return nil, err
 	}
 
+	if err := dm.seedMods(); err != nil {
+		log.Error().Err(err).Msg("Failed to seed mods")
+		return nil, err
+	}
+
 	log.Info().Msg("Database connected and migrated successfully")
 	return dm, nil
 }
@@ -79,6 +84,7 @@ func (dm *DatabaseManager) migrate() error {
 		&models.Game{},
 		&models.Gameserver{},
 		&models.ScheduledTask{},
+		&models.Mod{},
 	)
 	if err != nil {
 		return &models.DatabaseError{Op: "db", Msg: "failed to auto-migrate", Err: err}
@@ -99,7 +105,7 @@ func (dm *DatabaseManager) seedGames() error {
 	}
 
 	games := []*models.Game{
-		{ID: "minecraft", Name: "Minecraft", Slug: "minecraft", Image: "ghcr.io/0xkowalskidev/gameservers/minecraft:latest",
+		{ID: "minecraft", Name: "Minecraft", Slug: "minecraft", Image: "registry.0xkowalski.dev/gameservers/minecraft:latest",
 			IconPath: "/static/games/minecraft/minecraft-icon.ico", GridImagePath: "/static/games/minecraft/minecraft-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 25565, HostPort: 0},
@@ -116,7 +122,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "PVP", DisplayName: "PvP Combat", Required: false, Default: "true", Description: "Allow players to damage each other"},
 				{Name: "WHITELIST", DisplayName: "Whitelist", Required: false, Default: "false", Description: "Only allow approved players to join"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 3072},
-		{ID: "valheim", Name: "Valheim", Slug: "valheim", Image: "ghcr.io/0xkowalskidev/gameservers/valheim:latest",
+		{ID: "valheim", Name: "Valheim", Slug: "valheim", Image: "registry.0xkowalski.dev/gameservers/valheim:latest",
 			IconPath: "/static/games/valheim/valheim-icon.ico", GridImagePath: "/static/games/valheim/valheim-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 2456, HostPort: 0},
@@ -128,7 +134,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "PUBLIC", DisplayName: "Public Server", Required: false, Default: "1", Description: "Whether to list server publicly (1 for yes, 0 for no)"},
 				{Name: "CROSSPLAY", DisplayName: "Enable Crossplay", Required: false, Default: "1", Description: "Enable crossplay between Steam and Xbox (1 for yes, 0 for no)"},
 			}, MinMemoryMB: 2048, RecMemoryMB: 4096},
-		{ID: "terraria", Name: "Terraria", Slug: "terraria", Image: "ghcr.io/0xkowalskidev/gameservers/terraria:latest",
+		{ID: "terraria", Name: "Terraria", Slug: "terraria", Image: "registry.0xkowalski.dev/gameservers/terraria:latest",
 			IconPath: "/static/games/terraria/terraria-icon.ico", GridImagePath: "/static/games/terraria/terraria-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 7777, HostPort: 0},
@@ -139,7 +145,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "1", Description: "World difficulty (0=Classic, 1=Expert, 2=Master)"},
 			}, MinMemoryMB: 1024, RecMemoryMB: 2048},
-		{ID: "garrysmod", Name: "Garry's Mod", Slug: "garrys-mod", Image: "ghcr.io/0xkowalskidev/gameservers/garrysmod:latest",
+		{ID: "garrysmod", Name: "Garry's Mod", Slug: "garrys-mod", Image: "registry.0xkowalski.dev/gameservers/garrysmod:latest",
 			IconPath: "/static/games/garrysmod/garrys-mod-icon.ico", GridImagePath: "/static/games/garrysmod/garrys-mod-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0},
@@ -152,7 +158,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "16", Description: "Maximum number of players"},
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 			}, MinMemoryMB: 2048, RecMemoryMB: 4096},
-		{ID: "palworld", Name: "Palworld", Slug: "palworld", Image: "ghcr.io/0xkowalskidev/gameservers/palworld:latest",
+		{ID: "palworld", Name: "Palworld", Slug: "palworld", Image: "registry.0xkowalski.dev/gameservers/palworld:latest",
 			IconPath: "/static/games/palworld/palworld-icon.ico", GridImagePath: "/static/games/palworld/palworld-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 8211, HostPort: 0},
@@ -164,7 +170,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SERVER_PASSWORD", DisplayName: "Server Password", Required: false, Default: "", Description: "Password to join server (leave empty for public)"},
 				{Name: "ADMIN_PASSWORD", DisplayName: "Admin Password", Required: false, Default: "", Description: "Password for admin access"},
 			}, MinMemoryMB: 8192, RecMemoryMB: 16384},
-		{ID: "rust", Name: "Rust", Slug: "rust", Image: "ghcr.io/0xkowalskidev/gameservers/rust:latest",
+		{ID: "rust", Name: "Rust", Slug: "rust", Image: "registry.0xkowalski.dev/gameservers/rust:latest",
 			IconPath: "/static/games/rust/rust-icon.ico", GridImagePath: "/static/games/rust/rust-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 28015, HostPort: 0},
@@ -183,7 +189,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "SAVEINTERVAL", DisplayName: "Save Interval", Required: false, Default: "300", Description: "How often to save the world (in seconds)"},
 				{Name: "UPDATE_ON_START", DisplayName: "Update on Start", Required: false, Default: "false", Description: "Update server files on container start"},
 			}, MinMemoryMB: 4096, RecMemoryMB: 8192},
-		{ID: "ark-survival-evolved", Name: "ARK: Survival Evolved", Slug: "ark-survival-evolved", Image: "ghcr.io/0xkowalskidev/gameservers/ark-survival-evolved:latest",
+		{ID: "ark-survival-evolved", Name: "ARK: Survival Evolved", Slug: "ark-survival-evolved", Image: "registry.0xkowalski.dev/gameservers/ark-survival-evolved:latest",
 			IconPath: "/static/games/ark-survival-evolved/ark-survival-evolved-icon.ico", GridImagePath: "/static/games/ark-survival-evolved/ark-survival-evolved-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 7777, HostPort: 0},
@@ -208,5 +214,31 @@ func (dm *DatabaseManager) seedGames() error {
 	}
 
 	log.Info().Int("count", len(games)).Msg("Games seeded successfully")
+	return nil
+}
+
+// seedMods adds default mod configurations to the database
+func (dm *DatabaseManager) seedMods() error {
+	// Check if mods already exist
+	var count int64
+	if err := dm.db.Model(&models.Mod{}).Count(&count).Error; err != nil {
+		return &models.DatabaseError{Op: "db", Msg: "failed to count mods", Err: err}
+	}
+	if count > 0 {
+		return nil // Mods already seeded
+	}
+
+	mods := []*models.Mod{
+		{ID: "oxide", GameID: "rust", Name: "Oxide", Description: "Modding framework for Rust that enables plugins and extensions"},
+	}
+
+	for _, mod := range mods {
+		if err := dm.db.Create(mod).Error; err != nil {
+			log.Error().Err(err).Str("mod_id", mod.ID).Msg("Failed to seed mod")
+			return &models.DatabaseError{Op: "db", Msg: "failed to create mod", Err: err}
+		}
+	}
+
+	log.Info().Int("count", len(mods)).Msg("Mods seeded successfully")
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -47,6 +48,11 @@ func (d *DockerManager) CreateContainerWithCallback(server *models.Gameserver, c
 	// Automatically set MEMORY_MB for images that need it
 	if server.MemoryMB > 0 {
 		env = append(env, fmt.Sprintf("MEMORY_MB=%d", server.MemoryMB))
+	}
+
+	// Set ENABLED_MODS for mod support
+	if len(server.EnabledMods) > 0 {
+		env = append(env, fmt.Sprintf("ENABLED_MODS=%s", strings.Join(server.EnabledMods, ",")))
 	}
 
 	// Set up port mappings

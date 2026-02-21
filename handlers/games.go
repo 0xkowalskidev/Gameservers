@@ -66,7 +66,16 @@ func (h *Handlers) EditGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.render(w, r, "game-form.html", map[string]interface{}{"Game": game})
+	// Get mods for this game
+	mods, err := h.service.GetModsForGame(id)
+	if err != nil {
+		mods = nil // Don't fail if mods can't be loaded
+	}
+
+	h.render(w, r, "game-form.html", map[string]interface{}{
+		"Game": game,
+		"Mods": mods,
+	})
 }
 
 // CreateGame creates a new game
@@ -79,6 +88,13 @@ func (h *Handlers) CreateGame(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.service.CreateGame(game); err != nil {
 		HandleError(w, InternalError(err, "Failed to create game"), "create_game")
+		return
+	}
+
+	// Save mods for this game
+	mods := parseMods(r, game.ID)
+	if err := h.service.SaveModsForGame(game.ID, mods); err != nil {
+		HandleError(w, InternalError(err, "Failed to save mods"), "create_game_mods")
 		return
 	}
 
@@ -108,6 +124,13 @@ func (h *Handlers) UpdateGame(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.service.UpdateGame(game); err != nil {
 		HandleError(w, InternalError(err, "Failed to update game"), "update_game")
+		return
+	}
+
+	// Save mods for this game
+	mods := parseMods(r, id)
+	if err := h.service.SaveModsForGame(id, mods); err != nil {
+		HandleError(w, InternalError(err, "Failed to save mods"), "update_game_mods")
 		return
 	}
 
@@ -278,4 +301,32 @@ func parseConfigVars(r *http.Request) []models.ConfigVar {
 	}
 
 	return configVars
+}
+
+// parseMods parses mods from form data
+func parseMods(r *http.Request, gameID string) []*models.Mod {
+	var mods []*models.Mod
+
+	for i := 0; ; i++ {
+		idKey := "mods[" + strconv.Itoa(i) + "].id"
+		id := strings.TrimSpace(r.FormValue(idKey))
+		if id == "" {
+			break
+		}
+
+		nameKey := "mods[" + strconv.Itoa(i) + "].name"
+		name := strings.TrimSpace(r.FormValue(nameKey))
+
+		descriptionKey := "mods[" + strconv.Itoa(i) + "].description"
+		description := strings.TrimSpace(r.FormValue(descriptionKey))
+
+		mods = append(mods, &models.Mod{
+			ID:          id,
+			GameID:      gameID,
+			Name:        name,
+			Description: description,
+		})
+	}
+
+	return mods
 }

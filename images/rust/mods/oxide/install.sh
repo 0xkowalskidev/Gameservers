@@ -23,8 +23,9 @@ if ! curl -sL -o /tmp/oxide.zip "$OXIDE_URL"; then
 fi
 
 # Extract to server directory (overwrites existing files)
+# Note: The zip contains RustDedicated_Data/ folder structure already
 echo "   Extracting Oxide to server..."
-if ! unzip -o /tmp/oxide.zip -d /data/server/RustDedicated_Data/ > /dev/null 2>&1; then
+if ! unzip -o /tmp/oxide.zip -d /data/server/ > /dev/null 2>&1; then
     echo "   Warning: Failed to extract Oxide"
     rm -f /tmp/oxide.zip
     exit 0

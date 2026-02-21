@@ -480,6 +480,34 @@ func (gss *GameserverRepository) DeleteGame(id string) error {
 	return gss.db.DeleteGame(id)
 }
 
+// ListMods returns all available mods
+func (gss *GameserverRepository) ListMods() ([]*models.Mod, error) {
+	return gss.db.ListMods()
+}
+
+// GetModsForGame returns all mods available for a specific game
+func (gss *GameserverRepository) GetModsForGame(gameID string) ([]*models.Mod, error) {
+	return gss.db.GetModsForGame(gameID)
+}
+
+// SaveModsForGame syncs mods for a game (deletes old, creates new)
+func (gss *GameserverRepository) SaveModsForGame(gameID string, mods []*models.Mod) error {
+	// Delete existing mods for this game
+	if err := gss.db.DeleteModsForGame(gameID); err != nil {
+		return err
+	}
+
+	// Create new mods
+	for _, mod := range mods {
+		mod.GameID = gameID
+		if err := gss.db.CreateMod(mod); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // CountGameserversByGameID returns the count of gameservers using a specific game
 func (gss *GameserverRepository) CountGameserversByGameID(gameID string) (int64, error) {
 	return gss.db.CountGameserversByGameID(gameID)
