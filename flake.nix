@@ -91,6 +91,10 @@
           self.packages.${system}.test-images
           self.packages.${system}.test-all
         ];
+
+        shellHook = ''
+          export GAMESERVER_PUBLIC_ADDRESS=$(hostname -I | awk '{print $1}')
+        '';
       };
     };
 }
