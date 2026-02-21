@@ -1,9 +1,11 @@
 FROM steamcmd/steamcmd:debian-bookworm
 
-# Install rcon-cli for command interface
+# Install rcon-cli for command interface and tools for mod support
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
         wget \
+        curl \
+        unzip \
         && wget -O rcon-cli.tar.gz https://github.com/gorcon/rcon-cli/releases/download/v0.10.3/rcon-0.10.3-amd64_linux.tar.gz \
         && tar -xzf rcon-cli.tar.gz \
         && mv rcon-0.10.3-amd64_linux/rcon /usr/local/bin/rcon-cli \
@@ -21,6 +23,10 @@ RUN steamcmd +force_install_dir /data/server +login anonymous +app_update 258550
 COPY start.sh /data/scripts/start.sh
 COPY send-command.sh /data/scripts/send-command.sh
 RUN chmod +x /data/scripts/start.sh /data/scripts/send-command.sh
+
+# Copy mod install scripts
+COPY mods/ /data/scripts/mods/
+RUN find /data/scripts/mods -name "*.sh" -exec chmod +x {} \;
 
 # Set working directory
 WORKDIR /data/server

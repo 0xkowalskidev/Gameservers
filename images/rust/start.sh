@@ -6,6 +6,21 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/server/RustDedicated_Data/Plugins:
 echo "-> Updating Rust server via SteamCMD..."
 steamcmd +force_install_dir /data/server +login anonymous +app_update 258550 validate +quit
 
+# --- Install Enabled Mods ---
+if [[ -n "$ENABLED_MODS" ]]; then
+    echo "-> Installing enabled mods: $ENABLED_MODS"
+    IFS=',' read -ra MODS <<< "$ENABLED_MODS"
+    for mod in "${MODS[@]}"; do
+        mod=$(echo "$mod" | tr -d ' ')  # trim whitespace
+        if [[ -n "$mod" && -f "/data/scripts/mods/${mod}/install.sh" ]]; then
+            echo "   Installing mod: $mod"
+            bash "/data/scripts/mods/${mod}/install.sh"
+        else
+            echo "   Warning: Mod script not found for: $mod"
+        fi
+    done
+fi
+
 # --- Environment Variable Defaults ---
 NAME=${NAME:-"Rust Server"}
 PASSWORD=${PASSWORD:-""}
