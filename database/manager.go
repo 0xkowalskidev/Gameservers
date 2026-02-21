@@ -1,10 +1,10 @@
 package database
 
 import (
+	"github.com/rs/zerolog/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"github.com/rs/zerolog/log"
 
 	"0xkowalskidev/gameservers/models"
 )
@@ -184,7 +184,7 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "UPDATE_ON_START", DisplayName: "Update on Start", Required: false, Default: "false", Description: "Update server files on container start"},
 			}, MinMemoryMB: 4096, RecMemoryMB: 8192},
 		{ID: "ark-survival-evolved", Name: "ARK: Survival Evolved", Slug: "ark-survival-evolved", Image: "ghcr.io/0xkowalskidev/gameservers/ark-survival-evolved:latest",
-			IconPath: "/static/games/ark-survival-evolved/ark-icon.ico", GridImagePath: "/static/games/ark-survival-evolved/ark-grid.png",
+			IconPath: "/static/games/ark-survival-evolved/ark-survival-evolved-icon.ico", GridImagePath: "/static/games/ark-survival-evolved/ark-survival-evolved-grid.png",
 			PortMappings: []models.PortMapping{
 				{Name: "game", Protocol: "udp", ContainerPort: 7777, HostPort: 0},
 				{Name: "query", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
