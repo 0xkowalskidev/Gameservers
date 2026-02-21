@@ -335,15 +335,15 @@ func (gss *GameserverRepository) RestartGameserver(id string) error {
 	return gss.StartGameserver(id)
 }
 
-// SendGameserverCommand sends a command to a running gameserver
-func (gss *GameserverRepository) SendGameserverCommand(id string, command string) error {
+// SendGameserverCommand sends a command to a running gameserver and returns output
+func (gss *GameserverRepository) SendGameserverCommand(id string, command string) (string, error) {
 	server, err := gss.db.GetGameserver(id)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if server.ContainerID == "" {
-		return &models.DatabaseError{
+		return "", &models.DatabaseError{
 			Op:  "send_command",
 			Msg: "gameserver has no container",
 			Err: nil,
@@ -351,7 +351,7 @@ func (gss *GameserverRepository) SendGameserverCommand(id string, command string
 	}
 
 	if server.Status != models.StatusRunning {
-		return &models.DatabaseError{
+		return "", &models.DatabaseError{
 			Op:  "send_command",
 			Msg: "gameserver is not running",
 			Err: nil,

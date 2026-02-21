@@ -13,7 +13,7 @@ type DockerManagerInterface interface {
 	StartContainer(containerID string) error
 	StopContainer(containerID string) error
 	RemoveContainer(containerID string) error
-	SendCommand(containerID string, command string) error
+	SendCommand(containerID string, command string) (string, error)
 	GetContainerStatus(containerID string) (GameserverStatus, error)
 	StreamContainerLogs(containerID string) (io.ReadCloser, error)
 	StreamContainerStats(containerID string) (io.ReadCloser, error)

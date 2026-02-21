@@ -213,20 +213,54 @@ function gameserverConsole(id, initialStatus, initialContainerID) {
       }
     },
 
+    escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    },
+
+    appendLog(html) {
+      this.logs.push(html);
+      while (this.logs.length > this.maxLogs) {
+        this.logs.shift();
+      }
+      this.$nextTick(() => {
+        const container = this.$refs.logContainer;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+    },
+
     async sendCommand() {
       if (!this.command.trim() || this.sending) {
         return;
       }
 
+      const cmd = this.command;
       this.sending = true;
       try {
         const resp = await fetch(`/gameservers/${this.id}/console`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ command: this.command })
+          body: new URLSearchParams({ command: cmd })
         });
 
         if (resp.ok) {
+          const data = await resp.json();
+
+          // Show the command that was sent
+          this.appendLog(`<div class="text-blue-400">&gt; ${this.escapeHtml(cmd)}</div>`);
+
+          // Show output if any (RCON games return output, FIFO games don't)
+          if (data.output && data.output.trim()) {
+            // Split output by newlines and display each line
+            const lines = data.output.trim().split('\n');
+            for (const line of lines) {
+              this.appendLog(`<div class="text-yellow-300">${this.escapeHtml(line)}</div>`);
+            }
+          }
+
           this.command = '';
           this.$refs.commandInput?.focus();
         } else {

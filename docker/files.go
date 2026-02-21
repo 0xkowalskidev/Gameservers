@@ -18,9 +18,9 @@ import (
 	"0xkowalskidev/gameservers/models"
 )
 
-// SendCommand sends a command to the gameserver console
-func (d *DockerManager) SendCommand(containerID string, command string) error {
-	return d.execCommandSimple(containerID, []string{"/data/scripts/send-command.sh", command}, "send_command")
+// SendCommand sends a command to the gameserver console and returns output
+func (d *DockerManager) SendCommand(containerID string, command string) (string, error) {
+	return d.ExecCommand(containerID, []string{"/data/scripts/send-command.sh", command})
 }
 
 // ExecCommand executes a command in a container and returns the output

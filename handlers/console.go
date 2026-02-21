@@ -23,7 +23,7 @@ func (h *Handlers) GameserverConsole(w http.ResponseWriter, r *http.Request) {
 	h.renderGameserver(w, r, gameserver, "console", "gameserver-console.html", nil)
 }
 
-// SendGameserverCommand sends a command to the gameserver console
+// SendGameserverCommand sends a command to the gameserver console and returns output
 func (h *Handlers) SendGameserverCommand(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.validateFormFields(r, "command"); err != nil {
@@ -34,11 +34,14 @@ func (h *Handlers) SendGameserverCommand(w http.ResponseWriter, r *http.Request)
 	command := r.FormValue("command")
 	log.Info().Str("gameserver_id", id).Str("command", command).Msg("Sending console command")
 
-	if err := h.service.SendGameserverCommand(id, command); err != nil {
+	output, err := h.service.SendGameserverCommand(id, command)
+	if err != nil {
 		HandleError(w, InternalError(err, "Failed to send console command"), "send_command")
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"output": output})
 }
 
 // GameserverLogs streams gameserver logs via Server-Sent Events
