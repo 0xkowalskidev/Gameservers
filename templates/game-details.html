@@ -189,6 +189,32 @@
         </div>
       </div>
       {{end}}
+
+      <!-- Mods -->
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Available Mods</h3>
+        {{if .Mods}}
+        <div class="grid gap-4 md:grid-cols-2">
+          {{range .Mods}}
+          <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="font-medium text-gray-900 dark:text-gray-100">{{.Name}}</h4>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{.Description}}</p>
+              </div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                {{.ID}}
+              </span>
+            </div>
+          </div>
+          {{end}}
+        </div>
+        {{else}}
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 text-sm text-gray-500 dark:text-gray-400">
+          No mods available for this game.
+        </div>
+        {{end}}
+      </div>
     </div>
   </div>
 </div>

@@ -50,9 +50,16 @@ func (h *Handlers) ShowGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get mods for this game
+	mods, err := h.service.GetModsForGame(id)
+	if err != nil {
+		mods = nil // Don't fail if mods can't be loaded
+	}
+
 	data := map[string]interface{}{
 		"Game":            game,
 		"GameserverCount": count,
+		"Mods":            mods,
 	}
 
 	h.render(w, r, "game-details.html", data)
