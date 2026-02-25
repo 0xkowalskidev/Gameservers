@@ -207,6 +207,21 @@ func (dm *DatabaseManager) seedGames() error {
 				{Name: "ADMIN_PASSWORD", DisplayName: "Admin Password", Required: true, Default: "", Description: "Password for admin commands and RCON access"},
 				{Name: "DIFFICULTY", DisplayName: "Difficulty", Required: false, Default: "1.0", Description: "Difficulty multiplier (0.1-5.0)"},
 			}, MinMemoryMB: 8192, RecMemoryMB: 16384},
+		{ID: "counter-strike-2", Name: "Counter-Strike 2", Slug: "counter-strike-2", Image: "registry.0xkowalski.dev/gameservers/counter-strike-2:latest",
+			IconPath: "/static/games/counter-strike-2/counter-strike-2-icon.ico", GridImagePath: "/static/games/counter-strike-2/counter-strike-2-grid.png",
+			PortMappings: []models.PortMapping{
+				{Name: "game", Protocol: "udp", ContainerPort: 27015, HostPort: 0},
+				{Name: "game", Protocol: "tcp", ContainerPort: 27015, HostPort: 0},
+			},
+			ConfigVars: []models.ConfigVar{
+				{Name: "NAME", DisplayName: "Server Name", Required: false, Default: "CS2 Server", Description: "Server name shown in browser"},
+				{Name: "GAMEMODE", DisplayName: "Game Mode", Type: "select", Options: "competitive=Competitive,casual=Casual,deathmatch=Deathmatch,wingman=Wingman,custom=Custom", Required: false, Default: "competitive", Description: "Game mode"},
+				{Name: "MAP", DisplayName: "Starting Map", Required: false, Default: "de_dust2", Description: "Initial map to load"},
+				{Name: "MAXPLAYERS", DisplayName: "Max Players", Required: false, Default: "16", Description: "Maximum players (10-64)"},
+				{Name: "PASSWORD", DisplayName: "Server Password", Type: "password", Required: false, Default: "", Description: "Password to join (empty = public)"},
+				{Name: "RCON_PASSWORD", DisplayName: "RCON Password", Type: "password", Required: false, Default: "", Description: "Remote console password"},
+				{Name: "GSLT", DisplayName: "Game Server Login Token", Type: "password", Required: false, Default: "", Description: "GSLT from Steam (required for public servers)"},
+			}, MinMemoryMB: 2048, RecMemoryMB: 4096},
 	}
 
 	for _, game := range games {
